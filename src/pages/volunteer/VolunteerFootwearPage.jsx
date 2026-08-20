@@ -237,23 +237,48 @@ export const VolunteerFootwearPage = () => {
                 <p className="text-[11px] text-gray-500">Allocate next available shoe locker bin</p>
               </div>
 
-              {/* Pair Counter Selector */}
-              <div className="flex items-center gap-1 bg-[#FAF5EE] p-1 rounded-xl border border-[#E8DFC8]">
-                {[1, 2, 4].map((cnt) => (
-                  <button
-                    key={cnt}
-                    type="button"
-                    onClick={() => setPairCount(cnt)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                      pairCount === cnt
-                        ? 'bg-gold text-indigo-dark shadow-xs'
-                        : 'text-gray-600 hover:text-maroon'
-                    }`}
-                  >
-                    {cnt === 1 ? '1 Pair' : cnt === 2 ? '2 Pairs' : 'Family'}
-                  </button>
-                ))}
+              {/* Flexible Stepper & Group Counter */}
+              <div className="flex items-center gap-1.5 bg-[#FAF5EE] p-1 rounded-2xl border border-[#E8DFC8]">
+                <button
+                  type="button"
+                  onClick={() => setPairCount(prev => Math.max(1, prev - 1))}
+                  className="w-8 h-8 rounded-xl bg-white text-maroon hover:bg-gold/20 font-black text-sm flex items-center justify-center border border-[#E8DFC8] shadow-xs cursor-pointer"
+                  title="Decrease"
+                >
+                  -
+                </button>
+                <div className="px-2 text-center min-w-[64px]">
+                  <span className="text-sm font-black font-mono text-indigo-dark block">{pairCount}</span>
+                  <span className="text-[9px] text-gray-500 font-bold block leading-none">{pairCount === 1 ? 'Pair' : 'Pairs'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPairCount(prev => Math.min(25, prev + 1))}
+                  className="w-8 h-8 rounded-xl bg-white text-maroon hover:bg-gold/20 font-black text-sm flex items-center justify-center border border-[#E8DFC8] shadow-xs cursor-pointer"
+                  title="Increase"
+                >
+                  +
+                </button>
               </div>
+            </div>
+
+            {/* Quick Preset Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs font-bold font-heading">
+              <span className="text-[10px] text-gray-400 font-mono uppercase shrink-0">Quick:</span>
+              {[1, 2, 3, 4, 5, 6, 8, 10].map((cnt) => (
+                <button
+                  key={cnt}
+                  type="button"
+                  onClick={() => setPairCount(cnt)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all cursor-pointer shrink-0 ${
+                    pairCount === cnt
+                      ? 'bg-gold text-indigo-dark shadow-xs border border-amber-500/50'
+                      : 'bg-[#FAF5EE] text-gray-600 hover:text-maroon border border-[#E8DFC8]'
+                  }`}
+                >
+                  {cnt === 1 ? '1' : cnt === 2 ? '2' : cnt === 4 ? '4 (Fam)' : cnt === 10 ? '10+ (Bus)' : cnt}
+                </button>
+              ))}
             </div>
 
             {/* 1-Tap Issue Button */}
