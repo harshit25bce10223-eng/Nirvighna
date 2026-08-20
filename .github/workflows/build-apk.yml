@@ -31,11 +31,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Configure Android SDK Path
-        run: |
-          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-          cat android/local.properties
-
       - name: Install Node Dependencies
         run: npm install
 
@@ -45,11 +40,22 @@ jobs:
       - name: Sync Web Assets to Native Android
         run: npx cap sync android
 
+      - name: Configure Android SDK & License Agreement
+        run: |
+          mkdir -p android
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          mkdir -p "$ANDROID_HOME/licenses" || true
+          echo -e "\n89337d1c0b38038b5183877d13d4549dd367a660\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license"
+          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+
       - name: Build Android Debug APK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          sh ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Prepare APK File
         run: |
