@@ -1,9 +1,3 @@
-"""
-Drishti AI — FastAPI Web Server & Real-Time WebSocket Telemetry Backend
-Bridges OpenCV Webcam, PyAudio Microphone, YOLOv8/v11 Person Tracker, ArcFace Biometrics, and YAMNet Audio Classifier.
-Serves WebSocket live telemetry feed on ws://localhost:8000/ws/telemetry and REST API on http://localhost:8000.
-"""
-
 import os
 import cv2
 import json
@@ -24,11 +18,9 @@ from face_engine import ArcFaceBiometricEngine
 from audio_panic import DhwaniAudioPanicDetector
 from footfall_forecast import FootfallForecaster
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DrishtiBackend")
 
-# Load Configuration
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     config = json.load(f)
@@ -36,10 +28,9 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as f:
 app = FastAPI(
     title=config["system"]["name"],
     version=config["system"]["version"],
-    description="Real-time Multi-Sensor AI Crowd Management System for Temple Command Centre"
+    description="Real-time crowd management backend for temple command centre"
 )
 
-# CORS middleware for local testing
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -48,7 +39,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Core AI Hardware & ML Modules
 camera_mgr = CameraFeedManager(
     camera_id=config["hardware"]["camera_id"],
     frame_width=config["hardware"]["frame_width"],

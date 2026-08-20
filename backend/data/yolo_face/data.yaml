@@ -1,6 +1,0 @@
-names:
-- face
-nc: 1
-path: C:\SVH\Kavach\backend\data\yolo_face
-train: images/train
-val: images/val

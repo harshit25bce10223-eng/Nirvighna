@@ -1,19 +1,11 @@
 import { supabase } from './supabaseClient';
 
-/**
- * 🛡️ NIRVIGHNA UNIFIED SIGNED-TOKEN SECURITY ENGINE
- *
- * Single point of truth serving ALL 5 touchpoints:
- * 1. Main Gate Entry (token_type = 'gate_entry')
- * 2. Ropeway Boarding (token_type = 'ropeway')
- * 3. Boat / Ferry Boarding (token_type = 'boat')
- * 4. Prasad / Bhandara Token (token_type = 'prasad')
- * 5. Footwear Locker Collection (token_type = 'footwear')
- */
+// handles token generation and verification for all pilgrim touchpoints
+// gate entry, ropeway, boat, prasad, footwear
 
 const HMAC_SECRET = "NIRVIGHNA_HMAC_SECRET_PROD_2026_SAFETOUCH";
 
-// Pure JS HMAC-SHA256 Implementation
+// basic sha256 for HMAC signing
 function sha256Sync(ascii) {
   let mathPow = Math.pow;
   let maxWord = mathPow(2, 32);

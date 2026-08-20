@@ -2,7 +2,6 @@ import { panchangCalendarEngine } from './panchangCalendarEngine';
 import { templeAIConfigEngine } from './templeAIConfigEngine';
 
 export class NirvighnaAIEngine {
-  // Predict crowd density for a temple based on Lunisolar Panchang Tithi, time-of-day Aarti surge & capacity
   static predictCrowdDensity(temple, date = new Date(), lang = 'en') {
     if (!temple) return null;
 
@@ -10,13 +9,13 @@ export class NirvighnaAIEngine {
     const aiConfig = templeAIConfigEngine.getConfig(templeId, 'drishti').config;
     const maxCapacity = aiConfig.courtyardCapacity || temple.maxCapacity || 1200;
 
-    // 1. Lunisolar Panchang Tithi & Festival Multiplier
+    // panchang tithi + festival multiplier
     const panchang = panchangCalendarEngine.getTithiMultipliers(templeId, date);
     const festivalMultiplier = panchang.crowdMultiplier || 1.0;
     const tithiName = panchang.tithiName || 'Shukla Paksha Tithi';
     const activeFestival = panchang.festivalEvent;
 
-    // 2. Hour Surge (Aarti Peak Hours)
+    // surge during aarti times
     const hour = date.getHours();
     let hourMultiplier = 1.0;
     let isAartiPeak = false;

@@ -1,6 +1,0 @@
-names:
-- person
-nc: 1
-path: C:\SVH\Kavach\backend\data\yolo_person_real
-train: images/train
-val: images/val
