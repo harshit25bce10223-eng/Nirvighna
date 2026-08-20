@@ -371,8 +371,8 @@ async def switch_camera(cam_id: int = 0):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "app:app",
-        host=config["system"]["host"],
-        port=config["system"]["port"],
+        app,
+        host=config["system"].get("host", "0.0.0.0"),
+        port=config["system"].get("port", 8000),
         reload=False
     )
