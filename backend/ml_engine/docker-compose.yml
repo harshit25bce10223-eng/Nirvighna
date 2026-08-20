@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Nirvighna ML Prediction Microservice
+  ml-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nirvighna_ml_service
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=postgresql://nirvighna_user:nirvighna_pass@postgres-db:5432/nirvighna_db
+      - WEBHOOK_URL=http://ml-service:8000/monitoring/alert
+      - INGESTION_INTERVAL_MINS=15
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+  # PostgreSQL Database Service
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: nirvighna_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: nirvighna_user
+      POSTGRES_PASSWORD: nirvighna_pass
+      POSTGRES_DB: nirvighna_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nirvighna_user -d nirvighna_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

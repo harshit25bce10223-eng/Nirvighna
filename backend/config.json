@@ -1,0 +1,67 @@
+{
+  "system": {
+    "name": "Drishti AI — Temple Command Centre Crowd System",
+    "version": "2.0.0",
+    "host": "0.0.0.0",
+    "port": 8000
+  },
+  "hardware": {
+    "camera_id": 0,
+    "camera_fps": 30,
+    "frame_width": 1280,
+    "frame_height": 720,
+    "audio_sample_rate": 16000,
+    "audio_chunk_duration_sec": 1.0
+  },
+  "person_detection": {
+    "model": "yolov8n.pt",
+    "confidence_auto_count": 0.85,
+    "confidence_unverified_min": 0.60,
+    "nms_iou_threshold": 0.45,
+    "max_lost_track_frames": 30,
+    "entry_line_y_ratio": 0.40,
+    "exit_line_y_ratio": 0.85
+  },
+  "crowd_density": {
+    "recommended_density_pm2": 4.5,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "mcnn_discrepancy_threshold_pct": 5.0,
+    "mcnn_weight": 0.4,
+    "yolo_weight": 0.6,
+    "zones": [
+      {
+        "id": "gate1_north",
+        "name": "Gate 1 North Holding Ramp",
+        "capacity": 500,
+        "area_m2": 100.0,
+        "bbox_normalized": [0.05, 0.05, 0.45, 0.45]
+      },
+      {
+        "id": "gate2_south",
+        "name": "Gate 2 South Priority Corridor",
+        "capacity": 400,
+        "area_m2": 90.0,
+        "bbox_normalized": [0.55, 0.05, 0.95, 0.45]
+      },
+      {
+        "id": "inner_sanctum",
+        "name": "Inner Sanctum Main Courtyard",
+        "capacity": 1200,
+        "area_m2": 250.0,
+        "bbox_normalized": [0.10, 0.50, 0.90, 0.95]
+      }
+    ]
+  },
+  "biometric_arcface": {
+    "embedding_dim": 512,
+    "match_threshold": 0.90,
+    "possible_match_min_threshold": 0.75,
+    "min_face_size_px": 30
+  },
+  "audio_panic": {
+    "scream_confidence_threshold": 0.70,
+    "sound_rms_threshold": 0.085,
+    "high_noise_duration_sec": 5.0
+  }
+}
