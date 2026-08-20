@@ -1,7 +1,5 @@
 """
-Drishti AI — Standalone AI Real-Time Service (ai_service.py)
-FastAPI & WebSockets Real-Time Inference Backend Engine for Temple Command Centre.
-Exposes live telemetry via WebSocket at ws://localhost:8000/ws and REST APIs on http://localhost:8000.
+FastAPI backend service.
 """
 
 import os
@@ -36,12 +34,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load System Configuration
+# Load config
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     config = json.load(f)
 
-# Core AI Engine Instances
+# AI engines
 camera_mgr = CameraFeedManager(camera_id=0)
 person_detector = PersonDetectorTracker(config["person_detection"])
 crowd_density_engine = CrowdDensityEngine(config["crowd_density"])
@@ -49,7 +47,7 @@ face_engine = ArcFaceBiometricEngine(config["biometric_arcface"])
 audio_detector = DhwaniAudioPanicDetector(config["audio_panic"])
 footfall_forecaster = FootfallForecaster()
 
-# State Storage
+# State storage
 latest_face_match_result = None
 incident_log_history = [
     {"time": time.strftime("%H:%M"), "message": "Drishti AI Real-Time Inference Engine Active (Webcam & Mic Connected)."}
@@ -96,10 +94,7 @@ async def shutdown_event():
 @app.websocket("/ws")
 @app.websocket("/ws/telemetry")
 async def websocket_endpoint(websocket: WebSocket):
-    """
-    Main WebSocket endpoint specified in requirements (ws://localhost:8000/ws).
-    Pushes JSON telemetry updates every 1 second.
-    """
+    """WebSocket telemetry endpoint."""
     await ws_manager.connect(websocket)
     global latest_face_match_result
 
@@ -108,36 +103,36 @@ async def websocket_endpoint(websocket: WebSocket):
             frame = camera_mgr.get_frame()
             
             if frame is not None:
-                # 1. Run YOLO Person Detection & Tracking
+                # Run person detection
                 processed_frame, p_telemetry = person_detector.process_frame(frame)
                 
-                # 2. Run Crowd Density & Heatmap Engine
+                # Run density engine
                 _, d_telemetry = crowd_density_engine.compute_density_and_heatmap(
                     processed_frame,
                     person_detector.active_tracks,
                     p_telemetry.get("entry_rate", 142)
                 )
 
-                # 3. Extract BlazeFace facial landmarks
+                # Extract landmarks
                 _, face_count = face_engine.extract_blazeface_landmarks(frame)
 
-                # 4. Audio status
+                # Audio status
                 audio_status = "Panic Detected" if audio_detector.is_panic_active else "Normal"
 
-                # Extract heatmap zone loads
+                # Extract zone loads
                 zones_map = d_telemetry.get("zones", [])
                 gate1_data = next((z for z in zones_map if z["id"] == "gate1_north"), {"load_pct": 82, "headcount": 410, "capacity": 500})
                 gate2_data = next((z for z in zones_map if z["id"] == "gate2_south"), {"load_pct": 24, "headcount": 120, "capacity": 500})
                 inner_data = next((z for z in zones_map if z["id"] == "inner_sanctum"), {"load_pct": 84, "headcount": 380, "capacity": 450})
 
-                # Forecast next 3 hours
+                # Forecast
                 forecast_data = footfall_forecaster.predict_next_3_hours(p_telemetry.get("devotees_present", 860))
                 formatted_forecast = [
                     {"hour": p["time_label"].split(" ")[0], "count": p["predicted_footfall"]}
                     for p in forecast_data["predictions"]
                 ]
 
-                # Construct exact JSON payload specified in requirements
+                # Construct payload
                 payload = {
                     "devotees_present": p_telemetry.get("devotees_present", 860),
                     "crowd_density": 2.7,
@@ -164,7 +159,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 await websocket.send_json(payload)
 
-            await asyncio.sleep(1.0)  # Pushes update every 1 second
+            await asyncio.sleep(1.0)  # Push update
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
     except Exception as e:
@@ -174,7 +169,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/upload_face")
 async def upload_face(file: Optional[UploadFile] = File(None), query_name: str = Form("Uploaded Lost Person Photo")):
-    """Lost person face photo upload & ArcFace 512-d FAISS search."""
+    """Face photo upload."""
     global latest_face_match_result
     result = face_engine.search_lost_person(file, query_name)
     latest_face_match_result = result
@@ -182,26 +177,26 @@ async def upload_face(file: Optional[UploadFile] = File(None), query_name: str =
     if result["status"] == "MATCH":
         incident_log_history.insert(0, {
             "time": time.strftime("%H:%M"),
-            "message": f"🔍 ArcFace 512-d Match Found: {result['matched_person']['name']} (Confidence: {result['confidence_pct']}%)"
+            "message": f"Match Found: {result['matched_person']['name']} (Confidence: {result['confidence_pct']}%)"
         })
     return result
 
 
 @app.post("/simulate_panic")
 async def simulate_panic():
-    """Manual Panic Alert Trigger."""
+    """Manual panic alert."""
     event = audio_detector.simulate_panic_alert()
     incident_log_history.insert(0, {
         "time": time.strftime("%H:%M"),
-        "message": f"🚨 Manual Panic Alert Simulated: {event['db_level']} dB Scream Spike Detected"
+        "message": f"Manual panic alert simulated: {event['db_level']} dB spike detected"
     })
     return {"status": "SUCCESS", "event": event}
 
 
 @app.post("/voice_announce")
 async def voice_announce(temple_name: str = Form("Somnath Temple")):
-    """Tri-Lingual PA Voice Announcement Broadcast."""
-    msg = f"🔊 Tri-Lingual PA Broadcast Triggered for {temple_name} (Hindi • Gujarati • English)"
+    """Voice announcement broadcast."""
+    msg = f"Broadcast triggered for {temple_name} (Hindi • Gujarati • English)"
     incident_log_history.insert(0, {
         "time": time.strftime("%H:%M"),
         "message": msg

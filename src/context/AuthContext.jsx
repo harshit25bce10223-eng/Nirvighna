@@ -10,12 +10,12 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Safety fallback timeout: guarantee loading is cleared within 100ms for instant initial page render
+    // clear loading fallback
     const safetyTimer = setTimeout(() => {
       setLoading(false);
     }, 100);
 
-    // Check for existing session on mount
+    // check session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Listen for auth state changes
+    // listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
         .single();
 
       if (error) {
-        // If profile doesn't exist, create it
+        // create profile if missing
         if (error.code === 'PGRST116') {
           const { data: userData } = await supabase.auth.getUser();
           if (userData.user) {
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
               throw insertError;
             }
             
-            // Fetch again after creating
+            // fetch again after creating
             const { data: newData, error: newError } = await supabase
               .from('users')
               .select('*')
@@ -141,7 +141,7 @@ export const AuthProvider = ({ children }) => {
     try {
       let profile = null;
 
-      // 1. Try real Supabase Auth if credentials provided
+      // try supabase auth first
       if (email && password) {
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
@@ -152,7 +152,7 @@ export const AuthProvider = ({ children }) => {
             profile = await fetchUserProfile(data.user.id);
           }
         } catch (_) {
-          // Fallback below
+          // fallback below
         }
       }
 
@@ -162,7 +162,7 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: profile };
       }
 
-      // 2. Seamless local/demo user creation so pilgrim is never blocked
+      // fallback to local user
       const cleanEmail = (email || 'apex.coder@nirvighna.org').trim();
       const userName = cleanEmail.includes('@')
         ? cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
@@ -193,7 +193,7 @@ export const AuthProvider = ({ children }) => {
     setIsLoggedIn(false);
   };
 
-  // Real-time volunteer hub states
+  // volunteer states
   const [medicalAlerts, setMedicalAlerts] = useState([
     { id: 'med_204', patient_name: 'Ramesh Patel', location: 'Somnath Gate #2 Line', blood_group: 'B+', allergies: 'Penicillin', condition: 'Severe Dizziness & Heat Fatigue', status: 'en_route', emergency_contact: 'Savitri Patel (+91 98765 99999)', group_members: ['Sunita P.', 'Amit P.'] }
   ]);
@@ -244,7 +244,7 @@ export const AuthProvider = ({ children }) => {
     setFootwearTokens(prev => prev.map(f => f.token_id === tokenId ? { ...f, status: 'retrieved' } : f));
   };
 
-  // Bookings state
+  // booking states
   const [bookings, setBookings] = useState([
     {
       id: 'bk_somnath_9042',

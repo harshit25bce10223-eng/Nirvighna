@@ -1,9 +1,7 @@
 import { supabase } from './supabaseClient';
 import { issueSignedToken, validateAndConsumeToken } from './signedTokenEngine';
 
-/**
- * Touchpoint #1: Scan Main Gate QR Pass (token_type = 'gate_entry')
- */
+// Touchpoint #1: Scan Main Gate QR Pass (token_type  'gate_entry')
 export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTempleId = 'all') => {
   try {
     const cleanCode = (qrCodeValue || '').trim();
@@ -155,9 +153,7 @@ export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTem
   }
 };
 
-/**
- * Touchpoint #2: Scan Ropeway Boarding Pass (token_type = 'ropeway')
- */
+// Touchpoint #2: Scan Ropeway Boarding Pass (token_type  'ropeway')
 export const scanRopewayQR = async (qrCodeValue, volunteerId = 'vol_ropeway_1', scanningTempleId = 'tmp_pavagadh') => {
   try {
     const cleanCode = qrCodeValue.trim();
@@ -205,9 +201,7 @@ export const scanRopewayQR = async (qrCodeValue, volunteerId = 'vol_ropeway_1', 
   }
 };
 
-/**
- * Touchpoint #3: Scan Boat / Ferry Boarding Pass (token_type = 'boat')
- */
+// Touchpoint #3: Scan Boat / Ferry Boarding Pass (token_type  'boat')
 export const scanBoatQR = async (qrCodeValue, volunteerId = 'vol_boat_1', scanningTempleId = 'tmp_dwarka') => {
   try {
     const cleanCode = qrCodeValue.trim();
@@ -255,9 +249,7 @@ export const scanBoatQR = async (qrCodeValue, volunteerId = 'vol_boat_1', scanni
   }
 };
 
-/**
- * Touchpoint #4: Verify Prasad / Bhandara Token QR (token_type = 'prasad')
- */
+// Touchpoint #4: Verify Prasad / Bhandara Token QR (token_type  'prasad')
 export const verifyPrasadToken = async (qrCodeValue, volunteerId = 'vol_prasad_1', scanningTempleId = 'tmp_dwarka') => {
   try {
     const cleanCode = qrCodeValue.trim();
@@ -303,9 +295,7 @@ export const verifyPrasadToken = async (qrCodeValue, volunteerId = 'vol_prasad_1
   }
 };
 
-/**
- * Touchpoint #5: Verify Footwear Locker Collection QR (token_type = 'footwear')
- */
+// Touchpoint #5: Verify Footwear Locker Collection QR (token_type  'footwear')
 export const verifyFootwearToken = async (qrCodeValue, volunteerId = 'vol_footwear_1', scanningTempleId = 'tmp_dwarka') => {
   try {
     const cleanCode = qrCodeValue.trim();
@@ -349,10 +339,7 @@ export const verifyFootwearToken = async (qrCodeValue, volunteerId = 'vol_footwe
   }
 };
 
-/**
- * Safe Alert Email Sender via Supabase Edge Function Proxy
- * (Isolates Resend API Secret from browser bundle)
- */
+// Safe Alert Email Sender via Supabase Edge Function Proxy
 export const sendAlertEmail = async (recipientEmail, recipientName, alertType, context) => {
   try {
     const { emailService } = await import('./emailService');
@@ -369,13 +356,9 @@ export const sendAlertEmail = async (recipientEmail, recipientName, alertType, c
   }
 };
 
-/**
- * 🚨 SANJEEVANI PATH — DUAL-VERIFICATION & HIDDEN SACRED EVACUATION ENGINE
- */
+// SANJEEVANI PATH — DUAL-VERIFICATION & HIDDEN SACRED EVACUATION ENGINE
 
-/**
- * Step 1: Field Volunteer scans injured pilgrim's QR code & triggers medical alert
- */
+// Step 1: Field Volunteer scans injured pilgrim's QR code & triggers medical alert
 export const triggerMedicalSOSByFieldVolunteer = async ({
   qrPassId,
   location = 'Gate 2 Swarga Dwar',
@@ -438,9 +421,7 @@ export const triggerMedicalSOSByFieldVolunteer = async ({
   };
 };
 
-/**
- * Backward-compatible getMedicalInfo alias
- */
+// Backward-compatible getMedicalInfo alias
 export const getMedicalInfo = async (qrPassId, volunteerId = 'vol_8841', location = 'Gate 2 Swarga Dwar') => {
   return triggerMedicalSOSByFieldVolunteer({
     qrPassId,
@@ -450,10 +431,7 @@ export const getMedicalInfo = async (qrPassId, volunteerId = 'vol_8841', locatio
   });
 };
 
-/**
- * Step 2: Medical Volunteer physically reaches the injured person and scans their QR code
- * to perform the 2nd verification handshake and start treatment.
- */
+// Step 2: Medical Volunteer physically reaches the injured person and scans their QR code
 export const verifyMedicalVolunteerArrival = async ({
   alertId,
   scannedCode,
@@ -506,10 +484,7 @@ export const verifyMedicalVolunteerArrival = async ({
   return { success: false, message: 'Alert record not found' };
 };
 
-/**
- * Step 3: Medical Volunteer requests Sanjeevani Path (Hidden Sacred Temple Evacuation Door)
- * for severe/critical cases requiring immediate ambulance transit.
- */
+// Step 3: Medical Volunteer requests Sanjeevani Path (Hidden Sacred Temple Evacuation Door)
 export const requestSanjeevaniPathEvacuation = async ({
   alertId,
   medicalVolunteerId = 'vol_med_1',
@@ -553,9 +528,7 @@ export const requestSanjeevaniPathEvacuation = async ({
   return { success: false, message: 'Alert not found' };
 };
 
-/**
- * Step 4: Admin Command Centre approves Sanjeevani Path & electronically unlocks the secret door
- */
+// Step 4: Admin Command Centre approves Sanjeevani Path & electronically unlocks the secret door
 export const approveSanjeevaniPathAdmin = async ({
   alertId,
   adminId = 'admin_command_1',
@@ -597,9 +570,7 @@ export const approveSanjeevaniPathAdmin = async ({
   return { success: false, message: 'Invalid evacuation alert' };
 };
 
-/**
- * Priority Assistance request trigger
- */
+// Priority Assistance request trigger
 export const requestPriorityAssistance = async (qrPassId, volunteerId) => {
   try {
     await supabase.from('notifications').insert({
@@ -614,9 +585,7 @@ export const requestPriorityAssistance = async (qrPassId, volunteerId) => {
   }
 };
 
-/**
- * General Issue Log
- */
+// General Issue Log
 export const reportIssueLog = async (qrPassId, note, volunteerId) => {
   try {
     await supabase.from('notifications').insert({
@@ -631,9 +600,7 @@ export const reportIssueLog = async (qrPassId, note, volunteerId) => {
   }
 };
 
-/**
- * Update Medical Alert Status & Push Notification Cascade
- */
+// Update Medical Alert Status & Push Notification Cascade
 export const updateMedicalAlertStatus = async (alertId, newStatus, volunteerId) => {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   try {
@@ -662,9 +629,7 @@ export const updateMedicalAlertStatus = async (alertId, newStatus, volunteerId) 
   }
 };
 
-/**
- * Assign Lost & Found Case to current volunteer
- */
+// Assign Lost & Found Case to current volunteer
 export const assignVolunteerToCase = async (caseId, volunteerId, volunteerName = 'Vikram S.') => {
   try {
     const { data, error } = await supabase
@@ -689,13 +654,11 @@ export const assignVolunteerToCase = async (caseId, volunteerId, volunteerName =
   }
 };
 
-/**
- * Resolve Lost & Found Case (Mark as Found & Reunited)
- */
+// Resolve Lost & Found Case (Mark as Found & Reunited)
 export const resolveLostFoundCase = async (caseId, status = 'found') => {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   try {
-    // 1. Update lost_found_cases in Supabase
+    // Update lost_found_cases in Supabase
     await supabase
       .from('lost_found_cases')
       .update({
@@ -704,7 +667,7 @@ export const resolveLostFoundCase = async (caseId, status = 'found') => {
       })
       .eq('id', caseId);
 
-    // 2. Broadcast notification back to family pilgrim portal
+    // Broadcast notification back to family pilgrim portal
     await supabase.from('notifications').insert({
       type: 'gate_info',
       title: '👨‍👩‍👧 Family Member Found & Reunited!',
@@ -718,12 +681,10 @@ export const resolveLostFoundCase = async (caseId, status = 'found') => {
   }
 };
 
-/**
- * ⚡ Atomic Volunteer Duty Quota Locking (Prevents Race Condition Over-Allocation)
- */
+// Atomic Volunteer Duty Quota Locking (Prevents Race Condition Over-Allocation)
 export const claimDutySlot = async (volunteerId, dutyType, templeId = 'tmp_dwarka') => {
   try {
-    // 1. Try atomic Supabase conditional update
+    // Try atomic Supabase conditional update
     try {
       await supabase
         .from('duty_slots')
@@ -744,7 +705,7 @@ export const claimDutySlot = async (volunteerId, dutyType, templeId = 'tmp_dwark
     }
     localStorage.setItem('nirvighna_volunteer_duties', JSON.stringify(localDuties));
 
-    // 2. Insert assignment row ONLY after atomic update succeeds
+    // Insert assignment row ONLY after atomic update succeeds
     await supabase.from('volunteer_duty_assignments').insert({
       volunteer_id: volunteerId,
       duty_type: dutyType,
@@ -766,9 +727,7 @@ export const claimDutySlot = async (volunteerId, dutyType, templeId = 'tmp_dwark
   }
 };
 
-/**
- * Issue new footwear token (Deposit mode)
- */
+// Issue new footwear token (Deposit mode)
 export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
   try {
     const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
@@ -813,9 +772,7 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
   }
 };
 
-/**
- * Search footwear token by number (Collect mode)
- */
+// Search footwear token by number (Collect mode)
 export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') => {
   try {
     const num = parseInt(tokenNumber, 10);
@@ -848,9 +805,7 @@ export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') 
   }
 };
 
-/**
- * Mark footwear as collected
- */
+// Mark footwear as collected
 export const collectFootwearToken = async (tokenId) => {
   try {
     const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
@@ -862,9 +817,7 @@ export const collectFootwearToken = async (tokenId) => {
   }
 };
 
-/**
- * Broadcast dynamic booking notification to Volunteer Portal
- */
+// Broadcast dynamic booking notification to Volunteer Portal
 export const broadcastBookingToVolunteers = (bookingObj) => {
   if (!bookingObj) return;
 
@@ -892,18 +845,14 @@ export const broadcastBookingToVolunteers = (bookingObj) => {
   window.dispatchEvent(new CustomEvent('nirvighna_volunteer_booking_alert', { detail: notice }));
 };
 
-/**
- * Get recent bookings broadcasted to volunteers
- */
+// Get recent bookings broadcasted to volunteers
 export const getVolunteerBookingAlerts = (templeId = null) => {
   const list = JSON.parse(localStorage.getItem('nirvighna_volunteer_recent_bookings') || '[]');
   if (!templeId) return list;
   return list.filter(b => b.templeId === templeId || !b.templeId);
 };
 
-/**
- * Get upcoming Darshan slots within the next 2 hours for volunteers
- */
+// Get upcoming Darshan slots within the next 2 hours for volunteers
 export const getUpcomingTwoHourBookings = (templeId = 'tmp_somnath') => {
   const allLocal = JSON.parse(localStorage.getItem('nirvighna_my_local_bookings') || '[]');
   const volunteerAlerts = JSON.parse(localStorage.getItem('nirvighna_volunteer_recent_bookings') || '[]');

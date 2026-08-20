@@ -1,8 +1,3 @@
-"""
-Drishti AI — Person Detector & Tracker Engine
-Uses YOLOv8n / YOLOv11n + DeepSORT / ByteTrack for person detection, tracking, and virtual line crossing.
-"""
-
 import time
 import math
 import numpy as np
@@ -62,6 +57,7 @@ class PersonDetectorTracker:
         self.model = None
         if ULTRALYTICS_AVAILABLE:
             try:
+                import os
                 model_name = config.get("model", "yolov8n.pt")
                 if not os.path.isabs(model_name):
                     backend_path = os.path.join(os.path.dirname(__file__), model_name)
@@ -73,10 +69,7 @@ class PersonDetectorTracker:
                 logger.warning(f"Could not load YOLO model: {e}")
 
     def process_frame(self, frame):
-        """
-        Runs YOLO inference, updates tracking, calculates line crossing, and draws HUD.
-        Returns processed frame & telemetry dict.
-        """
+        # Process frame, update tracks, check lines, and draw HUD.
         if frame is None:
             return None, {}
 
@@ -100,32 +93,31 @@ class PersonDetectorTracker:
                     else:
                         unverified_logs.append(((x1, y1, x2, y2), conf, "unverified"))
         else:
-            # Fallback heuristic detector when PyTorch/YOLO not present
             raw_detections, unverified_logs = self._heuristic_person_detect(frame)
 
-        # Update ByteTrack / DeepSORT tracking associations
+        # Update track associations
         matched_tracks, unverified_count = self._update_tracks(raw_detections, unverified_logs, w, h)
 
-        # Line crossing detection
+        # Check line crossing
         now = time.time()
         for track in matched_tracks.values():
             if len(track.history) >= 2:
                 prev_y = track.history[-2][1]
                 curr_y = track.center[1]
 
-                # Entry line crossing (Top -> Bottom across entry_y)
+                # Entry crossing
                 if not track.crossed_entry and prev_y < entry_y <= curr_y:
                     track.crossed_entry = True
                     self.total_entries += 1
                     self.entry_timestamps.append(now)
 
-                # Exit line crossing (Top -> Bottom across exit_y)
+                # Exit crossing
                 if not track.crossed_exit and prev_y < exit_y <= curr_y:
                     track.crossed_exit = True
                     self.total_exits += 1
                     self.exit_timestamps.append(now)
 
-        # Filter entry/exit timestamps for 1-minute rate calculation (P/min)
+        # Calculate 1-minute rate
         cutoff_min = now - 60.0
         self.entry_timestamps = [t for t in self.entry_timestamps if t >= cutoff_min]
         self.exit_timestamps = [t for t in self.exit_timestamps if t >= cutoff_min]
@@ -136,11 +128,11 @@ class PersonDetectorTracker:
         verified_count = len(matched_tracks)
         devotees_present = max(12, verified_count + self.total_entries - self.total_exits)
 
-        # Draw overlays & lines
+        # Draw overlays
         output_frame = frame.copy()
         import cv2
 
-        # Draw Virtual Entry & Exit Lines
+        # Draw virtual lines
         cv2.line(output_frame, (0, entry_y), (w, entry_y), (0, 255, 0), 2)
         cv2.putText(output_frame, "ENTRY LINE (INFLOW)", (15, entry_y - 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
@@ -149,7 +141,7 @@ class PersonDetectorTracker:
         cv2.putText(output_frame, "EXIT LINE (OUTFLOW)", (15, exit_y - 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-        # Draw Bounding Boxes
+        # Draw bounding boxes
         for track in matched_tracks.values():
             x1, y1, x2, y2 = [int(v) for v in track.bbox]
             cv2.rectangle(output_frame, (x1, y1), (x2, y2), (245, 158, 11), 2)
@@ -177,7 +169,7 @@ class PersonDetectorTracker:
         return output_frame, telemetry
 
     def _update_tracks(self, raw_detections, unverified_logs, width, height):
-        """Associates detections with existing tracks using Euclidean center distance."""
+        # Associate tracks using center distance.
         for t_id in list(self.active_tracks.keys()):
             self.active_tracks[t_id].lost_frames += 1
             if self.active_tracks[t_id].lost_frames > self.max_lost_frames:
@@ -204,7 +196,7 @@ class PersonDetectorTracker:
         return self.active_tracks, len(unverified_logs)
 
     def _heuristic_person_detect(self, frame):
-        """Generates synthetic bounding boxes when PyTorch is not available."""
+        # Generate synthetic boxes if PyTorch is missing.
         h, w, _ = frame.shape
         raw = []
         unverified = []

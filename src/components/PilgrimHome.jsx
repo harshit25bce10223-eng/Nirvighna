@@ -57,7 +57,7 @@ export const PilgrimHome = ({ onNavigate }) => {
 
   return (
     <div className="pb-24 pt-4 px-4 max-w-md mx-auto space-y-4 bg-ivory min-h-screen">
-      {/* STEP 7: 2-Hour Pre-Slot Auto Gate Info Push Banner */}
+      {/* gate info push banner */}
       {latestBooking && (
         <div className="bg-gradient-to-r from-gold/20 via-amber-50 to-gold/10 border-2 border-gold p-3.5 rounded-2xl shadow-sm text-xs space-y-1.5">
           <div className="flex items-center justify-between text-indigo-dark font-extrabold font-heading">
@@ -83,7 +83,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Mela Mode Toggle Banner */}
+      {/* mela mode toggle */}
       <div className="bg-gradient-to-r from-maroon to-indigo-dark text-white p-3.5 rounded-2xl shadow-md flex items-center justify-between border border-gold/30">
         <div className="flex items-center gap-2 text-xs">
           <Sun className={`w-4 h-4 ${isMelaMode ? 'text-gold animate-spin' : 'text-gray-400'}`} />
@@ -106,7 +106,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </button>
       </div>
 
-      {/* Greeting Header */}
+      {/* greeting header */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-warm border border-maroon/10">
         <div>
           <h2 className="text-xl font-extrabold font-heading text-maroon flex items-center gap-1.5">
@@ -119,7 +119,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* AI Crowd & Cross-Temple Circuit AI Banner */}
+      {/* crowd warning banner */}
       <div className="bg-indigo-dark text-white p-4 rounded-2xl shadow-md border border-gold/30 space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="flex items-center gap-1 text-gold font-bold uppercase tracking-wider text-[10px]">
@@ -132,7 +132,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </p>
       </div>
 
-      {/* Feature Action Grid */}
+      {/* actions grid */}
       <div>
         <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5 px-1">
           Pilgrim Actions & Services
@@ -188,7 +188,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* STEP 5: Post-Darshan Temple Donation Card */}
+      {/* donation card */}
       <div className="bg-white p-4 rounded-2xl shadow-warm border border-gold/30 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 bg-gold/15 text-maroon rounded-xl font-bold">
@@ -207,7 +207,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </button>
       </div>
 
-      {/* Horizontal Scroll of 4 Temples */}
+      {/* temple list */}
       <div>
         <div className="flex items-center justify-between mb-2.5 px-1">
           <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -252,7 +252,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Free Mahaprasad Token Modal Overlay */}
+      {/* prasad modal */}
       {showPrasadToken && (
         <PrasadQueueModal
           templeId="tmp_somnath"
@@ -261,7 +261,7 @@ export const PilgrimHome = ({ onNavigate }) => {
         />
       )}
 
-      {/* STEP 5: Temple Donation Modal */}
+      {/* donation modal */}
       {showDonationModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-3xl max-w-xs w-full space-y-4 shadow-2xl border-2 border-gold text-center">

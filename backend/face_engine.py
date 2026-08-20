@@ -1,6 +1,5 @@
 """
-Drishti AI — Biometric Identity & Face Detector Engine
-Implements BlazeFace 5-point landmark extraction and ArcFace 512-d embedding search (FAISS Cosine Similarity).
+Biometric identity & face detection.
 """
 
 import time
@@ -25,7 +24,7 @@ class ArcFaceBiometricEngine:
         self.possible_match_min = config.get("possible_match_min_threshold", 0.75)
         self.min_face_size = config.get("min_face_size_px", 30)
 
-        # Enrolled lost persons database (FAISS Vector Index)
+        # Enrolled database
         self.enrolled_persons = []
         self.faiss_index = None
         self.audit_logs = []
@@ -33,11 +32,11 @@ class ArcFaceBiometricEngine:
         self._init_faiss_and_enrolled_gallery()
 
     def _init_faiss_and_enrolled_gallery(self):
-        """Initializes FAISS Cosine Similarity Index with enrolled demo identities."""
+        """Initializes FAISS similarity index."""
         if FAISS_AVAILABLE:
-            self.faiss_index = faiss.IndexFlatIP(self.embedding_dim)  # Inner Product for Cosine Similarity
+            self.faiss_index = faiss.IndexFlatIP(self.embedding_dim)  # Inner product for cosine similarity
 
-        # Seed enrolled lost person gallery
+        # Seed enrolled gallery
         demo_gallery = [
             {"id": "LP101", "name": "Aarav Sharma", "age": 7, "city": "Ahmedabad", "phone": "+91 98765 43210"},
             {"id": "LP102", "name": "Ramesh Varma (Senior)", "age": 72, "city": "Rajkot", "phone": "+91 98123 45678"},
@@ -46,7 +45,7 @@ class ArcFaceBiometricEngine:
         ]
 
         for p in demo_gallery:
-            # Generate deterministic normalized 512-d vector for demo seed
+            # Generate deterministic vector
             seed = sum(ord(c) for c in p["name"])
             vec = self._generate_normalized_vector(seed)
             p["embedding"] = vec
@@ -56,25 +55,22 @@ class ArcFaceBiometricEngine:
                 self.faiss_index.add(np.ascontiguousarray([vec], dtype=np.float32))
 
     def _generate_normalized_vector(self, seed_val):
-        """Generates L2-normalized 512-dimensional Float32 embedding vector."""
+        """Generates normalized embedding vector."""
         np.random.seed(seed_val)
         vec = np.random.randn(self.embedding_dim).astype(np.float32)
         norm = np.linalg.norm(vec)
         return vec / (norm + 1e-7)
 
     def extract_blazeface_landmarks(self, frame):
-        """
-        Extracts 5-point facial landmarks (eyes, nose, mouth corners) from frame.
-        Discards faces smaller than min_face_size px.
-        """
+        """Extracts facial landmarks from frame."""
         if frame is None:
             return [], 0
 
         h, w, _ = frame.shape
         detected_faces = []
 
-        # Simulated BlazeFace 5-point landmark extraction
-        # Real OpenCV / MediaPipe FaceDetector runs here
+        # Simulate landmark extraction
+        # Face detector runs here
         num_faces = 3
         for i in range(num_faces):
             fw, fh = 75, 95
@@ -102,18 +98,16 @@ class ArcFaceBiometricEngine:
         return detected_faces, len(detected_faces)
 
     def search_lost_person(self, image_bytes_or_uri, query_name="Uploaded Devotee Photo"):
-        """
-        Extracts 512-d ArcFace embedding and searches FAISS vector index against enrolled gallery.
-        """
-        # Generate 512-d embedding for uploaded image
+        """Searches vector index against gallery."""
+        # Generate embedding for uploaded image
         seed = sum(ord(c) for c in query_name) + int(time.time() * 1000) % 997
         query_vec = self._generate_normalized_vector(seed)
 
-        # Force high match for test demonstration if photo uploaded
+        # Force match for demo
         best_match = self.enrolled_persons[0]
-        similarity = 0.948  # Simulates high ArcFace ResNet50 cosine match
+        similarity = 0.948  # Simulate match
 
-        # DPDP Act 2023 Audit Logging (zero raw face images saved)
+        # Audit logging
         audit_record = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "query": query_name,

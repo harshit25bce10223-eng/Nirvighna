@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-// Fallback in-memory state for offline / demo mode
+// In-memory state for demo mode
 let inMemoryRopewayStatus = {
   tmp_pavagadh: {
     temple_id: 'tmp_pavagadh',
@@ -12,7 +12,7 @@ let inMemoryRopewayStatus = {
 
 let inMemoryBookings = [];
 
-// Helper to generate time window slots for a given date & direction
+// Generate time slots for a given date and direction
 export const generateRopewaySlots = (dateStr, direction = 'up') => {
   const timeWindows = [
     '06:00 - 06:30 AM',
@@ -38,12 +38,12 @@ export const generateRopewaySlots = (dateStr, direction = 'up') => {
   ];
 
   return timeWindows.map((tw, idx) => {
-    // Generate deterministic capacity & booked counts for demo
+    // Generate deterministic values
     const seed = (idx + direction.length + (dateStr ? dateStr.length : 5)) % 10;
     const total_capacity = 80;
     let booked_count = 20 + seed * 6;
-    if (idx === 3 || idx === 7) booked_count = 78; // Filling fast / near full
-    if (idx === 4) booked_count = 80; // Full
+    if (idx === 3 || idx === 7) booked_count = 78;
+    if (idx === 4) booked_count = 80;
 
     return {
       id: `rpw_slot_${dateStr}_${direction}_${idx}`,
@@ -59,7 +59,7 @@ export const generateRopewaySlots = (dateStr, direction = 'up') => {
 };
 
 export const ropewayEngine = {
-  // 1. Fetch Ropeway Operational Status for a temple
+  // Get operational status
   async fetchStatus(templeId = 'tmp_pavagadh') {
     return inMemoryRopewayStatus[templeId] || {
       temple_id: templeId,
@@ -69,7 +69,7 @@ export const ropewayEngine = {
     };
   },
 
-  // 2. Set Ropeway Status (Admin Command Centre Trigger for Weather Halt)
+  // Update operational status
   async setStatus(templeId = 'tmp_pavagadh', isOperational = true, haltReason = '') {
     const updatedStatus = {
       temple_id: templeId,
@@ -80,7 +80,7 @@ export const ropewayEngine = {
 
     inMemoryRopewayStatus[templeId] = updatedStatus;
 
-    // If operational status is set to false (Halted due to high wind), trigger notifications to affected pilgrims
+    // Trigger notifications if halted
     if (!isOperational) {
       const haltMessage = haltReason || 'Ropeway currently halted due to high wind speed.';
       try {
@@ -102,25 +102,23 @@ export const ropewayEngine = {
     return updatedStatus;
   },
 
-  // 3. Fetch Available Slots for a given date and direction
+  // Get available slots
   async fetchSlots(templeId = 'tmp_pavagadh', dateStr = new Date().toISOString().split('T')[0], direction = 'up') {
     return generateRopewaySlots(dateStr, direction);
   },
 
-  // 4. Book Ropeway Slot function
+  // Book slot
   async bookRopewaySlot({ pilgrimId, bookingId, templeId = 'tmp_pavagadh', slot, direction = 'up', passengerCount = 1, pilgrimName = '', pilgrimPhone = '' }) {
-    // First verify status is operational
     const currentStatus = await this.fetchStatus(templeId);
     if (!currentStatus.is_operational) {
       throw new Error(`Ropeway is currently halted: ${currentStatus.halt_reason || 'High wind weather conditions'}. Please use the Trekking Route.`);
     }
 
-    // Verify slot capacity
     if (slot.booked_count >= slot.total_capacity) {
       throw new Error('This time window is fully booked. Please select another time window.');
     }
 
-    // Generate unique QR token for ropeway boarding
+    // Generate unique QR token
     const qrToken = `RPW-${templeId.toUpperCase().slice(-3)}-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const newRopewayBooking = {
@@ -136,7 +134,7 @@ export const ropewayEngine = {
       pilgrim_name: pilgrimName,
       pilgrim_phone: pilgrimPhone,
       qr_token: qrToken,
-      status: 'booked', // 'booked' | 'boarded' | 'cancelled'
+      status: 'booked',
       created_at: new Date().toISOString()
     };
 
@@ -151,7 +149,7 @@ export const ropewayEngine = {
     return newRopewayBooking;
   },
 
-  // 5. Scan Ropeway QR Code (Used by Volunteer Hub at Ropeway Counter)
+  // Scan QR code
   async scanRopewayQR(qrToken) {
     const existing = inMemoryBookings.find(b => b.qr_token === qrToken);
 
@@ -184,7 +182,7 @@ export const ropewayEngine = {
       };
     }
 
-    // Try Database check
+    // Database check
     try {
       const { data, error } = await supabase
         .from('ropeway_bookings')
@@ -200,7 +198,6 @@ export const ropewayEngine = {
           return { success: false, code: 'CANCELLED', message: 'Ticket was cancelled.', booking: data };
         }
 
-        // Update status to boarded
         await supabase
           .from('ropeway_bookings')
           .update({ status: 'boarded', boarded_at: new Date().toISOString() })
@@ -217,7 +214,7 @@ export const ropewayEngine = {
       console.warn('Database scan fallback:', e);
     }
 
-    // Simulated fallback for testing any token starting with RPW
+    // Simulated fallback
     if (qrToken && qrToken.startsWith('RPW-')) {
       return {
         success: true,

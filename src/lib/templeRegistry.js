@@ -1,5 +1,4 @@
-// Centralized Master Temple Registry & Real Temple Data
-// Accurate real-world shrine specifications for Gujarat Pilgrimage Hubs.
+// Master temple registry and data
 
 export const MASTER_TEMPLES = [
   {
@@ -143,7 +142,7 @@ export const MASTER_TEMPLES = [
         distance_gu: '130 કિમી',
         secondary: 'Porbandar Airport (PBD) • 105 km',
         secondary_hi: 'पोरबंदर हवाई अड्डा (PBD) • 105 किमी',
-        secondary_gu: 'પોરબંદર એરપોર્ટ (PBD) • 105 કિમી'
+        secondary_gu: 'પોરબंदर એરપોર્ટ (PBD) • 105 કિમી'
       },
       localTransit: {
         name: 'GSRTC Dwarka Central Bus Station',
@@ -165,7 +164,7 @@ export const MASTER_TEMPLES = [
     shuttles: [
       { id: 's_dwa_1', shuttle_id: 'SH-04', name: 'Dwarka Senior Citizen Battery Cart', name_hi: 'द्वारका वरिष्ठ नागरिक बैटरी कार्ट', name_gu: 'દ્વારકા વરિષ્ઠ નાગરિક બેટરી કાર્ટ', eta: '2 mins', nextDeparture: 2, frequency: 4, route: 'Moksha Dwar Lockers ↔ Swarga Dwar 56 Steps Ramp', route_hi: 'मोक्ष द्वार लॉकर ↔ स्वर्ग द्वार 56 सीढ़ी रैंप', route_gu: 'મોક્ષ દ્વાર લોકર ↔ સ્વર્ગ દ્વાર 56 પગથિયાં રેમ્પ', current_occupancy: 6, capacity: 6, status: 'loading', destination: 'Swarga Dwar Ramp', fare: 'Free', fare_hi: 'निःशुल्क', fare_gu: 'મફત' },
       { id: 's_dwa_2', shuttle_id: 'SH-05', name: 'Okha Port Bet Dwarka Ferry Express', name_hi: 'ओखा पोर्ट बेट द्वारका नौका एक्सप्रेस', name_gu: 'ઓખા પોર્ટ બેટ દ્વારકા બોટ એક્સપ્રેસ', eta: '7 mins', nextDeparture: 7, frequency: 15, route: 'Dwarka Bus Stand ↔ Okha Ferry Pier (Bet Dwarka)', route_hi: 'द्वारका बस स्टैंड ↔ ओखा नौका घाट (बेट द्वारका)', route_gu: 'દ્વારકા બસ સ્ટેન્ડ ↔ ઓખા બોટ ઘાટ (બેટ દ્વારકા)', current_occupancy: 38, capacity: 45, status: 'en_route', destination: 'Okha Passenger Jetty', fare: '₹20', fare_hi: '₹20', fare_gu: '₹20' },
-      { id: 's_dwa_3', shuttle_id: 'SH-06', name: 'Rukmini Mandir Pilgrim Connector', name_hi: 'रुक्मिणी मंदिर तीर्थ कनेक्टर', name_gu: 'રુક્મિણી મંદિર યાત્રાળુ કનેક્ટર', eta: '10 mins', nextDeparture: 10, frequency: 20, route: 'Dwarkadhish Main Shrine ↔ Rukmini Devi Mandir', route_hi: 'द्वारकाधीश मुख्य मंदिर ↔ रुक्मिणी देवी मंदिर', route_gu: 'દ્વારકાધીશ મુખ્ય મંદિર ↔ રુક્મિણી દેવી મંદિર', current_occupancy: 24, capacity: 35, status: 'en_route', destination: 'Rukmini Mandir', fare: '₹30', fare_hi: '₹30', fare_gu: '₹30' }
+      { id: 's_dwa_3', shuttle_id: 'SH-06', name: 'Rukmini Mandir Pilgrim Connector', name_hi: 'रुक्मिणी मंदिर तीर्थ कनेक्टर', name_gu: 'રુક્મિણી મંદિર યાત્રાળુ કનેક્ટર', eta: '10 mins', nextDeparture: 10, frequency: 20, route: 'Dwarkadhish Main Shrine ↔ Rukmini Devi Mandir', route_hi: 'द्वारकाधीश मुख्य मंदिर ↔ रुक्मिणी देवी मंदिर', route_gu: 'દ્વારકાધીશ મુખ્ય मंदिर ↔ રુક્મિણી દેવી મંદિર', current_occupancy: 24, capacity: 35, status: 'en_route', destination: 'Rukmini Mandir', fare: '₹30', fare_hi: '₹30', fare_gu: '₹30' }
     ],
     aiForecast: 'High queue density (82%). Peaking at 10:30 AM Shringarakar. Peak reduction expected around 02:00 PM.'
   },
@@ -304,7 +303,7 @@ export const MASTER_TEMPLES = [
         distance_gu: '42 કિમી',
         secondary: 'Sardar Vallabhbhai Patel Int\'l (AMD) • 145 km',
         secondary_hi: 'सरदार वल्लभभाई पटेल अंतर्राष्ट्रीय हवाई अड्डा (AMD) • 145 किमी',
-        secondary_gu: 'સરદાર વલ્લભભાઈ પટેલ આંતરરાષ્ટ્રીય એરપોર્ટ (AMD) • 145 કિમી'
+        secondary_gu: 'સરદાર વલ્લભભાઈ पटेल આંતરરાષ્ટ્રીય એરપોર્ટ (AMD) • 145 કિમી'
       },
       localTransit: {
         name: 'GSRTC Manchi Base Bus Terminal',

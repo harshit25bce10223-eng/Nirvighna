@@ -1,7 +1,5 @@
 """
-Drishti AI — Hourly Footfall Forecasting Engine
-Predicts next 3 hours pilgrim footfall using time-series regression and historical mela trends.
-Computes MAPE (Mean Absolute Percentage Error) validation accuracy.
+Footfall forecasting engine.
 """
 
 import time
@@ -14,17 +12,15 @@ logger = logging.getLogger("FootfallForecast")
 
 class FootfallForecaster:
     def __init__(self):
-        self.mape = 4.2  # 4.2% MAPE error rate (95.8% Forecast Accuracy)
+        self.mape = 4.2  # Error rate
         self.accuracy_pct = 95.8
 
     def predict_next_3_hours(self, current_occupancy=840):
-        """
-        Generates 3-hour timestamped footfall predictions.
-        """
+        """Generates footfall predictions."""
         now = datetime.datetime.now()
         forecasts = []
 
-        # Baseline hourly multipliers for pilgrimage temple rush
+        # Baseline multipliers
         base_rate = max(300, current_occupancy)
 
         for hour_offset in range(1, 4):
@@ -32,7 +28,7 @@ class FootfallForecaster:
             time_label = future_time.strftime("%I:00 %p")
             
             hour_of_day = future_time.hour
-            # Morning Aarti (6-9 AM) & Evening Aarti (6-8 PM) peak surges
+            # Morning and evening surges
             if 6 <= hour_of_day <= 9 or 18 <= hour_of_day <= 20:
                 surge_multiplier = 1.35 + np.sin(hour_offset) * 0.1
             elif 12 <= hour_of_day <= 15:

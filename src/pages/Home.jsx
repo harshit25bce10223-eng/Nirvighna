@@ -236,7 +236,7 @@ const translations = {
   }
 };
 
-// Rich curated authentic photos for Gujarat Shrines
+// Temple images
 const DEFAULT_TEMPLE_IMAGES = {
   tmp_somnath: '/images/temples/somnath.png',
   tmp_dwarka: '/images/temples/dwarka.png',
@@ -338,7 +338,7 @@ const getTempleMeta = (templeId, lang = 'en', date = new Date()) => {
   };
 };
 
-// Dynamic AI crowd density prediction engine
+// Calculate crowd prediction and recommendation
 const getPredictionForSlot = (temple, lang = 'en') => {
   if (!temple) return 'AI ML Crowd Model calculating real-time density...';
 
@@ -374,7 +374,7 @@ export const Home = () => {
   const [showFootwearModal, setShowFootwearModal] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Live timer to re-calculate next Aarti countdown in real-time
+  // Timer to refresh aarti countdown
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
@@ -421,7 +421,7 @@ export const Home = () => {
     fetchCrossTempleRecommendations();
     fetchPrasadCounterStatus();
 
-    // Listen to local & cross-tab prasad counter updates
+    // Listen for prasad counter updates
     const handleCounterUpdate = () => {
       fetchPrasadCounterStatus();
     };
@@ -473,7 +473,7 @@ export const Home = () => {
         setSelectedTempleId(uniqueList[0].id);
       }
 
-      // Fetch crowd predictions for each temple
+      // Fetch crowd predictions
       const predictions = {};
       for (const temple of uniqueList) {
         try {
@@ -495,7 +495,7 @@ export const Home = () => {
     const aiLive = NirvighnaAIEngine.predictCrowdDensity(templeObj, new Date(), currentLanguage);
     const prediction = crowdPredictions[templeId];
     
-    // Compute distinct live AI capacity ratio
+    // Compute live capacity percentage
     const capacityPercent = prediction?.densityRatio 
       ? Math.min(99, Math.max(15, Math.round(prediction.densityRatio * 100))) 
       : (aiLive?.densityPercentage || (templeId === 'tmp_pavagadh' ? 28 : templeId === 'tmp_ambaji' ? 48 : templeId === 'tmp_somnath' ? 76 : 92));

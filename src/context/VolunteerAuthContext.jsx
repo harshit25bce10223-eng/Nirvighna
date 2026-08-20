@@ -12,7 +12,7 @@ export const VolunteerAuthProvider = ({ children }) => {
 
   const [idleWarning, setIdleWarning] = useState(false);
 
-  // 15-Minute Shared Device Idle Timeout (with 13-min warning toast)
+  // shared device idle timeout
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -24,12 +24,12 @@ export const VolunteerAuthProvider = ({ children }) => {
       clearTimeout(warningTimer);
       clearTimeout(logoutTimer);
 
-      // Warning at 13 minutes
+      // warning after 13 mins
       warningTimer = setTimeout(() => {
         setIdleWarning(true);
       }, 13 * 60 * 1000);
 
-      // Auto logout at 15 minutes
+      // auto logout after 15 mins
       logoutTimer = setTimeout(() => {
         logout();
       }, 15 * 60 * 1000);
@@ -48,10 +48,10 @@ export const VolunteerAuthProvider = ({ children }) => {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    // Check initial auth state
+    // check initial auth state
     checkVolunteerAuth();
 
-    // Listen for auth state changes
+    // listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         await verifyVolunteerRole(session.user);
@@ -78,7 +78,7 @@ export const VolunteerAuthProvider = ({ children }) => {
       const role = userRow?.role || authUser.user_metadata?.role || 'volunteer';
 
       if (role !== 'volunteer' && role !== 'admin') {
-        // Not a volunteer -> sign out
+        // sign out non-volunteers
         await supabase.auth.signOut();
         setCurrentUser(null);
         setIsLoggedIn(false);
@@ -100,7 +100,7 @@ export const VolunteerAuthProvider = ({ children }) => {
       return formattedUser;
     } catch (err) {
       console.warn('Volunteer verification note:', err.message);
-      // Demo fallback is explicitly opt-in and never enabled in production.
+      // demo fallback check
       if (isDemoMode && authUser) {
         const demoVolunteer = {
           id: authUser.id || 'vol_8841',
@@ -170,7 +170,7 @@ export const VolunteerAuthProvider = ({ children }) => {
     try {
       let loggedUser = null;
 
-      // 1. Try real Supabase auth if not in demo mode
+      // try supabase auth first
       if (!isDemoMode && email && password) {
         try {
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -178,13 +178,13 @@ export const VolunteerAuthProvider = ({ children }) => {
             loggedUser = data.user;
           }
         } catch (_) {
-          // Fallback to local profile
+          // fallback to local profile
         }
       }
 
       const cleanEmail = (email || '').toLowerCase().trim();
 
-      // Volunteer accounts database mapping
+      // volunteer accounts map
       const volunteerAccounts = {
         'vikram.vol@nirvighna.org': { id: 'vol_8841', name: 'Vikram Sharma', phone: '+91 98412 88410', defaultZone: 'Gate 2 Swarga Dwar Queue' },
         'savitri.vol@nirvighna.org': { id: 'vol_8842', name: 'Savitri Devi', phone: '+91 98412 88411', defaultZone: 'Medical Post 1 (Gate 2)' },
@@ -199,7 +199,7 @@ export const VolunteerAuthProvider = ({ children }) => {
         defaultZone: 'Gate 1 Main Entrance'
       };
 
-      // Check admin assigned duty from Command Centre Roster
+      // check assigned duty
       const adminDuty = localStorage.getItem(`nirvighna_vol_duty_email_${cleanEmail}`) ||
                         localStorage.getItem(`nirvighna_vol_duty_${matched.id}`) ||
                         localStorage.getItem('nirvighna_volunteer_duty') ||

@@ -167,7 +167,7 @@ export const Signup = () => {
 
       if (signupError) throw signupError;
 
-      // Automatically insert profile in users table (STRICTLY HARDCODED ROLE='PILGRIM')
+      // Create user profile
       if (data.user) {
         await supabase
           .from('users')
@@ -182,7 +182,7 @@ export const Signup = () => {
             consent_given_at: new Date().toISOString()
           });
 
-        // Insert primary emergency contact record in emergency_contacts table
+        // Add primary emergency contact
         if (emergencyName.trim() && (emergencyPhone.trim() || emergencyEmail.trim())) {
           await supabase
             .from('emergency_contacts')

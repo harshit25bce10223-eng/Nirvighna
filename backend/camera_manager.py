@@ -1,9 +1,3 @@
-"""
-Drishti AI — Camera Feed Manager Module
-Captures frames from OpenCV VideoCapture in a dedicated background thread.
-Maintains a thread-safe queue of latest frames (max 5 frames) to prevent blocking.
-"""
-
 import cv2
 import time
 import queue
@@ -29,7 +23,7 @@ class CameraFeedManager:
         self.current_cam_name = f"CAM{camera_id + 1}"
 
     def start(self):
-        """Start thread-safe video capture."""
+        # Start capture thread.
         if self.is_running:
             return
         
@@ -41,7 +35,7 @@ class CameraFeedManager:
         logger.info(f"[{self.current_cam_name}] Camera feed thread started.")
 
     def _init_camera(self):
-        """Try opening physical webcam; fallback to synthetic stream if unavailable."""
+        # Init webcam or fallback to simulation.
         try:
             self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_DSHOW if cv2.__name__ == 'cv2' and hasattr(cv2, 'CAP_DSHOW') else cv2.CAP_ANY)
             if self.cap and self.cap.isOpened():
@@ -60,7 +54,7 @@ class CameraFeedManager:
             self.using_simulation = True
 
     def _capture_loop(self):
-        """Continuously fetch frames and store in queue."""
+        # Fetch frames into queue.
         sim_angle = 0.0
         while self.is_running:
             if not self.using_simulation and self.cap and self.cap.isOpened():
@@ -70,12 +64,12 @@ class CameraFeedManager:
                     self.using_simulation = True
                     continue
             else:
-                # Generate realistic AI CCTV Simulation Frame
+                # Generate simulation frame.
                 frame = self._generate_simulated_frame(sim_angle)
                 sim_angle += 0.05
                 time.sleep(0.033)  # ~30 FPS
 
-            # Maintain queue size <= max_queue_size
+            # Maintain queue size.
             if self.frame_queue.full():
                 try:
                     self.frame_queue.get_nowait()
@@ -85,30 +79,30 @@ class CameraFeedManager:
             self.frame_queue.put(frame)
 
     def _generate_simulated_frame(self, angle):
-        """Generates realistic 720p CCTV corridor feed with moving simulated crowd shapes."""
+        # Generate synthetic CCTV frame.
         h, w = self.frame_height, self.frame_width
         img = np.zeros((h, w, 3), dtype=np.uint8)
         
-        # Dark obsidian temple hallway background
+        # Dark background
         cv2.rectangle(img, (0, 0), (w, h), (18, 16, 22), -1)
         
-        # Queue corridors
+        # Draw corridors
         cv2.line(img, (int(w*0.15), 0), (int(w*0.25), h), (40, 50, 70), 2)
         cv2.line(img, (int(w*0.50), 0), (int(w*0.55), h), (40, 50, 70), 2)
         cv2.line(img, (int(w*0.85), 0), (int(w*0.80), h), (40, 50, 70), 2)
         
-        # Moving simulated people shapes
+        # Draw moving people
         num_people = 14
         for i in range(num_people):
             px = int((w * 0.15) + (i * 55) + np.sin(angle + i) * 35) % (w - 100) + 50
             py = int((h * 0.20) + (i * 35) + np.cos(angle * 0.8 + i) * 25) % (h - 100) + 50
             
-            # Draw person body and head
+            # Draw person
             cv2.ellipse(img, (px, py + 25), (20, 35), 0, 0, 360, (180, 140, 60), -1)
             cv2.circle(img, (px, py), 14, (220, 180, 120), -1)
             cv2.circle(img, (px, py), 15, (255, 200, 140), 2)
 
-        # Overlay Camera HUD
+        # Draw HUD
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         cv2.putText(img, f"{self.current_cam_name} LIVE | {timestamp}", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 215, 255), 2)
@@ -116,13 +110,13 @@ class CameraFeedManager:
         return img
 
     def get_frame(self):
-        """Returns the latest captured frame without blocking."""
+        # Get latest frame.
         if not self.frame_queue.empty():
             return self.frame_queue.get()
         return None
 
     def switch_camera(self, camera_id):
-        """Switch camera index dynamically."""
+        # Switch camera.
         logger.info(f"Switching camera to CAM{camera_id + 1}")
         self.camera_id = camera_id
         self.current_cam_name = f"CAM{camera_id + 1}"
@@ -131,7 +125,7 @@ class CameraFeedManager:
         self._init_camera()
 
     def stop(self):
-        """Stop background capture thread."""
+        # Stop capture thread.
         self.is_running = False
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)

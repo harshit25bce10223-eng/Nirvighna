@@ -1,9 +1,3 @@
-"""
-Drishti AI — DHWANI RAKSHAK Audio Panic & Scream Detector
-Captures 1-second continuous audio chunks from default microphone using sounddevice/PyAudio.
-Classifies audio with YAMNet/spectral FFT filters to detect screams, sirens, and high RMS sound spikes.
-"""
-
 import time
 import math
 import threading
@@ -38,7 +32,7 @@ class DhwaniAudioPanicDetector:
         self.panic_event_log = []
 
     def start(self):
-        """Start background microphone audio monitoring thread."""
+        # Start audio monitoring thread.
         if self.is_running:
             return
         self.is_running = True
@@ -47,7 +41,7 @@ class DhwaniAudioPanicDetector:
         logger.info("DHWANI RAKSHAK microphone audio monitoring started.")
 
     def _audio_loop(self):
-        """Continuously process 1-second microphone audio chunks."""
+        # Process audio chunks in a loop.
         samples_per_chunk = int(self.sample_rate * self.chunk_duration)
         sim_t = 0.0
 
@@ -63,7 +57,7 @@ class DhwaniAudioPanicDetector:
                     audio_chunk = None
 
             if audio_chunk is None:
-                # Generate synthetic audio chunk for testing
+                # Synthetic audio for testing
                 audio_chunk = self._generate_synthetic_chunk(sim_t)
                 sim_t += 1.0
                 time.sleep(1.0)
@@ -71,15 +65,15 @@ class DhwaniAudioPanicDetector:
             self._analyze_audio_chunk(audio_chunk)
 
     def _generate_synthetic_chunk(self, t):
-        """Generates 1-second test audio waveform."""
+        # Generate test audio.
         num_samples = int(self.sample_rate * self.chunk_duration)
         time_arr = np.linspace(0, 1.0, num_samples, endpoint=False)
-        # Baseline ambient crowd noise
+        # Baseline noise
         noise = np.random.normal(0, 0.015, num_samples).astype(np.float32)
         return noise
 
     def _analyze_audio_chunk(self, chunk):
-        """Calculates RMS, dB level, and YAMNet scream/siren classification."""
+        # Calculate audio metrics and classify.
         if chunk is None or len(chunk) == 0:
             return
 
@@ -93,8 +87,7 @@ class DhwaniAudioPanicDetector:
 
         avg_rms_5s = np.mean([r for _, r in self.rms_history]) if self.rms_history else rms
 
-        # YAMNet / FFT Spectral Audio Classification
-        # Computes energy ratio in 1.2 kHz - 4.5 kHz high-pitch scream band
+        # Compute scream band energy ratio.
         fft = np.abs(np.fft.rfft(chunk))
         freqs = np.fft.rfftfreq(len(chunk), 1.0 / self.sample_rate)
         
@@ -112,7 +105,7 @@ class DhwaniAudioPanicDetector:
                 "type": "AUDIO_PANIC_SCREAM",
                 "db_level": db_level,
                 "confidence": round(scream_confidence, 2),
-                "message": f"🚨 DHWANI RAKSHAK Audio Panic Spike Detected: {db_level} dB ({int(scream_confidence * 100)}% Confidence)"
+                "message": f"DHWANI RAKSHAK Audio Panic Spike Detected: {db_level} dB ({int(scream_confidence * 100)}% Confidence)"
             }
             self.panic_event_log.append(event)
             logger.warning(f"PANIC ALERT TRIGGERED: {db_level} dB")
@@ -124,7 +117,7 @@ class DhwaniAudioPanicDetector:
             self.latest_status = "Audio: Normal"
 
     def simulate_panic_alert(self):
-        """Manual trigger for dashboard testing."""
+        # Manual panic trigger.
         self.is_panic_active = True
         self.latest_status = "Audio: PANIC DETECTED (Manual Test Panic Triggered!)"
         event = {
@@ -132,7 +125,7 @@ class DhwaniAudioPanicDetector:
             "type": "MANUAL_PANIC_TEST",
             "db_level": 94.8,
             "confidence": 0.98,
-            "message": "🚨 MANUAL TEST PANIC ALERT: 94.8 dB High Frequency Scream Spike Simulated"
+            "message": "MANUAL TEST PANIC ALERT: 94.8 dB High Frequency Scream Spike Simulated"
         }
         self.panic_event_log.append(event)
         return event

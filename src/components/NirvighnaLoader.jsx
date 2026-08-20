@@ -40,9 +40,9 @@ export const NirvighnaLoader = ({ message, lang: langOverride }) => {
 
   return (
     <div className="flex flex-col items-center justify-center space-y-3 py-6 animate-in fade-in select-none">
-      {/* Animated Logo Container with High-DPI Crisp Plinth */}
+      {/* logo container */}
       <div className="relative w-16 h-16 sm:w-18 sm:h-18 flex items-center justify-center">
-        {/* Outer glowing pulsing aura */}
+        {/* glowing aura */}
         <div className="absolute inset-0 rounded-full border-2 border-gold/40 animate-ping duration-1000"></div>
         <div className="absolute -inset-1.5 rounded-full border border-maroon/30 animate-spin duration-[3500ms]"></div>
         
@@ -55,7 +55,7 @@ export const NirvighnaLoader = ({ message, lang: langOverride }) => {
         </div>
       </div>
       
-      {/* Tri-Lingual Animated Word: NIRVIGHNA / निर्विघ्न / નિર્વિઘ્ન */}
+      {/* animated text */}
       <div className={`flex items-center ${current.gap} font-heading font-black ${current.fontSize} text-transparent bg-clip-text bg-gradient-to-r from-maroon via-red-900 to-maroon`}>
         {current.letters.map((char, index) => (
           <span

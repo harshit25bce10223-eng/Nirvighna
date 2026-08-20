@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
 import { issueSignedToken } from './signedTokenEngine';
 
-// Default baseline counter status per temple
+// Default counter status per temple
 const DEFAULT_COUNTERS = {
   tmp_somnath: { temple_id: 'tmp_somnath', current_serving_token: 142, avg_serve_time_seconds: 60, updated_at: new Date().toISOString() },
   tmp_dwarka: { temple_id: 'tmp_dwarka', current_serving_token: 98, avg_serve_time_seconds: 45, updated_at: new Date().toISOString() },
@@ -32,12 +32,12 @@ const setStoredCounter = (templeId, counterObj) => {
 let inMemoryPrasadTokens = {};
 
 export const prasadQueueEngine = {
-  // 1. Fetch current serving counter status for temple
+  // Fetch current counter status
   async fetchCounterStatus(templeId = 'tmp_somnath') {
     return getStoredCounter(templeId);
   },
 
-  // 2. Issue a new HMAC-SHA256 Signed Prasad Token for a pilgrim
+  // Issue a new signed prasad token
   async issuePrasadToken(bookingId = null, templeId = 'tmp_somnath', pilgrimName = 'Apex Coder') {
     const counter = await this.fetchCounterStatus(templeId);
     
@@ -52,7 +52,7 @@ export const prasadQueueEngine = {
     const newTokenNumber = maxExisting + 1;
     localStorage.setItem(`nirvighna_highest_prasad_token_${templeId}`, newTokenNumber.toString());
 
-    // Generate cryptographic HMAC-SHA256 signed token
+    // Generate signed token
     let signedTokenValue = `PRASAD-${newTokenNumber}`;
     try {
       const signedRes = await issueSignedToken({
@@ -75,7 +75,7 @@ export const prasadQueueEngine = {
       pilgrim_name: pilgrimName,
       token_number: newTokenNumber,
       signed_value: signedTokenValue,
-      status: 'waiting', // 'waiting' | 'called' | 'served' | 'expired'
+      status: 'waiting',
       issued_at: new Date().toISOString()
     };
 
@@ -87,7 +87,7 @@ export const prasadQueueEngine = {
     return newTokenObj;
   },
 
-  // 3. Volunteer Action: Serve Next Prasad Token (Atomic Increment & Broadcast)
+  // Serve next token and broadcast update
   async serveNextPrasadToken(templeId = 'tmp_somnath') {
     const current = await this.fetchCounterStatus(templeId);
     const nextServingToken = current.current_serving_token + 1;
@@ -98,10 +98,10 @@ export const prasadQueueEngine = {
       updated_at: new Date().toISOString()
     };
 
-    // Store & Broadcast across tabs immediately
+    // Store and broadcast
     setStoredCounter(templeId, updatedCounter);
 
-    // Mark matching token as served in memory & localStorage
+    // Update token status in storage
     try {
       const savedPilgrimToken = localStorage.getItem(`nirvighna_prasad_token_${templeId}`);
       if (savedPilgrimToken) {
@@ -117,7 +117,7 @@ export const prasadQueueEngine = {
     return updatedCounter;
   },
 
-  // 4. Compute Estimated Wait Time in Minutes
+  // Get estimated wait time in minutes
   getEstimatedWait(myTokenNumber, currentServingToken, avgServeTimeSeconds = 60) {
     if (!myTokenNumber || myTokenNumber <= currentServingToken) {
       return 0;

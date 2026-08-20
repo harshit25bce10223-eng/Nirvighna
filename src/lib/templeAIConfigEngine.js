@@ -1,13 +1,4 @@
-/**
- * Nirvighna Temple AI Configuration Engine (temple_ai_config)
- * 
- * Manages site-calibrated AI configurations and Sanjeevani Path Hidden Sacred Evacuation Doors
- * across all 4 major shrines:
- *  - Somnath: Large coastal courtyard, Digvijay North Secret Gate, Seafront Conduit, Helipad Tunnel
- *  - Dwarka: Moksha Dwar 56-Steps Hidden Passage, Sudama Setu Rescue Corridor, Okha Ferry Pier Way
- *  - Ambaji: Chachar Chowk Secret Archway, Gabbar Cliffside Egress, Visa Yantra Evacuation Ramp
- *  - Pavagadh: Machi Plateau Cliffside Ropeway Shaft, 2000-Step Hidden Bypass Tunnel
- */
+// Nirvighna Temple AI Configuration Engine (temple_ai_config)
 
 import { supabase } from './supabaseClient';
 
@@ -327,10 +318,7 @@ export const templeAIConfigEngine = {
     };
   },
 
-  /**
-   * Sanjeevani Path Evacuation Route Calculator
-   * Dynamically routes from patient location to the optimal secret hidden temple emergency door.
-   */
+  // Sanjeevani Path Evacuation Route Calculator
   calculateMedicalEvacuationPath(alertLocation = 'Queue Gate 2', templeId = 'tmp_somnath') {
     const templeConfig = TEMPLE_AI_CONFIGS[templeId] || TEMPLE_AI_CONFIGS.tmp_somnath;
     const config = templeConfig.sanjeevani_path;

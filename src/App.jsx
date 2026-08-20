@@ -198,12 +198,7 @@ const ProtectedRoute = ({ children }) => {
   return isLoggedIn ? children : <Navigate to="/login" replace />;
 };
 
-// Command-centre controls can change live operational guidance, so never
-// render them merely because the user knows the URL. This supports the
-// current demo login until the staff identity flow is moved fully to Supabase.
-const CommandCentreRoute = ({ children }) => {
-  const { isLoggedIn, currentUser, loading } = useAuth();
-  if (loading) {
+// Protect command centre route based on demo mode or admin session
     return <div className="min-h-screen flex items-center justify-center bg-ivory text-maroon font-semibold">Verifying command access...</div>;
   }
   if (!isDemoMode) {
@@ -224,7 +219,7 @@ const CommandCentreRoute = ({ children }) => {
     : <Navigate to="/command-centre/login" replace />;
 };
 
-// Scroll to top on route change only
+// Scroll to top on route change
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   React.useEffect(() => {

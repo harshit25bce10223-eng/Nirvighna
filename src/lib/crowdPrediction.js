@@ -4,41 +4,27 @@ import { liveWeatherService } from './liveWeatherService';
 import { templeAIConfigEngine } from './templeAIConfigEngine';
 import { getTempleById, MASTER_TEMPLES } from './templeRegistry';
 
-/**
- * Real Multi-Parameter AI Crowd Prediction Engine
- * Analyzes:
- *   1. Panchang Astronomical Lunisolar Tithi & Sacred Parv Multiplier
- *   2. Live Open-Meteo Weather (Temp, Humidity, Rain/Monsoon, Wind)
- *   3. Time-of-Day Aarti & Peak Surge Dynamics
- *   4. Weekend vs Weekday Footfall Multiplier
- *   5. Site-Calibrated Capacity (Somnath 1200, Dwarka 800, Ambaji 1500, Pavagadh 450)
- *   6. Recommended Entry Gate & Optimal Fast-Track Darshan Window
- */
+// Real Multi-Parameter AI Crowd Prediction Engine
 
 export const crowdPredictionService = {
-  /**
-   * Get crowd prediction for a temple on a specific date
-   * @param {string} templeId - Temple ID (tmp_somnath, tmp_dwarka, tmp_ambaji, tmp_pavagadh)
-   * @param {Date} date - Target date for prediction
-   * @returns {Promise<Object>} Prediction data
-   */
+  // Get crowd prediction for a temple on a specific date
   async getCrowdPrediction(templeId = 'tmp_somnath', date = new Date(), lang = 'en') {
     const shrine = getTempleById(templeId);
     const aiConfig = templeAIConfigEngine.getConfig(templeId, 'drishti').config;
     const maxCapacity = aiConfig.courtyardCapacity || aiConfig.normalCapacity || 1200;
 
-    // 1. Panchang Astronomical Lunisolar Tithi & Festival Multiplier
+    // Panchang Astronomical Lunisolar Tithi & Festival Multiplier
     const panchang = panchangCalendarEngine.getTithiMultipliers(templeId, date);
     const festivalMultiplier = panchang.crowdMultiplier || 1.0;
     const activeFestival = panchang.festivalEvent || null;
     const tithiName = panchang.tithiName || 'Shukla Paksha Dashami';
 
-    // 2. Day of Week Multiplier (Saturdays/Sundays 1.35x)
+    // Day of Week Multiplier (Saturdays/Sundays 1.35x)
     const dayOfWeek = date.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const weekendMultiplier = isWeekend ? 1.35 : 1.0;
 
-    // 3. Time of Day Multiplier (Aarti Peak Hours vs Afternoon Off-Peak)
+    // Time of Day Multiplier (Aarti Peak Hours vs Afternoon Off-Peak)
     const hour = date.getHours();
     let timeOfDayMultiplier = 1.0;
     let isPeakAartiTime = false;
@@ -58,7 +44,7 @@ export const crowdPredictionService = {
       timeOfDayMultiplier = 0.85;
     }
 
-    // 4. Live Weather Multiplier
+    // Live Weather Multiplier
     let weatherMultiplier = 1.0;
     let weatherData = null;
     try {
@@ -70,13 +56,13 @@ export const crowdPredictionService = {
       }
     } catch (_) {}
 
-    // 5. Compute Real-Time Headcount & Density Ratio
+    // Compute Real-Time Headcount & Density Ratio
     const baseAvg = Math.round(maxCapacity * 0.55);
     const predictedCount = Math.round(baseAvg * festivalMultiplier * weekendMultiplier * timeOfDayMultiplier * weatherMultiplier);
     const densityRatio = predictedCount / maxCapacity;
     const densityPm2 = Math.min(9.0, (densityRatio * (aiConfig.crowdDensityScale || 1.0) * 4.5)).toFixed(1);
 
-    // 6. Fruin LoS Level
+    // Fruin LoS Level
     let densityLevel = 'low';
     let fruinLoS = 'LoS A';
     if (densityRatio >= 0.85) { densityLevel = 'critical'; fruinLoS = 'LoS F (Stampede Risk)'; }
@@ -84,7 +70,7 @@ export const crowdPredictionService = {
     else if (densityRatio >= 0.40) { densityLevel = 'medium'; fruinLoS = 'LoS C (Steady Flow)'; }
     else { densityLevel = 'low'; fruinLoS = 'LoS A–B (Clear Entry)'; }
 
-    // 7. Temple-Specific Best Windows & Gate Advice
+    // Temple-Specific Best Windows & Gate Advice
     let bestDarshanWindow = '07:30 AM – 09:30 AM (Early Morning Fast-Track)';
     let offPeakHours = '02:00 PM – 04:00 PM (Afternoon Lull)';
     let recommendedGate = shrine.gates?.[0]?.name || 'Main Entrance Gate';
@@ -103,7 +89,7 @@ export const crowdPredictionService = {
       bestDarshanWindow = '06:00 AM – 08:00 AM (First Ropeway Slot)';
     }
 
-    // 8. Generate Specific Multilingual AI Recommendation
+    // Generate Specific Multilingual AI Recommendation
     const recommendation = this.buildAIRecommendation({
       templeName: shrine.name,
       densityLevel,
@@ -202,9 +188,7 @@ export const crowdPredictionService = {
     return msg;
   },
 
-  /**
-   * Get crowd predictions for next 7 days
-   */
+  // Get crowd predictions for next 7 days
   async getWeeklyPredictions(templeId) {
     const predictions = [];
     const today = new Date();
@@ -223,10 +207,7 @@ export const crowdPredictionService = {
     return predictions;
   },
 
-  /**
-   * Get cross-temple circuit recommendations
-   * Suggests which temple to visit based on crowd levels
-   */
+  // Get cross-temple circuit recommendations
   async getCrossTempleRecommendations() {
     try {
       let templesList = [];
@@ -275,9 +256,7 @@ export const crowdPredictionService = {
     }
   },
 
-  /**
-   * Record actual crowd data for future predictions
-   */
+  // Record actual crowd data for future predictions
   async recordCrowdData(templeId, actualCount, weatherCondition, isFestival = false, festivalName = null) {
     try {
       const { error } = await supabase
@@ -300,9 +279,7 @@ export const crowdPredictionService = {
     }
   },
 
-  /**
-   * updateTempleCapacity (Sums up booked count and total capacity across all slots and updates temples row)
-   */
+  // updateTempleCapacity (Sums up booked count and total capacity across all slots and updates temples row)
   async updateTempleCapacity() {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -350,9 +327,7 @@ export const crowdPredictionService = {
     }
   },
 
-  /**
-   * getCircuitSuggestion(pilgrimId, lang = 'en')
-   */
+  // getCircuitSuggestion(pilgrimId, lang  'en')
   async getCircuitSuggestion(pilgrimId, lang = 'en') {
     try {
       if (!pilgrimId) return null;
@@ -419,9 +394,7 @@ export const crowdPredictionService = {
     }
   },
 
-  /**
-   * Wishlist modification helpers (Primary: LocalStorage with optional DB Sync)
-   */
+  // Wishlist modification helpers (Primary: LocalStorage with optional DB Sync)
   async addToWishlist(pilgrimId, templeId) {
     if (!pilgrimId || !templeId) return false;
 
@@ -454,10 +427,7 @@ export const crowdPredictionService = {
   }
 };
 
-/**
- * Weather Service
- * Local weather fallback to eliminate 404 REST console errors
- */
+// Weather Service
 export const weatherService = {
   async getWeatherForTemple(templeId, date) {
     return {
@@ -470,10 +440,7 @@ export const weatherService = {
   }
 };
 
-/**
- * Festival Service
- * Local festival schedule to eliminate 404 REST console errors
- */
+// Festival Service
 export const festivalService = {
   async getActiveFestivals(templeId, date) {
     return [];
