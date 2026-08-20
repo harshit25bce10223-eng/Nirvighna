@@ -115,7 +115,7 @@ const VolunteerLayout = ({ children }) => {
 
   return (
     <ErrorBoundary sectionName="Volunteer Operations Hub">
-      <div className="min-h-screen bg-indigo-dark text-white font-body selection:bg-gold selection:text-indigo-dark relative">
+      <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] text-gray-900 font-body selection:bg-gold selection:text-indigo-dark relative">
         {/* Live Command Centre Admin Emergency Dispatch Banner for Volunteers */}
         {liveDispatchAlert && !isLoginPage && (
           <div className="bg-red-950/95 text-red-100 p-3.5 border-b-2 border-red-500 shadow-2xl backdrop-blur-md sticky top-0 z-50 animate-in slide-in-from-top">

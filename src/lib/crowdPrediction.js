@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import { panchangCalendarEngine } from './panchangCalendarEngine';
 import { liveWeatherService } from './liveWeatherService';
 import { templeAIConfigEngine } from './templeAIConfigEngine';
-import { getTempleById } from './templeRegistry';
+import { getTempleById, MASTER_TEMPLES } from './templeRegistry';
 
 /**
  * Real Multi-Parameter AI Crowd Prediction Engine
@@ -229,7 +229,6 @@ export const crowdPredictionService = {
    */
   async getCrossTempleRecommendations() {
     try {
-      const { MASTER_TEMPLES } = await import('./templeRegistry');
       let templesList = [];
       try {
         const temples = await supabase
@@ -266,18 +265,13 @@ export const crowdPredictionService = {
       return recommendations;
     } catch (error) {
       console.warn('Cross-temple recommendation fallback:', error);
-      try {
-        const { MASTER_TEMPLES } = await import('./templeRegistry');
-        return MASTER_TEMPLES.map(mt => ({
-          temple: mt.name,
-          templeId: mt.id,
-          capacityPercent: 35,
-          predictedCount: 850,
-          densityLevel: 'low'
-        }));
-      } catch (_) {
-        return [];
-      }
+      return MASTER_TEMPLES.map(mt => ({
+        temple: mt.name,
+        templeId: mt.id,
+        capacityPercent: 35,
+        predictedCount: 850,
+        densityLevel: 'low'
+      }));
     }
   },
 
@@ -347,15 +341,10 @@ export const crowdPredictionService = {
       return true;
     } catch (err) {
       console.warn('updateTempleCapacity error, executing locally:', err);
-      try {
-        const { MASTER_TEMPLES } = await import('./templeRegistry');
-        for (const t of MASTER_TEMPLES) {
-          const curHour = new Date().getHours();
-          const localPct = Math.round(30 + Math.sin(curHour / 3) * 20 + Math.random() * 10);
-          localStorage.setItem(`nirvighna_capacity_pct_${t.id}`, localPct.toString());
-        }
-      } catch (regErr) {
-        console.error('Registry dynamic import failed:', regErr);
+      for (const t of MASTER_TEMPLES) {
+        const curHour = new Date().getHours();
+        const localPct = Math.round(30 + Math.sin(curHour / 3) * 20 + Math.random() * 10);
+        localStorage.setItem(`nirvighna_capacity_pct_${t.id}`, localPct.toString());
       }
       return false;
     }
@@ -375,7 +364,6 @@ export const crowdPredictionService = {
         return null;
       }
 
-      const { MASTER_TEMPLES } = await import('./templeRegistry');
       const comparedTemples = [];
 
       for (const tId of wishlistTemples) {

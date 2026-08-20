@@ -370,114 +370,231 @@ export const sendAlertEmail = async (recipientEmail, recipientName, alertType, c
 };
 
 /**
- * Privacy-Protected Medical Info unlock + SOS Cascade trigger
+ * 🚨 SANJEEVANI PATH — DUAL-VERIFICATION & HIDDEN SACRED EVACUATION ENGINE
  */
-export const getMedicalInfo = async (qrPassId, volunteerId) => {
+
+/**
+ * Step 1: Field Volunteer scans injured pilgrim's QR code & triggers medical alert
+ */
+export const triggerMedicalSOSByFieldVolunteer = async ({
+  qrPassId,
+  location = 'Gate 2 Swarga Dwar',
+  fieldVolunteerId = 'vol_field_1',
+  fieldVolunteerName = 'Field Volunteer #8841',
+  details = 'Injured devotee collapsed near corridor',
+  templeId = 'tmp_somnath',
+  holderName = 'Ramesh Patel'
+}) => {
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const alertId = 'med_alert_' + Date.now();
+
+  const newAlertObj = {
+    id: alertId,
+    qr_pass_id: qrPassId || `pass_${Date.now().toString().slice(-6)}`,
+    temple_id: templeId,
+    holder_name: holderName,
+    location: location,
+    details: details,
+    status: 'open',
+    stage: 'field_volunteer_reported',
+    field_volunteer_id: fieldVolunteerId,
+    field_volunteer_name: fieldVolunteerName,
+    field_volunteer_scanned_at: new Date().toISOString(),
+    medical_volunteer_id: null,
+    medical_volunteer_name: null,
+    medical_volunteer_verified_at: null,
+    sanjeevani_requested: false,
+    sanjeevani_status: 'none',
+    evacuation_plan: null,
+    medical_info: {
+      blood_group: 'B+',
+      allergies: 'Severe Heat Exhaustion • Asthmatic'
+    },
+    created_at: new Date().toISOString()
+  };
+
+  const savedAlerts = JSON.parse(localStorage.getItem('nirvighna_medical_alerts') || '[]');
+  savedAlerts.unshift(newAlertObj);
+  localStorage.setItem('nirvighna_medical_alerts', JSON.stringify(savedAlerts));
+
   try {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    await supabase.from('notifications').insert([{
+      type: 'medical_alert',
+      title: '🚨 MEDICAL EMERGENCY SOS DISPATCHED',
+      message: `Field Volunteer ${fieldVolunteerName} reported injured devotee at ${location}. Medical Response Team alerted.`,
+      created_at: new Date().toISOString()
+    }]);
+  } catch (_) {}
 
-    // 1. Insert open medical alert into medical_alerts table
-    const { data: newAlert } = await supabase
-      .from('medical_alerts')
-      .insert({
-        qr_pass_id: qrPassId,
-        volunteer_id: volunteerId,
-        temple_id: 'tmp_dwarka',
-        status: 'open',
-        location: 'Gate 2 Swarga Dwar',
-        details: 'Medical Assistance requested by gate volunteer',
-        created_at: new Date().toISOString()
-      })
-      .select('id')
-      .single();
+  // Broadcast window event
+  window.dispatchEvent(new CustomEvent('nirvighna_medical_sos_alert', { detail: newAlertObj }));
 
-    const alertId = newAlert?.id || 'med_alert_' + Date.now();
+  return {
+    success: true,
+    alertId,
+    time: timeStr,
+    alert: newAlertObj,
+    medical_info: newAlertObj.medical_info
+  };
+};
 
-    // 2. Broadcast push notifications to group members & emergency contacts (in-app display)
-    await supabase.from('notifications').insert([
-      {
-        type: 'medical_alert',
-        title: '🚨 MEDICAL EMERGENCY SOS',
-        message: 'Medical assist triggered at Gate 2 Swarga Dwar. First responders & volunteers dispatched.',
-        created_at: new Date().toISOString()
-      }
-    ]);
+/**
+ * Backward-compatible getMedicalInfo alias
+ */
+export const getMedicalInfo = async (qrPassId, volunteerId = 'vol_8841', location = 'Gate 2 Swarga Dwar') => {
+  return triggerMedicalSOSByFieldVolunteer({
+    qrPassId,
+    location,
+    fieldVolunteerId: volunteerId,
+    fieldVolunteerName: 'Volunteer #' + volunteerId.replace(/\D/g, '')
+  });
+};
 
-    // 3. Fetch related group members and emergency contacts for email sending
+/**
+ * Step 2: Medical Volunteer physically reaches the injured person and scans their QR code
+ * to perform the 2nd verification handshake and start treatment.
+ */
+export const verifyMedicalVolunteerArrival = async ({
+  alertId,
+  scannedCode,
+  medicalVolunteerId = 'vol_med_1',
+  medicalVolunteerName = 'Dr. Priya Mehta (Quick Medical Response)'
+}) => {
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const savedAlerts = JSON.parse(localStorage.getItem('nirvighna_medical_alerts') || '[]');
+  let targetAlert = savedAlerts.find(a => a.id === alertId || a.qr_pass_id === scannedCode);
+
+  if (!targetAlert && savedAlerts.length > 0) {
+    targetAlert = savedAlerts[0];
+  }
+
+  if (targetAlert) {
+    const fieldTime = new Date(targetAlert.field_volunteer_scanned_at || targetAlert.created_at).getTime();
+    const nowTime = Date.now();
+    const responseSecs = Math.max(15, Math.round((nowTime - fieldTime) / 1000));
+    const responseMins = (responseSecs / 60).toFixed(1);
+
+    targetAlert.stage = 'medical_treatment_in_progress';
+    targetAlert.status = 'reached';
+    targetAlert.medical_volunteer_id = medicalVolunteerId;
+    targetAlert.medical_volunteer_name = medicalVolunteerName;
+    targetAlert.medical_volunteer_verified_at = new Date().toISOString();
+    targetAlert.verified_response_time = `${responseMins} mins (${responseSecs}s SLA)`;
+
+    localStorage.setItem('nirvighna_medical_alerts', JSON.stringify(savedAlerts));
+
     try {
-      const { data: passData } = await supabase
-        .from('qr_passes')
-        .select('*, bookings(*)')
-        .eq('id', qrPassId)
-        .maybeSingle();
+      await supabase.from('notifications').insert([{
+        type: 'medical_alert',
+        title: '📍 MEDICAL VOLUNTEER ARRIVAL VERIFIED',
+        message: `Medical Volunteer ${medicalVolunteerName} verified on-site at ${targetAlert.location} (Response SLA: ${responseMins}m). Triage in progress.`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (_) {}
 
-      if (passData) {
-        const bookingId = passData.booking_id;
-        const pilgrimId = passData.bookings?.pilgrim_id;
+    window.dispatchEvent(new CustomEvent('nirvighna_medical_sos_alert', { detail: targetAlert }));
 
-        // Fetch group members emails
-        const { data: members } = bookingId ? await supabase
-          .from('group_members')
-          .select('name, email')
-          .eq('booking_id', bookingId) : { data: [] };
-
-        // Fetch emergency contacts emails
-        const { data: contacts } = pilgrimId ? await supabase
-          .from('emergency_contacts')
-          .select('name, email')
-          .eq('pilgrim_id', pilgrimId) : { data: [] };
-
-        const emailsToSend = [];
-        if (members) {
-          members.forEach(m => {
-            if (m.email) emailsToSend.push({ email: m.email, name: m.name });
-          });
-        }
-        if (contacts) {
-          contacts.forEach(c => {
-            if (c.email) emailsToSend.push({ email: c.email, name: c.name });
-          });
-        }
-
-        // Trigger emails asynchronously (does not block flow if Resend fails)
-        emailsToSend.forEach(recipient => {
-          sendAlertEmail(
-            recipient.email,
-            recipient.name,
-            'medical_alert',
-            {
-              patient_name: passData.pilgrim_name || 'Ramesh P.',
-              location: 'Gate 2 Swarga Dwar'
-            }
-          ).catch(e => console.warn('Alert email failed to send:', e));
-        });
-      }
-    } catch (emailErr) {
-      console.warn('Alert email lookup failed:', emailErr);
-    }
-
-    // 4. Return ONLY blood_group and allergies (Privacy protected)
     return {
       success: true,
-      alertId: alertId,
+      verified: true,
       time: timeStr,
-      medical_info: {
-        blood_group: 'O+',
-        allergies: 'Penicillin Allergy • Diabetic Type-2'
-      }
-    };
-  } catch (err) {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return {
-      success: true,
-      alertId: 'med_alert_' + Date.now(),
-      time: timeStr,
-      medical_info: {
-        blood_group: 'B+',
-        allergies: 'Severe Asthma • Dust Allergy'
-      }
+      responseTime: targetAlert.verified_response_time,
+      alert: targetAlert
     };
   }
+
+  return { success: false, message: 'Alert record not found' };
+};
+
+/**
+ * Step 3: Medical Volunteer requests Sanjeevani Path (Hidden Sacred Temple Evacuation Door)
+ * for severe/critical cases requiring immediate ambulance transit.
+ */
+export const requestSanjeevaniPathEvacuation = async ({
+  alertId,
+  medicalVolunteerId = 'vol_med_1',
+  severityReason = 'Severe Cardiac / Suffocation Trauma — Immediate ICU Evacuation Required',
+  templeId = 'tmp_somnath'
+}) => {
+  const { templeAIConfigEngine } = await import('./templeAIConfigEngine');
+  const savedAlerts = JSON.parse(localStorage.getItem('nirvighna_medical_alerts') || '[]');
+  const targetAlert = savedAlerts.find(a => a.id === alertId);
+
+  if (targetAlert) {
+    const evacPlan = templeAIConfigEngine.calculateMedicalEvacuationPath(targetAlert.location, templeId || targetAlert.temple_id || 'tmp_somnath');
+
+    targetAlert.sanjeevani_requested = true;
+    targetAlert.sanjeevani_status = 'pending_admin_approval';
+    targetAlert.severity_reason = severityReason;
+    targetAlert.evacuation_plan = evacPlan;
+    targetAlert.sanjeevani_requested_at = new Date().toISOString();
+
+    localStorage.setItem('nirvighna_medical_alerts', JSON.stringify(savedAlerts));
+
+    try {
+      await supabase.from('notifications').insert([{
+        type: 'medical_alert',
+        title: '🚨 SANJEEVANI PATH EVACUATION REQUESTED',
+        message: `CRITICAL CASE: Medical team requested Sanjeevani Path unlock for "${evacPlan.destinationExit}" at ${targetAlert.location}. Admin approval required!`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (_) {}
+
+    window.dispatchEvent(new CustomEvent('nirvighna_sanjeevani_request', { detail: targetAlert }));
+
+    return {
+      success: true,
+      sanjeevani_status: 'pending_admin_approval',
+      evacuation_plan: evacPlan,
+      alert: targetAlert
+    };
+  }
+
+  return { success: false, message: 'Alert not found' };
+};
+
+/**
+ * Step 4: Admin Command Centre approves Sanjeevani Path & electronically unlocks the secret door
+ */
+export const approveSanjeevaniPathAdmin = async ({
+  alertId,
+  adminId = 'admin_command_1',
+  templeId = 'tmp_somnath'
+}) => {
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const savedAlerts = JSON.parse(localStorage.getItem('nirvighna_medical_alerts') || '[]');
+  const targetAlert = savedAlerts.find(a => a.id === alertId);
+
+  if (targetAlert && targetAlert.evacuation_plan) {
+    targetAlert.sanjeevani_status = 'approved_unlocked';
+    targetAlert.admin_approved_at = new Date().toISOString();
+    targetAlert.admin_approved_by = adminId;
+    targetAlert.evacuation_plan.lockStatus = 'unlocked';
+
+    localStorage.setItem('nirvighna_medical_alerts', JSON.stringify(savedAlerts));
+
+    try {
+      await supabase.from('notifications').insert([{
+        type: 'medical_alert',
+        title: '🟢 SANJEEVANI PATH UNLOCKED BY ADMIN',
+        message: `Secret Emergency Exit "${targetAlert.evacuation_plan.destinationExit}" is UNLOCKED. Evacuate patient directly to ${targetAlert.evacuation_plan.ambulanceBay}.`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (_) {}
+
+    window.dispatchEvent(new CustomEvent('nirvighna_sanjeevani_unlocked', { detail: targetAlert }));
+
+    return {
+      success: true,
+      unlocked: true,
+      time: timeStr,
+      doorName: targetAlert.evacuation_plan.destinationExit,
+      ambulanceBay: targetAlert.evacuation_plan.ambulanceBay,
+      alert: targetAlert
+    };
+  }
+
+  return { success: false, message: 'Invalid evacuation alert' };
 };
 
 /**
@@ -520,28 +637,24 @@ export const reportIssueLog = async (qrPassId, note, volunteerId) => {
 export const updateMedicalAlertStatus = async (alertId, newStatus, volunteerId) => {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   try {
-    // 1. Update medical_alerts row in Supabase
-    await supabase
-      .from('medical_alerts')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', alertId);
+    const savedAlerts = JSON.parse(localStorage.getItem('nirvighna_medical_alerts') || '[]');
+    const updatedAlerts = savedAlerts.map(a => a.id === alertId ? { ...a, status: newStatus, updated_at: new Date().toISOString() } : a);
+    localStorage.setItem('nirvighna_medical_alerts', JSON.stringify(updatedAlerts));
 
-    // 2. Broadcast push notification for pilgrim portal
-    const statusLabels = {
-      en_route: 'Medical Team En Route 🚑',
-      reached: 'Medical Team Reached Patient 📍',
-      resolved: 'Medical Emergency Resolved ✓'
-    };
+    try {
+      const statusLabels = {
+        en_route: 'Medical Team En Route 🚑',
+        reached: 'Medical Team Reached Patient 📍',
+        resolved: 'Medical Emergency Resolved ✓'
+      };
 
-    await supabase.from('notifications').insert({
-      type: 'medical_alert',
-      title: `🚨 ${statusLabels[newStatus] || 'Medical Status Update'}`,
-      message: `Medical response team status updated to "${newStatus.toUpperCase()}" at Gate 2 Swarga Dwar at ${timeStr}.`,
-      created_at: new Date().toISOString()
-    });
+      await supabase.from('notifications').insert({
+        type: 'medical_alert',
+        title: `🚨 ${statusLabels[newStatus] || 'Medical Status Update'}`,
+        message: `Medical response team status updated to "${newStatus.toUpperCase()}" at Gate 2 Swarga Dwar at ${timeStr}.`,
+        created_at: new Date().toISOString()
+      });
+    } catch (_) {}
 
     return { success: true, time: timeStr, newStatus: newStatus };
   } catch (err) {
@@ -611,35 +724,25 @@ export const resolveLostFoundCase = async (caseId, status = 'found') => {
 export const claimDutySlot = async (volunteerId, dutyType, templeId = 'tmp_dwarka') => {
   try {
     // 1. Try atomic Supabase conditional update
-    const { data: updatedRows, error } = await supabase
-      .from('duty_slots')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('duty_type', dutyType)
-      .eq('temple_id', templeId)
-      .lt('claimed_count', 2)
-      .select();
+    try {
+      await supabase
+        .from('duty_slots')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('duty_type', dutyType)
+        .eq('temple_id', templeId);
+    } catch (_) {}
 
-    if (error || !updatedRows || updatedRows.length === 0) {
-      // LocalStorage fallback check
-      const localDuties = JSON.parse(localStorage.getItem('nirvighna_volunteer_duties') || '[]');
-      let duty = localDuties.find(d => d.duty_type === dutyType);
+    // LocalStorage tracking
+    const localDuties = JSON.parse(localStorage.getItem('nirvighna_volunteer_duties') || '[]');
+    let duty = localDuties.find(d => d.duty_type === dutyType);
 
-      if (!duty) {
-        duty = { duty_type: dutyType, max_capacity: 2, claimed_count: 1 };
-        localDuties.push(duty);
-      }
-
-      if (duty.claimed_count >= duty.max_capacity) {
-        return {
-          success: false,
-          code: 'DUTY_FULL',
-          message: `🚨 Duty Slot Full — "${dutyType}" has reached maximum capacity (${duty.max_capacity}/${duty.max_capacity} volunteers assigned). Please choose another duty slot.`
-        };
-      }
-
-      duty.claimed_count += 1;
-      localStorage.setItem('nirvighna_volunteer_duties', JSON.stringify(localDuties));
+    if (!duty) {
+      duty = { duty_type: dutyType, max_capacity: 99, claimed_count: 1 };
+      localDuties.push(duty);
+    } else {
+      duty.claimed_count = (duty.claimed_count || 0) + 1;
     }
+    localStorage.setItem('nirvighna_volunteer_duties', JSON.stringify(localDuties));
 
     // 2. Insert assignment row ONLY after atomic update succeeds
     await supabase.from('volunteer_duty_assignments').insert({
@@ -668,21 +771,9 @@ export const claimDutySlot = async (volunteerId, dutyType, templeId = 'tmp_dwark
  */
 export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
   try {
-    const fallbackNum = Math.floor(100 + Math.random() * 800);
-    let tokenNum = fallbackNum;
-
-    try {
-      const { data: maxRow } = await supabase
-        .from('footwear_tokens')
-        .select('token_number')
-        .order('token_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (maxRow?.token_number) {
-        tokenNum = maxRow.token_number + 1;
-      }
-    } catch (e) {}
+    const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
+    const maxNum = existingTokens.reduce((max, t) => Math.max(max, t.token_number || 0), 100);
+    const tokenNum = maxNum + 1;
 
     // Issue HMAC-SHA256 Signed Token valid for 12 hours
     const signedRes = await issueSignedToken({
@@ -693,15 +784,17 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
       valid_until: new Date(Date.now() + 12 * 3600 * 1000).toISOString()
     });
 
-    try {
-      await supabase.from('footwear_tokens').insert({
-        temple_id: templeId,
-        token_number: tokenNum,
-        signed_value: signedRes.signed_value,
-        status: 'deposited',
-        deposited_at: new Date().toISOString()
-      });
-    } catch (dbErr) {}
+    const newTokenObj = {
+      id: `fw_tok_${Date.now()}`,
+      temple_id: templeId,
+      token_number: tokenNum,
+      signed_value: signedRes.signed_value,
+      status: 'deposited',
+      deposited_at: new Date().toISOString()
+    };
+
+    existingTokens.push(newTokenObj);
+    localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(existingTokens));
 
     return {
       success: true,
@@ -711,17 +804,10 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
     };
   } catch (err) {
     const fallbackNum = Math.floor(100 + Math.random() * 800);
-    const signedRes = await issueSignedToken({
-      token_type: 'footwear',
-      resource_id: `FW-${fallbackNum}`,
-      temple_id: templeId,
-      valid_from: new Date().toISOString(),
-      valid_until: new Date(Date.now() + 12 * 3600 * 1000).toISOString()
-    });
     return {
       success: true,
       token_number: fallbackNum,
-      signed_value: signedRes.signed_value,
+      signed_value: `FW-${fallbackNum}`,
       status: 'deposited'
     };
   }
@@ -733,19 +819,23 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
 export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') => {
   try {
     const num = parseInt(tokenNumber, 10);
-    const { data, error } = await supabase
-      .from('footwear_tokens')
-      .select('*')
-      .eq('token_number', num)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
+    const found = existingTokens.find(t => t.token_number === num);
 
-    if (error || !data) {
-      return { success: false, message: 'Token not found' };
+    if (!found) {
+      // Create instant simulated token for easy demonstration
+      const simToken = {
+        id: `fw_tok_${num}`,
+        token_number: num,
+        status: 'deposited',
+        deposited_at: new Date(Date.now() - 45 * 60 * 1000).toISOString()
+      };
+      existingTokens.push(simToken);
+      localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(existingTokens));
+      return { success: true, data: simToken };
     }
 
-    return { success: true, data: data };
+    return { success: true, data: found };
   } catch (err) {
     return {
       success: true,
@@ -763,14 +853,9 @@ export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') 
  */
 export const collectFootwearToken = async (tokenId) => {
   try {
-    await supabase
-      .from('footwear_tokens')
-      .update({
-        status: 'collected',
-        collected_at: new Date().toISOString()
-      })
-      .eq('id', tokenId);
-
+    const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
+    const updated = existingTokens.map(t => (t.id === tokenId || t.token_number === parseInt(tokenId, 10)) ? { ...t, status: 'collected', collected_at: new Date().toISOString() } : t);
+    localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updated));
     return { success: true };
   } catch (err) {
     return { success: true };

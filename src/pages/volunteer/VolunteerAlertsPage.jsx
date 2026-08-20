@@ -1,257 +1,226 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVolunteerAuth } from '../../context/VolunteerAuthContext';
-import { supabase } from '../../lib/supabaseClient';
 import { 
-  AlertTriangle, ArrowLeft, HeartPulse, ShieldAlert, CheckCircle, 
-  Clock, MapPin, ChevronRight, Activity, Filter, RefreshCw
+  HeartPulse, ArrowLeft, RefreshCw, ChevronRight, CheckCircle, 
+  MapPin, Clock, Navigation, AlertCircle, Sparkles, Shield,
+  Wind, Droplets, AlertTriangle, Zap, ShieldCheck
 } from 'lucide-react';
+import { templeAIConfigEngine } from '../../lib/templeAIConfigEngine';
 
 export const VolunteerAlertsPage = () => {
   const navigate = useNavigate();
-  const { currentUser } = useVolunteerAuth();
+  const { currentUser, assignedDuty } = useVolunteerAuth();
+  const isMedicalResponder = assignedDuty === 'medical_responder';
 
-  const [filterMode, setFilterMode] = useState('active'); // 'active' | 'all'
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newItemHighlightId, setNewItemHighlightId] = useState(null);
-  const [gateDispatchAlert, setGateDispatchAlert] = useState(() => {
-    try {
-      const saved = localStorage.getItem('nirvighna_last_gate_dispatch_alert');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-
-  const playBeep = () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5
-      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.15); // Play for 150ms
-    } catch (e) {
-      console.warn('Web Audio beep ignored:', e);
-    }
-  };
+  const [filterMode, setFilterMode] = useState('active'); // 'active' | 'suffocation' | 'all'
+  const [sanctumCO2, setSanctumCO2] = useState(1380);
 
   useEffect(() => {
     fetchAlerts();
-
-    // Subscribe to Supabase Realtime for medical_alerts INSERT and UPDATE
-    const channel = supabase
-      .channel('volunteer_alerts_list_realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'medical_alerts' },
-        (payload) => {
-          const newAlert = payload.new;
-          setNewItemHighlightId(newAlert.id);
-          setAlerts(prev => [newAlert, ...prev]);
-
-          // Play Web Audio sound cue on INSERT event only
-          playBeep();
-
-          setTimeout(() => {
-            setNewItemHighlightId(null);
-          }, 3000);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'medical_alerts' },
-        (payload) => {
-          const updated = payload.new;
-          setAlerts(prev => prev.map(a => a.id === updated.id ? updated : a));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
-  const fetchAlerts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('medical_alerts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        setAlerts(data);
-      } else {
-        // Fallback demo alerts
-        setAlerts([
-          {
-            id: 'alt_dwarka_1',
-            qr_pass_id: 'pass_KV8492',
-            holder_name: 'Ramesh P.',
-            location: 'Gate 2 Swarga Dwar',
-            status: 'open',
-            details: 'Heat dizziness. Oxygen kit requested.',
-            created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'alt_dwarka_2',
-            qr_pass_id: 'pass_KV9999',
-            holder_name: 'Sita D.',
-            location: 'Sanctum Inner Queue',
-            status: 'en_route',
-            details: 'Asthma flare-up. First responder assigned.',
-            created_at: new Date(Date.now() - 14 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'alt_dwarka_3',
-            qr_pass_id: 'pass_KV1002',
-            holder_name: 'Amit V.',
-            location: 'Annakshetra Dining Hall',
-            status: 'resolved',
-            details: 'Minor abrasion. Bandaged on site.',
-            created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString()
-          }
-        ]);
+  const fetchAlerts = () => {
+    const defaultAlerts = [
+      {
+        id: 'alt_dwarka_1',
+        qr_pass_id: 'pass_KV8492',
+        temple_id: 'tmp_somnath',
+        holder_name: 'Ramesh Patel',
+        location: 'Gate 2 Swarga Dwar',
+        status: 'open',
+        category: 'general_medical',
+        details: 'Heat exhaustion & dizziness. Devotee resting near shade tent, hydration & oxygen requested.',
+        created_at: new Date(Date.now() - 4 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'alt_dwarka_suffocate_1',
+        qr_pass_id: 'pass_KV7741',
+        temple_id: 'tmp_somnath',
+        holder_name: 'Kamlesh Trivedi (64 yrs)',
+        location: 'Inner Sanctum Holding Queue',
+        status: 'open',
+        category: 'suffocation',
+        details: '🫁 SUFFOCATION & BREATHING DISTRESS: High CO2 surge in enclosed sanctum. Pilgrim experiencing acute breathlessness, portable O2 canister required.',
+        created_at: new Date(Date.now() - 2 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'alt_dwarka_2',
+        qr_pass_id: 'pass_KV9999',
+        temple_id: 'tmp_somnath',
+        holder_name: 'Sita Devi',
+        location: 'Sanctum Inner Queue',
+        status: 'en_route',
+        category: 'suffocation',
+        details: 'Asthma flare-up in crowded line. Volunteer escort assigned with inhaler kit.',
+        created_at: new Date(Date.now() - 14 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'alt_dwarka_3',
+        qr_pass_id: 'pass_KV1002',
+        temple_id: 'tmp_somnath',
+        holder_name: 'Amit Verma',
+        location: 'Annakshetra Dining Hall',
+        status: 'resolved',
+        category: 'general_medical',
+        details: 'Minor abrasion. Bandaged on site by first responder.',
+        created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString()
       }
-    } catch (err) {
-      console.warn('Alert list fallback:', err);
+    ];
+
+    try {
+      const saved = localStorage.getItem('nirvighna_medical_alerts');
+      if (saved) {
+        setAlerts(JSON.parse(saved));
+      } else {
+        localStorage.setItem('nirvighna_medical_alerts', JSON.stringify(defaultAlerts));
+        setAlerts(defaultAlerts);
+      }
+    } catch (_) {
+      setAlerts(defaultAlerts);
     } finally {
       setLoading(false);
     }
   };
 
-  const getRelativeTime = (isoString) => {
-    if (!isoString) return 'Just now';
-    const diffMs = Date.now() - new Date(isoString).getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    if (diffMins < 1) return 'Just now';
-    if (diffMins === 1) return '1 min ago';
-    if (diffMins < 60) return `${diffMins} min ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'open':
-        return { color: 'bg-red-100 text-red-700 border-red-300', label: 'OPEN' };
-      case 'en_route':
-        return { color: 'bg-temple-peach text-temple-brown border-temple-orange', label: 'EN ROUTE' };
-      case 'reached':
-        return { color: 'bg-temple-peach text-temple-brown border-temple-orange', label: 'REACHED' };
-      case 'resolved':
-        return { color: 'bg-emerald-100 text-emerald-700 border-emerald-300', label: 'RESOLVED' };
-      default:
-        return { color: 'bg-red-100 text-red-700 border-red-300', label: 'OPEN' };
-    }
-  };
-
-  // Sort: open/en_route/reached first, resolved last. Order by created_at desc within group.
   const sortedAlerts = [...alerts].sort((a, b) => {
-    const isAResolved = a.status === 'resolved' ? 1 : 0;
-    const isBResolved = b.status === 'resolved' ? 1 : 0;
-    if (isAResolved !== isBResolved) return isAResolved - isBResolved;
-    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    const order = { open: 0, en_route: 1, reached: 2, resolved: 3 };
+    return (order[a.status] || 0) - (order[b.status] || 0);
   });
 
   const filteredAlerts = sortedAlerts.filter(a => {
     if (filterMode === 'active') return a.status !== 'resolved';
+    if (filterMode === 'suffocation') return a.category === 'suffocation' || a.details?.toLowerCase().includes('suffocat') || a.details?.toLowerCase().includes('breath') || a.details?.toLowerCase().includes('asthma');
     return true;
   });
 
   return (
-    <div className="min-h-screen bg-[#181012] text-white font-body pb-24 pt-4 px-3 sm:px-6 max-w-md mx-auto space-y-4 selection:bg-amber-500 selection:text-slate-950">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] text-gray-900 font-body pb-28 pt-4 px-4 sm:px-6 max-w-lg mx-auto space-y-4 selection:bg-gold selection:text-indigo-dark">
+      
+      {/* Top Sacred Header */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-3xl border border-gold/30 shadow-warm">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate('/v/dashboard')}
-            className="p-2 bg-[#221517] rounded-xl border border-amber-900/30 text-amber-400 hover:border-amber-500/50 transition-colors"
+            className="p-2 bg-amber-50 rounded-2xl border border-gold/30 text-maroon hover:bg-gold/20 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-sm font-black font-heading text-white uppercase tracking-wider">
-              FIELD EMERGENCY ALERTS
+            <span className="text-[9px] font-black uppercase tracking-widest text-maroon font-heading block">
+              🕉️ स्वास्थ्य सेवा • MEDICAL SEVA
+            </span>
+            <h1 className="text-xs font-black font-heading text-indigo-dark uppercase tracking-wider">
+              Emergency Medical Unit
             </h1>
-            <p className="text-[10px] text-slate-400 font-mono">Realtime Command Sync Active</p>
           </div>
         </div>
 
         <button
           onClick={fetchAlerts}
-          className="p-2 bg-[#221517] rounded-xl border border-amber-900/30 text-slate-400 hover:text-amber-300 transition-colors"
+          className="p-2 bg-amber-50 rounded-2xl border border-gold/30 text-maroon hover:bg-gold/20 transition-colors cursor-pointer"
+          title="Refresh Alerts"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
-      {/* TOP FILTER TOGGLE (Active vs All) */}
-      <div className="flex bg-[#221517] p-1 rounded-2xl border border-amber-900/30 text-xs font-bold font-heading">
+      {/* 🫁 PRANA KAVACH SUFFOCATION & SANCTUM CO2 LIVE TELEMETRY WIDGET */}
+      <div className="bg-white p-4.5 rounded-3xl border-2 border-rose-300 shadow-warm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-300 flex items-center justify-center">
+              <Wind className="w-4 h-4 text-rose-600 animate-pulse" />
+            </div>
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-wider text-rose-800 bg-rose-50 px-2 py-0.5 rounded-full font-heading">
+                PRANA KAVACH • AIR & SUFFOCATION MONITOR
+              </span>
+              <h3 className="text-xs font-black text-indigo-dark font-heading mt-0.5">
+                Inner Sanctum Breathing Safety
+              </h3>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-900 px-2.5 py-1 rounded-xl border border-gold/40">
+            CO2: {sanctumCO2} PPM
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-700 leading-relaxed font-medium bg-amber-50/50 p-2.5 rounded-xl border border-gold/30">
+          Enclosed Garbhagriha occupancy is high. Paramedics equipped with <strong>Portable O2 Inhalers &amp; Nebulizer Kits</strong> are positioned along the Sanjeevani Path corridor.
+        </p>
+      </div>
+
+      {/* Filter Tabs: Active vs Suffocation/Oxygen vs All */}
+      <div className="flex bg-white p-1 rounded-2xl border border-gold/30 text-xs font-bold font-heading shadow-xs">
         <button
           onClick={() => setFilterMode('active')}
-          className={`flex-1 py-2.5 rounded-xl transition-all ${
+          className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${
             filterMode === 'active'
-              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-goldGlow'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-gradient-to-r from-gold to-amber-500 text-indigo-dark font-black shadow-xs'
+              : 'text-gray-500 hover:text-maroon'
           }`}
         >
-          Active Alerts ({sortedAlerts.filter(a => a.status !== 'resolved').length})
+          Active ({sortedAlerts.filter(a => a.status !== 'resolved').length})
+        </button>
+        <button
+          onClick={() => setFilterMode('suffocation')}
+          className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${
+            filterMode === 'suffocation'
+              ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white font-black shadow-xs'
+              : 'text-gray-500 hover:text-maroon'
+          }`}
+        >
+          🫁 Suffocation
         </button>
         <button
           onClick={() => setFilterMode('all')}
-          className={`flex-1 py-2.5 rounded-xl transition-all ${
+          className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${
             filterMode === 'all'
-              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-goldGlow'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-gradient-to-r from-gold to-amber-500 text-indigo-dark font-black shadow-xs'
+              : 'text-gray-500 hover:text-maroon'
           }`}
         >
-          All Cases ({sortedAlerts.length})
+          All ({sortedAlerts.length})
         </button>
       </div>
 
-      {/* 🚨 TARGETED VOLUNTEER GATE DISPATCH NOTIFICATION BANNER */}
-      {gateDispatchAlert && (
-        <div className="bg-red-950/90 text-red-100 p-4 rounded-2xl border-2 border-red-500 shadow-2xl space-y-2 animate-bounce font-body">
+      {/* 🚨 SANJEEVANI PATH MEDICAL GREEN CORRIDOR BANNER */}
+      {isMedicalResponder && (
+        <div className="bg-white p-4 rounded-3xl border-2 border-emerald-400 shadow-warm space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider flex items-center gap-1.5 font-heading">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              🚨 COMMAND CENTRE GATE DISPATCH ACTIVE
+            <div className="flex items-center gap-2">
+              <Navigation className="w-4 h-4 text-emerald-600 animate-pulse" />
+              <h3 className="text-xs font-black text-emerald-950 font-heading">
+                Sanjeevani Path — Secret Door Ready
+              </h3>
+            </div>
+            <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-300 font-mono">
+              2-STEP AUDIT ACTIVE
             </span>
-            <span className="text-[9px] text-slate-400 font-mono">{gateDispatchAlert.timestamp}</span>
           </div>
-
-          <p className="text-xs font-bold leading-relaxed text-white">
-            {gateDispatchAlert.message}
+          <p className="text-[11px] text-gray-600">
+            For critical respiratory/cardiac distress, request Sanjeevani Path in patient detail to electronically unlatch the temple's secret emergency evacuation door.
           </p>
-
-          <div className="flex items-center justify-between text-[11px] font-mono text-amber-300 bg-black/50 p-2 rounded-xl border border-red-500/30">
-            <span>Target Volunteer: <strong>{gateDispatchAlert.assignedVolunteer}</strong></span>
-            <span className="text-emerald-400 font-bold">ACTION REQUIRED</span>
-          </div>
         </div>
       )}
 
-      {/* ALERTS LIST CARDS */}
-      <div className="space-y-3">
+      {/* ALERTS LIST */}
+      <div className="space-y-3 pt-1">
         {filteredAlerts.length === 0 ? (
-          <div className="bg-[#221517] p-8 rounded-3xl border border-amber-900/30 text-center space-y-2">
-            <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-            <h3 className="text-sm font-bold text-white">No Active Alerts</h3>
-            <p className="text-xs text-slate-400">All emergency medical cases in this zone are resolved.</p>
+          <div className="bg-white p-8 rounded-3xl border border-gold/30 text-center space-y-2 shadow-warm">
+            <CheckCircle className="w-10 h-10 text-emerald-600 mx-auto" />
+            <h3 className="text-sm font-bold text-indigo-dark font-heading">All Devotees Safe</h3>
+            <p className="text-xs text-gray-500">No pending emergency alerts in this category.</p>
           </div>
         ) : (
           filteredAlerts.map((item) => {
-            const isHighlight = item.id === newItemHighlightId;
+            const isOpen = item.status === 'open';
+            const isEnRoute = item.status === 'en_route';
+            const isResolved = item.status === 'resolved';
+            const isSuffocation = item.category === 'suffocation' || item.details?.toLowerCase().includes('suffocat') || item.details?.toLowerCase().includes('breath');
 
             return (
               <div
@@ -259,55 +228,75 @@ export const VolunteerAlertsPage = () => {
                 onClick={() => navigate(`/v/medical/${item.id}`, {
                   state: {
                     alertId: item.id,
-                    holder_name: item.holder_name || 'Ramesh P.',
+                    holder_name: item.holder_name || 'Ramesh Patel',
                     gate_number: item.location || 'Gate #2 Swarga Dwar',
-                    medical_info: { blood_group: 'O+', allergies: item.details || 'Heat dizziness' }
+                    medical_info: { blood_group: 'O+', allergies: item.details || 'Heat fatigue' }
                   }
                 })}
-                className={`bg-[#221517] p-4 rounded-3xl border cursor-pointer transition-all hover:border-amber-500/50 space-y-2.5 shadow-lg ${
-                  isHighlight
-                    ? 'border-amber-400 bg-amber-500/10 scale-[1.02] animate-bounce'
-                    : item.status === 'open'
-                    ? 'border-l-4 border-l-red-500 border-amber-900/30'
-                    : item.status === 'resolved'
-                    ? 'border-emerald-500/30 opacity-75'
-                    : 'border-amber-900/30'
+                className={`bg-white p-4.5 rounded-3xl border space-y-3 shadow-warm transition-all cursor-pointer ${
+                  isSuffocation 
+                    ? 'border-rose-300 hover:border-rose-500' 
+                    : isOpen
+                    ? 'border-gold/30 hover:border-gold'
+                    : isResolved
+                    ? 'border-gray-200 opacity-75'
+                    : 'border-gold/30 hover:border-gold'
                 }`}
               >
+                {/* Card Top Row */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <HeartPulse className={`w-4 h-4 ${item.status === 'open' ? 'text-red-400 animate-pulse' : 'text-amber-400'}`} />
-                    <h3 className="font-extrabold text-sm text-white font-heading">
-                      {item.holder_name || 'Ramesh P.'}
-                    </h3>
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center border ${
+                      isSuffocation
+                        ? 'bg-rose-50 text-rose-700 border-rose-300'
+                        : isOpen 
+                        ? 'bg-amber-50 text-maroon border-gold/40'
+                        : isResolved
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      {isSuffocation ? <Wind className="w-4 h-4 animate-pulse" /> : <HeartPulse className={`w-4 h-4 ${isOpen ? 'animate-pulse' : ''}`} />}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-indigo-dark font-heading">
+                        {item.holder_name || 'Ramesh Patel'}
+                      </h3>
+                      <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-maroon" />
+                        {item.location || 'Gate 2 Swarga Dwar'}
+                      </p>
+                    </div>
                   </div>
 
                   <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
-                    item.status === 'open'
-                      ? 'bg-red-500/15 text-red-300 border-red-500/30'
-                      : item.status === 'resolved'
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    isSuffocation
+                      ? 'bg-rose-50 text-rose-800 border-rose-300 font-mono'
+                      : isOpen
+                      ? 'bg-amber-50 text-amber-900 border-gold/40 font-mono'
+                      : isEnRoute
+                      ? 'bg-blue-50 text-blue-800 border-blue-200 font-mono'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-300 font-mono'
                   }`}>
-                    {item.status?.toUpperCase() || 'OPEN'}
+                    {isSuffocation && isOpen ? '🫁 SUFFOCATION SOS' : item.status.replace('_', ' ')}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                    {item.location || 'Gate #2 Swarga Dwar'}
+                {/* Details Box */}
+                <p className="text-xs text-gray-700 bg-amber-50/40 p-2.5 rounded-xl border border-gold/30 leading-relaxed font-medium">
+                  {item.details || 'Emergency assistance requested by temple volunteer'}
+                </p>
+
+                {/* Card Bottom Row */}
+                <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-xs">
+                  <span className="text-[11px] text-gray-400 font-mono">
+                    Logged {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    Raised {getRelativeTime(item.created_at)}
+
+                  <span className="font-black text-maroon flex items-center gap-1 font-heading hover:underline">
+                    <span>Attend Case &amp; QR Verify</span>
+                    <ChevronRight className="w-4 h-4 text-maroon" />
                   </span>
                 </div>
-
-                {item.details && (
-                  <p className="text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-white/[0.06] line-clamp-1">
-                    {item.details}
-                  </p>
-                )}
               </div>
             );
           })

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { supabase } from '../lib/supabaseClient';
 import { Mail, Lock, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 
 const translations = {
@@ -49,7 +48,7 @@ const translations = {
 
 export const Login = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoggedIn } = useAuth();
+  const { currentUser, isLoggedIn, login } = useAuth();
   const { currentLanguage, setLanguage } = useLanguage();
   const t = translations[currentLanguage] || translations.en;
 
@@ -67,66 +66,33 @@ export const Login = () => {
 
   const handleLogin = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const cleanEmail = email.trim() || 'apex.coder@nirvighna.org';
-    const cleanPassword = password.trim() || 'pilgrim123';
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail) {
+      setError(t.emailRequired);
+      return;
+    }
+    if (!cleanPassword) {
+      setError(t.passwordRequired);
+      return;
+    }
 
     setLoading(true);
     setError('');
 
     try {
-      // 1. Try Supabase Auth
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 1200));
-      const authCall = supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword
-      });
-
-      const res = await Promise.race([authCall, timeout]).catch(err => ({ error: err }));
-      
-      // 2. If Supabase succeeded, profile is loaded
-      if (res?.data?.session?.user) {
+      const res = await login(cleanEmail, cleanPassword);
+      if (res?.success) {
         navigate('/home');
-        return;
+      } else {
+        setError(res?.error || t.loginError);
       }
-
-      // 3. Resilient Demo / Presentation fallback (guarantees zero blocked users)
-      const demoUser = {
-        id: '00000000-0000-4000-a000-000000000077',
-        email: cleanEmail,
-        full_name: 'Apex Coder',
-        role: 'pilgrim',
-        language_preference: currentLanguage || 'en'
-      };
-      localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(demoUser));
-      navigate('/home');
     } catch (err) {
-      // Fallback navigation
-      const demoUser = {
-        id: '00000000-0000-4000-a000-000000000077',
-        email: cleanEmail,
-        full_name: 'Apex Coder',
-        role: 'pilgrim',
-        language_preference: currentLanguage || 'en'
-      };
-      localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(demoUser));
-      navigate('/home');
+      setError(err.message || t.loginError);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemoLogin = () => {
-    setEmail('apex.coder@nirvighna.org');
-    setPassword('pilgrim123');
-    const demoUser = {
-      id: '00000000-0000-4000-a000-000000000077',
-      email: 'apex.coder@nirvighna.org',
-      full_name: 'Apex Coder',
-      role: 'pilgrim',
-      language_preference: currentLanguage || 'en'
-    };
-    localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(demoUser));
-    navigate('/home');
   };
 
   return (
@@ -244,15 +210,6 @@ export const Login = () => {
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                 {loading ? t.loggingIn : t.login}
-              </button>
-
-              {/* Demo Login */}
-              <button
-                type="button"
-                onClick={handleQuickDemoLogin}
-                className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 border border-gold/40 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>⚡ 1-Click Demo Login ({currentLanguage === 'gu' ? 'યાત્રાળુ પ્રવેશ' : currentLanguage === 'hi' ? 'श्रद्धालु प्रवेश' : 'Pilgrim Entry'})</span>
               </button>
             </form>
 

@@ -199,13 +199,13 @@
   animation: logoAura 3s ease-in-out infinite;
 }
 
-/* High-DPI Crisp Logo & Image Rendering (Prevents downscale blur) */
+/* High-DPI Smooth & Ultra-Crisp Logo Rendering (Prevents pixelation & aliasing) */
 .crisp-img {
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
+  image-rendering: auto;
+  image-rendering: smooth;
+  image-rendering: high-quality;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* 100% SEAMLESS ZERO-GAP INFINITE MARQUEE TICKER */

@@ -63,6 +63,10 @@ class PersonDetectorTracker:
         if ULTRALYTICS_AVAILABLE:
             try:
                 model_name = config.get("model", "yolov8n.pt")
+                if not os.path.isabs(model_name):
+                    backend_path = os.path.join(os.path.dirname(__file__), model_name)
+                    if os.path.exists(backend_path):
+                        model_name = backend_path
                 self.model = YOLO(model_name)
                 logger.info(f"Loaded Ultralytics {model_name} model successfully.")
             except Exception as e:

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Search, MapPin, AlertCircle, Volume2, ShieldAlert, CheckCircle2, RefreshCw, Car, HeartPulse, UserX, Settings, Camera, Video, Sparkles, BarChart3 } from 'lucide-react';
+import { ropewayEngine } from '../lib/ropewayEngine';
+import { boatCrossingEngine } from '../lib/boatCrossingEngine';
 
 export const AdminDashboard = () => {
   const [selectedTemple, setSelectedTemple] = useState('Kalika Mata Temple (Pavagadh Ropeway)');
@@ -19,7 +21,6 @@ export const AdminDashboard = () => {
   const handleToggleRopewayHalt = async (status) => {
     setTriggeringHalt(true);
     try {
-      const { ropewayEngine } = await import('../lib/ropewayEngine');
       await ropewayEngine.setStatus('tmp_pavagadh', status, status ? '' : haltReasonInput);
       setRopewayOperational(status);
       alert(status ? '✅ Pavagadh Ropeway Restored to Operational Mode.' : `⚠️ Weather Halt Triggered: ${haltReasonInput}. Pilgrims notified.`);
@@ -33,7 +34,6 @@ export const AdminDashboard = () => {
   const handleToggleBoatSafety = async (isSafe) => {
     setTriggeringBoatReroute(true);
     try {
-      const { boatCrossingEngine } = await import('../lib/boatCrossingEngine');
       await boatCrossingEngine.setCrossingSafety('bc_dwa_4', isSafe, isSafe ? 'ideal' : 'high', 'High Tide & Rough Sea Swell Warning');
       setBoatCrossingSafe(isSafe);
       alert(isSafe ? '✅ Bet Dwarka Crossing Restored to Safe Status.' : '⚠️ High Tide Alert Triggered! 11:00 AM Crossing cancelled & pilgrims rerouted to next safe departure.');

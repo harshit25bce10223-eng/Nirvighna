@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -25,34 +25,38 @@ jobs:
       - name: Setup Java 17 (JDK)
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: 17
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Dependencies
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
+
+      - name: Install Node Dependencies
         run: npm install
 
       - name: Build Web Production Assets
         run: npm run build
 
-      - name: Sync Capacitor Android
+      - name: Sync Web Assets to Native Android
         run: npx cap sync android
 
       - name: Make Gradlew Executable
         run: chmod +x ./android/gradlew
 
-      - name: Build Debug APK
+      - name: Build Android Debug APK
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Prepare APK File
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk Nirvighna-Pilgrim.apk
 
-      - name: Upload Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Nirvighna-Pilgrim-APK
@@ -60,9 +64,10 @@ jobs:
 
       - name: Create Direct APK GitHub Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "Nirvighna Pilgrim App Official Release"
+          name: "Nirvighna Pilgrim App Official Standalone Release"
           body: "Official standalone Android APK for Nirvighna Pilgrim Portal (Darshan Passes, Queue Tracking & Audio Guidance)."
           draft: false
           prerelease: false

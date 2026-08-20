@@ -3,6 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { QrCode, AlertCircle, ShieldAlert, Users, CheckCircle, ArrowRight, UserX, Box, Lock, Phone, Clock, Bell, Calendar, MapPin, Shield } from 'lucide-react';
 import { getUpcomingTwoHourBookings, getVolunteerBookingAlerts } from '../lib/volunteerEngine';
 import { TEMPLE_DUTY_POSTS } from '../lib/templeRegistry';
+import { ropewayEngine } from '../lib/ropewayEngine';
+import { boatCrossingEngine } from '../lib/boatCrossingEngine';
+import { prasadQueueEngine } from '../lib/prasadQueueEngine';
 
 export const VolunteerDashboard = ({ onNavigate }) => {
   const { medicalAlerts, lostCases, footwearTokens } = useAuth();
@@ -54,7 +57,6 @@ export const VolunteerDashboard = ({ onNavigate }) => {
     setRopewayScanResult(null);
 
     try {
-      const { ropewayEngine } = await import('../lib/ropewayEngine');
       const result = await ropewayEngine.scanRopewayQR(ropewayTokenInput.trim().toUpperCase());
       setRopewayScanResult(result);
     } catch (err) {
@@ -76,7 +78,6 @@ export const VolunteerDashboard = ({ onNavigate }) => {
     setBoatScanResult(null);
 
     try {
-      const { boatCrossingEngine } = await import('../lib/boatCrossingEngine');
       const result = await boatCrossingEngine.scanBoatQR(boatTokenInput.trim().toUpperCase());
       setBoatScanResult(result);
     } catch (err) {
@@ -93,7 +94,6 @@ export const VolunteerDashboard = ({ onNavigate }) => {
   const handleServeNextPrasad = async () => {
     setServingPrasad(true);
     try {
-      const { prasadQueueEngine } = await import('../lib/prasadQueueEngine');
       const updated = await prasadQueueEngine.serveNextPrasadToken(selectedTempleId);
       setCurrentServingToken(updated.current_serving_token);
     } catch (e) {

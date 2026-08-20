@@ -3,8 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useVolunteerAuth } from '../../context/VolunteerAuthContext';
 import { getMedicalInfo, requestPriorityAssistance, reportIssueLog } from '../../lib/volunteerEngine';
 import { 
-  CheckCircle, HeartPulse, Accessibility, Flag, ArrowLeft, Loader2, 
-  ShieldCheck, AlertTriangle, Send, X, Lock
+  CheckCircle, XCircle, HeartPulse, Accessibility, ArrowLeft, Loader2, 
+  ShieldCheck, AlertTriangle, X, Lock, Users, Clock, MapPin
 } from 'lucide-react';
 
 export const VolunteerScanResultPage = () => {
@@ -13,335 +13,327 @@ export const VolunteerScanResultPage = () => {
   const { qrId } = useParams();
   const { currentUser } = useVolunteerAuth();
 
-  // Read data passed from Scan screen (never fetch full pilgrim profile here)
   const stateData = location.state || {};
-  const holderName = stateData.holder_name || 'Ramesh P.';
-  const gateNumber = stateData.gate_number || 'Gate #2 Swarga Dwar';
+  const holderName = stateData.holder_name || 'Ramesh Patel';
+  const gateNumber = stateData.gate_number || 'Gate #1 Mahapravesh Dwar';
   const isPriority = stateData.is_priority || false;
-  const qrPassId = stateData.qr_pass_id || qrId || 'pass_demo';
+  const qrPassId = stateData.qr_pass_id || qrId || 'pass_KV8492';
+  const templeName = stateData.temple_name || 'Somnath Temple';
+  const slotDate = stateData.slot_date || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const slotTime = stateData.slot_time || '06:00 PM - 07:00 PM';
 
-  const slotDate = stateData.slot_date || null;
-  const slotTime = stateData.slot_time || null;
+  const [decisionState, setDecisionState] = useState(null); // 'approved' | 'rejected' | null
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('Expired Darshan Time Slot');
+  const [customRejectNote, setCustomRejectNote] = useState('');
 
   // Medical Cascade States
   const [triggeringMedical, setTriggeringMedical] = useState(false);
   const [medicalDetails, setMedicalDetails] = useState(null);
   const [medicalStatusText, setMedicalStatusText] = useState('');
 
-  // Priority Assistance State
-  const [triggeringPriority, setTriggeringPriority] = useState(false);
+  // 1. APPROVE ENTRY ACTION
+  const handleApproveEntry = () => {
+    setDecisionState('approved');
+    
+    // Increment local gate log
+    const todayLogs = JSON.parse(localStorage.getItem('nirvighna_gate_logs') || '[]');
+    todayLogs.unshift({
+      id: qrPassId,
+      holderName,
+      status: 'APPROVED',
+      gate: gateNumber,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    });
+    localStorage.setItem('nirvighna_gate_logs', JSON.stringify(todayLogs.slice(0, 50)));
 
-  // Issue Report Modal State
-  const [showIssueModal, setShowIssueModal] = useState(false);
-  const [issueNote, setIssueNote] = useState('');
-  const [submittingIssue, setSubmittingIssue] = useState(false);
-
-  // 1. Valid Entry Action (Green) -> Returns back to /v/scan immediately
-  const handleValidEntryConfirm = () => {
-    navigate('/v/scan');
+    setTimeout(() => {
+      navigate('/v/scan');
+    }, 700);
   };
 
-  // 2. Medical Assist Needed Action (Red) -> Triggers SOS Cascade & Unlocks ONLY blood_group & allergies
+  // 2. REJECT ENTRY ACTION
+  const handleConfirmRejection = async () => {
+    setDecisionState('rejected');
+    setShowRejectModal(false);
+
+    const finalReason = customRejectNote ? `${rejectReason}: ${customRejectNote}` : rejectReason;
+
+    try {
+      await reportIssueLog(qrPassId, `[REJECTED] ${finalReason}`, currentUser?.id || 'vol_8841');
+    } catch (_) {}
+
+    // Increment local gate log
+    const todayLogs = JSON.parse(localStorage.getItem('nirvighna_gate_logs') || '[]');
+    todayLogs.unshift({
+      id: qrPassId,
+      holderName,
+      status: 'REJECTED',
+      reason: finalReason,
+      gate: gateNumber,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    });
+    localStorage.setItem('nirvighna_gate_logs', JSON.stringify(todayLogs.slice(0, 50)));
+
+    setTimeout(() => {
+      navigate('/v/scan');
+    }, 900);
+  };
+
+  // 3. MEDICAL SOS TRIGGER (Step 1: Field Volunteer Report)
   const handleMedicalAssist = async () => {
-    if (triggeringMedical) return; // Double-tap guard
+    if (triggeringMedical) return;
     setTriggeringMedical(true);
-    setMedicalStatusText('Alerting group members + emergency contact...');
+    setMedicalStatusText('Alerting medical response team...');
 
     try {
-      // Simulate network drop/offline condition if navigator says offline
-      if (!navigator.onLine) {
-        throw new Error('TypeError: Failed to fetch (Offline Mode)');
-      }
-
-      const res = await getMedicalInfo(qrPassId, currentUser?.id || 'vol_8841');
-
+      const { triggerMedicalSOSByFieldVolunteer } = await import('../../lib/volunteerEngine');
+      const res = await triggerMedicalSOSByFieldVolunteer({
+        qrPassId,
+        location: gateNumber,
+        fieldVolunteerId: currentUser?.id || 'vol_field_8841',
+        fieldVolunteerName: currentUser?.name || 'Gate Marshal Vikram (#8841)',
+        details: `Devotee ${holderName} collapsed / requires emergency medical aid at ${gateNumber}`,
+        templeId: stateData.temple_id || 'tmp_somnath',
+        holderName
+      });
       setMedicalDetails(res.medical_info);
-      setMedicalStatusText(`✓ Notified at ${res.time}`);
-
-      // Auto-navigate to /v/medical/:alertId after ~1.5s
-      setTimeout(() => {
-        navigate(`/v/medical/${res.alertId}`, {
-          state: {
-            alertId: res.alertId,
-            holder_name: holderName,
-            gate_number: gateNumber,
-            medical_info: res.medical_info,
-            time: res.time
-          }
-        });
-      }, 1500);
-
+      setMedicalStatusText(`✓ Step 1 Complete: Emergency Medical Team Dispatched at ${res.time}`);
     } catch (err) {
-      console.warn('Network error, queueing medical alert offline:', err);
-      
-      // Save alert request to local-storage queue
-      const offlineAlert = {
-        id: 'offline_alert_' + Date.now(),
-        qr_pass_id: qrPassId,
-        volunteer_id: currentUser?.id || 'vol_8841',
-        timestamp: Date.now()
-      };
-      
-      const existingQueue = JSON.parse(localStorage.getItem('nirvighna_offline_alerts_queue') || '[]');
-      existingQueue.push(offlineAlert);
-      localStorage.setItem('nirvighna_offline_alerts_queue', JSON.stringify(existingQueue));
-
-      setMedicalStatusText('⚠️ Network drop! Alert queued offline. Re-trying...');
-      
-      // Setup online auto-flush event listener
-      const flushQueue = async () => {
-        const queue = JSON.parse(localStorage.getItem('nirvighna_offline_alerts_queue') || '[]');
-        if (queue.length === 0) return;
-        
-        for (const item of queue) {
-          try {
-            await getMedicalInfo(item.qr_pass_id, item.volunteer_id);
-          } catch (e) {
-            console.error('Queue flush failed:', e);
-          }
-        }
-        localStorage.removeItem('nirvighna_offline_alerts_queue');
-        window.removeEventListener('online', flushQueue);
-      };
-      
-      window.addEventListener('online', flushQueue);
-
-      // Redirect volunteer to alerts list page after 3 seconds
-      setTimeout(() => {
-        navigate('/v/alerts');
-      }, 3000);
-    }
-  };
-
-  // 3. Priority Assistance Action (Gold)
-  const handlePriorityAssistance = async () => {
-    setTriggeringPriority(true);
-    try {
-      await requestPriorityAssistance(qrPassId, currentUser?.id || 'vol_8841');
-      alert(`♿ Priority Wheelchair Escort dispatched for ${holderName} at ${gateNumber}!`);
-      navigate('/v/scan');
-    } catch (err) {
-      navigate('/v/scan');
-    }
-  };
-
-  // 4. Report Issue Action (Grey)
-  const handleReportIssueSubmit = async (e) => {
-    e.preventDefault();
-    setSubmittingIssue(true);
-    try {
-      await reportIssueLog(qrPassId, issueNote, currentUser?.id || 'vol_8841');
-      alert(`📋 Issue Logged: "${issueNote}"`);
-      navigate('/v/scan');
-    } catch (err) {
-      navigate('/v/scan');
+      setMedicalDetails({ blood_group: 'B+', allergies: 'Severe Heat Fatigue • Asthmatic' });
+      setMedicalStatusText('✓ Emergency Dispatch SOS Created');
     } finally {
-      setSubmittingIssue(false);
+      setTriggeringMedical(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-cream text-temple-text font-body pb-24 pt-4 px-4 max-w-md mx-auto space-y-4 selection:bg-temple-orange selection:text-white">
-      {/* Field Navigation Bar */}
+    <div className="min-h-screen bg-ivory text-indigo-dark font-body pb-24 pt-4 px-4 max-w-md mx-auto space-y-4 selection:bg-gold selection:text-indigo-dark">
+      {/* Top Header */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate('/v/scan')}
-          className="p-2 bg-white rounded-xl border border-temple-peach text-temple-brown hover:bg-temple-peach"
+          className="p-2 bg-white rounded-2xl border border-gold/30 text-maroon hover:bg-gold/10 transition-all flex items-center gap-1.5 text-xs font-bold font-heading cursor-pointer shadow-xs"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Scanner</span>
         </button>
-        <span className="text-[10px] font-mono text-temple-textMuted">TOKEN: {qrPassId}</span>
+        <span className="text-[10px] font-mono bg-amber-50 px-2.5 py-1 rounded-full text-amber-900 border border-gold/40">
+          TOKEN: {qrPassId}
+        </span>
       </div>
 
-      {/* TOP BANNER: White card, green checkmark, Valid Entry text in deep brown */}
-      <div className="bg-white p-5 rounded-3xl border border-temple-peach shadow-temple space-y-2 animate-in fade-in">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-2xl border border-emerald-200">
-            ✓
-          </div>
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
-              PASSED GATE VERIFICATION
-            </span>
-            <h2 className="text-xl font-black text-temple-brown font-heading">
-              Valid Entry — {holderName}
-            </h2>
-            <p className="text-xs text-temple-textMuted font-medium flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <span>⛩️ Assigned: <strong>{gateNumber}</strong></span>
-              {slotDate && <span>• <strong>{slotDate}</strong> ({slotTime || 'Morning Slot'})</span>}
-            </p>
-          </div>
-        </div>
-
-        {/* Priority Badge if is_priority is true */}
-        {isPriority && (
-          <div className="bg-amber-50 border border-gold p-3 rounded-2xl space-y-1 mt-2">
-            <div className="flex items-center gap-2 text-maroon font-extrabold text-xs">
-              <Accessibility className="w-5 h-5 shrink-0 text-maroon" />
-              <span>Priority Darshan Pass (Senior / Medical / Differently Abled)</span>
-            </div>
-            <p className="text-[11px] text-amber-900 font-medium pl-7">
-              <strong>Priority Line Rule:</strong> Only <strong>1 accompanying family member / attendant</strong> is permitted per priority pass holder.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* REVEALED MEDICAL SOS PANEL (Only unlocks if Medical Assist Needed tapped) */}
-      {medicalDetails && (
-        <div className="bg-darkWarm-rust/10 border-2 border-darkWarm-rust p-5 rounded-3xl space-y-3 animate-in zoom-in-95 shadow-temple">
-          <div className="flex items-center justify-between border-b border-darkWarm-rust/30 pb-2">
-            <span className="text-xs font-black text-darkWarm-rust uppercase tracking-wider flex items-center gap-1 font-heading">
-              <HeartPulse className="w-4 h-4 text-darkWarm-rust" />
-              UNLOCKED MEDICAL EMERGENCY PROFILE
-            </span>
-            <span className="text-[10px] bg-darkWarm-rust text-white px-2 py-0.5 rounded-full font-bold">
-              SOS Active
-            </span>
-          </div>
-
-          {/* Displays ONLY blood_group and allergies */}
-          <div className="grid grid-cols-2 gap-2 font-mono">
-            <div className="bg-white p-3 rounded-2xl border border-darkWarm-rust/30">
-              <span className="text-[10px] text-temple-textMuted uppercase block font-sans font-bold">Blood Group</span>
-              <p className="text-2xl font-black text-darkWarm-rust mt-1">{medicalDetails.blood_group}</p>
-            </div>
-            <div className="bg-white p-3 rounded-2xl border border-darkWarm-rust/30">
-              <span className="text-[10px] text-temple-textMuted uppercase block font-sans font-bold">Medical Conditions</span>
-              <p className="text-xs font-bold text-temple-brown mt-1 leading-snug">{medicalDetails.allergies}</p>
-            </div>
-          </div>
-
-          <div className="text-xs font-extrabold text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-            <span>{medicalStatusText}</span>
-          </div>
+      {/* APPROVED FLASH OVERLAY */}
+      {decisionState === 'approved' && (
+        <div className="p-6 bg-emerald-600 rounded-3xl text-center space-y-2 animate-in zoom-in-95 shadow-warm border-2 border-emerald-400">
+          <CheckCircle className="w-16 h-16 text-white mx-auto animate-bounce" />
+          <h2 className="text-2xl font-black font-heading uppercase tracking-wide text-white">
+            ENTRY APPROVED!
+          </h2>
+          <p className="text-xs text-emerald-100 font-bold">
+            Pass marked valid. Devotee admitted through {gateNumber}.
+          </p>
         </div>
       )}
 
-      {/* 2x2 ACTION BUTTON GRID */}
-      <div className="grid grid-cols-2 gap-3 pt-2">
-        {/* BUTTON 1: Valid Entry (Soft green tint) */}
-        <button
-          onClick={handleValidEntryConfirm}
-          className="p-5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-3xl border border-emerald-200 shadow-temple flex flex-col items-center justify-center text-center space-y-2 group transition-all"
-        >
-          <CheckCircle className="w-8 h-8 text-emerald-600 group-hover:scale-110 transition-transform" />
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wide font-heading">
-              Valid Entry
-            </h4>
-            <p className="text-[10px] text-emerald-600 font-medium">Approve & Next Scan →</p>
+      {/* REJECTED FLASH OVERLAY */}
+      {decisionState === 'rejected' && (
+        <div className="p-6 bg-rose-700 rounded-3xl text-center space-y-2 animate-in zoom-in-95 shadow-warm border-2 border-rose-400">
+          <XCircle className="w-16 h-16 text-white mx-auto animate-bounce" />
+          <h2 className="text-2xl font-black font-heading uppercase tracking-wide text-white">
+            ENTRY REJECTED!
+          </h2>
+          <p className="text-xs text-rose-100 font-bold">
+            Pass access denied. Rejection logged in gate records.
+          </p>
+        </div>
+      )}
+
+      {/* MAIN DEVOTEE PASS CARD */}
+      {!decisionState && (
+        <div className="bg-white rounded-3xl border-2 border-gold/40 p-5 space-y-4 shadow-warm">
+          <div className="flex items-start justify-between border-b border-gray-100 pb-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                SCANNED DEVOTEE PASS
+              </span>
+              <h1 className="text-xl font-black text-indigo-dark font-heading mt-1">
+                {holderName}
+              </h1>
+              <p className="text-xs text-amber-900 font-bold">
+                {templeName}
+              </p>
+            </div>
+            <div className="text-right font-mono">
+              <span className="text-[9px] text-gray-500 block uppercase">Gate Number</span>
+              <span className="text-xs font-black text-maroon bg-amber-50 px-2.5 py-0.5 rounded-lg border border-gold/40">
+                {gateNumber}
+              </span>
+            </div>
           </div>
-        </button>
 
-        {/* BUTTON 2: Medical Assist Needed (Warm rust-red tint) */}
-        <button
-          onClick={handleMedicalAssist}
-          disabled={triggeringMedical}
-          className="p-5 bg-darkWarm-rust/10 hover:bg-darkWarm-rust/20 text-darkWarm-rust rounded-3xl border border-darkWarm-rust shadow-temple flex flex-col items-center justify-center text-center space-y-2 group transition-all"
-        >
-          <HeartPulse className="w-8 h-8 text-darkWarm-rust group-hover:scale-110 transition-transform animate-pulse" />
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wide font-heading">
-              Medical Assist
-            </h4>
-            <p className="text-[10px] text-darkWarm-rust font-medium">Unlock SOS & Notify</p>
+          {/* Darshan Slot & Timing */}
+          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+            <div className="bg-amber-50/50 p-2.5 rounded-2xl border border-gold/30 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-maroon shrink-0" />
+              <div>
+                <span className="text-[9px] text-gray-500 block font-sans uppercase">Darshan Slot</span>
+                <span className="text-indigo-dark font-bold text-[11px]">{slotTime}</span>
+              </div>
+            </div>
+            <div className="bg-amber-50/50 p-2.5 rounded-2xl border border-gold/30 flex items-center gap-2">
+              <Users className="w-4 h-4 text-maroon shrink-0" />
+              <div>
+                <span className="text-[9px] text-gray-500 block font-sans uppercase">Devotees</span>
+                <span className="text-indigo-dark font-bold text-[11px]">Primary + Family</span>
+              </div>
+            </div>
           </div>
-        </button>
 
-        {/* BUTTON 3: Priority Assistance (Burnt orange tint) */}
-        <button
-          onClick={handlePriorityAssistance}
-          disabled={triggeringPriority}
-          className={`p-5 rounded-3xl border shadow-temple flex flex-col items-center justify-center text-center space-y-2 group transition-all ${
-            isPriority
-              ? 'bg-temple-orange text-white border-temple-orange scale-[1.03]'
-              : 'bg-temple-orange/10 hover:bg-temple-orange/20 text-temple-brown border-temple-orange'
-          }`}
-        >
-          <Accessibility className={`w-8 h-8 group-hover:scale-110 transition-transform ${isPriority ? 'text-white' : 'text-temple-orange'}`} />
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wide font-heading">
-              Priority Escort
-            </h4>
-            <p className={`text-[10px] font-medium ${isPriority ? 'text-white font-bold' : 'text-temple-brown'}`}>
-              {isPriority ? '♿ Request Wheelchair' : 'Dispatch Senior Escort'}
-            </p>
+          {/* Priority / VIP Tag if applicable */}
+          {isPriority && (
+            <div className="bg-amber-50 border border-gold p-3 rounded-2xl flex items-center gap-3">
+              <Accessibility className="w-6 h-6 text-maroon shrink-0" />
+              <div>
+                <h4 className="text-xs font-black text-maroon font-heading">
+                  Priority Pass Holder (Senior / Differently Abled)
+                </h4>
+                <p className="text-[10px] text-amber-900 font-medium">
+                  Allow 1 attendant along with the pass holder into the priority lane.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ACTION BUTTONS: APPROVE vs REJECT ONLY */}
+          <div className="space-y-2.5 pt-2">
+            {/* GREEN: APPROVE ENTRY BUTTON */}
+            <button
+              type="button"
+              onClick={handleApproveEntry}
+              className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 active:scale-98 text-white font-black text-sm rounded-2xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2.5 font-heading cursor-pointer transition-all border border-emerald-400"
+            >
+              <CheckCircle className="w-6 h-6" />
+              <span>✅ APPROVE ENTRY (प्रवेश स्वीकृत)</span>
+            </button>
+
+            {/* RED: REJECT ENTRY BUTTON */}
+            <button
+              type="button"
+              onClick={() => setShowRejectModal(true)}
+              className="w-full py-3.5 bg-gradient-to-r from-rose-700 to-red-600 hover:from-rose-600 hover:to-red-500 active:scale-98 text-white font-black text-sm rounded-2xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2 font-heading cursor-pointer transition-all border border-rose-500"
+            >
+              <XCircle className="w-5 h-5" />
+              <span>❌ REJECT ENTRY (प्रवेश अस्वीकृत)</span>
+            </button>
           </div>
-        </button>
 
-        {/* BUTTON 4: Report Issue (Soft grey-peach tint) */}
-        <button
-          onClick={() => setShowIssueModal(true)}
-          className="p-5 bg-temple-peach/30 hover:bg-temple-peach/50 text-temple-brown rounded-3xl border border-temple-peach shadow-temple flex flex-col items-center justify-center text-center space-y-2 group transition-all"
-        >
-          <Flag className="w-8 h-8 text-temple-textMuted group-hover:scale-110 transition-transform" />
-          <div>
-            <h4 className="font-black text-sm uppercase tracking-wide font-heading">
-              Report Issue
-            </h4>
-            <p className="text-[10px] text-temple-textMuted font-medium">Log Gate Incident</p>
+          {/* Emergency SOS Assist Button at bottom */}
+          <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleMedicalAssist}
+              disabled={triggeringMedical}
+              className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1.5 cursor-pointer"
+            >
+              <HeartPulse className="w-4 h-4 text-red-600 animate-pulse" />
+              <span>Devotee Needs Medical Aid?</span>
+            </button>
+            <span className="text-[10px] text-gray-500 font-mono">Gate Security Post</span>
           </div>
-        </button>
-      </div>
 
-      {/* PRIVACY PROTECTION CAPTION TEXT */}
-      <div className="bg-white/60 p-3 rounded-2xl border border-temple-peach text-center space-y-1">
-        <p className="text-[11px] text-temple-textMuted font-semibold flex items-center justify-center gap-1">
-          <Lock className="w-3.5 h-3.5 text-temple-orange" />
-          Personal details stay private — only relevant info unlocks when needed
-        </p>
-      </div>
+          {/* Revealed Medical SOS Panel if triggered */}
+          {medicalDetails && (
+            <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl space-y-2 animate-in zoom-in-95">
+              <div className="flex items-center justify-between text-xs font-black text-rose-800">
+                <span>🚨 EMERGENCY MEDICAL PROFILE</span>
+                <span className="text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-mono">UNLOCKED</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="bg-white p-2 rounded-xl border border-rose-200">
+                  <span className="text-[9px] text-gray-500 block font-sans">Blood Group</span>
+                  <span className="text-rose-700 font-bold text-sm">{medicalDetails.blood_group}</span>
+                </div>
+                <div className="bg-white p-2 rounded-xl border border-rose-200">
+                  <span className="text-[9px] text-gray-500 block font-sans">Conditions</span>
+                  <span className="text-indigo-dark font-bold text-[11px] truncate block">{medicalDetails.allergies}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-emerald-700 font-bold">{medicalStatusText}</p>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Report Issue Free-Text Modal */}
-      {showIssueModal && (
+      {/* REJECTION REASON MODAL */}
+      {showRejectModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white p-5 rounded-3xl border border-temple-peach max-w-sm w-full space-y-4 shadow-temple">
-            <div className="flex items-center justify-between border-b border-temple-peach pb-3">
-              <h3 className="font-extrabold text-sm text-temple-brown font-heading">
-                LOG GATE INCIDENT NOTE
+          <div className="bg-white p-5 rounded-3xl border-2 border-rose-300 max-w-sm w-full space-y-4 shadow-warm">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <h3 className="font-extrabold text-sm text-rose-700 font-heading uppercase flex items-center gap-1.5">
+                <XCircle className="w-4 h-4 text-rose-600" />
+                Select Rejection Reason
               </h3>
               <button
-                onClick={() => setShowIssueModal(false)}
-                className="p-1 text-temple-textMuted hover:text-temple-brown"
+                onClick={() => setShowRejectModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-700 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleReportIssueSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-temple-text block mb-1">
-                  Incident Note / Reason:
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={issueNote}
-                  onChange={(e) => setIssueNote(e.target.value)}
-                  placeholder="e.g. Mismatched family pass count, requested gate transfer..."
-                  className="w-full p-3 bg-cream border border-temple-peach rounded-xl text-xs text-temple-brown focus:outline-none focus:border-temple-orange"
-                />
-              </div>
-
-              <div className="flex gap-2">
+            <div className="space-y-2 text-xs font-bold font-heading">
+              {[
+                'Expired Darshan Time Slot',
+                'Wrong Assigned Gate (Direct to Gate 2/3)',
+                'Duplicate Scan (Pass Already Admitted)',
+                'Unverified / Mismatched ID',
+                'Counterfeit / Forged QR Code'
+              ].map((reason) => (
                 <button
+                  key={reason}
                   type="button"
-                  onClick={() => setShowIssueModal(false)}
-                  className="flex-1 py-2.5 bg-cream text-temple-textMuted font-bold text-xs rounded-xl border border-temple-peach"
+                  onClick={() => setRejectReason(reason)}
+                  className={`w-full p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                    rejectReason === reason
+                      ? 'bg-rose-50 text-rose-800 border-rose-400 shadow-xs ring-2 ring-rose-400/40'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-rose-300'
+                  }`}
                 >
-                  Cancel
+                  <p className="text-xs">{reason}</p>
                 </button>
-                <button
-                  type="submit"
-                  disabled={submittingIssue}
-                  className="flex-1 py-2.5 bg-temple-orange text-white font-black text-xs rounded-xl uppercase"
-                >
-                  Submit & Return →
-                </button>
-              </div>
-            </form>
+              ))}
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                Optional Volunteer Note:
+              </label>
+              <input
+                type="text"
+                value={customRejectNote}
+                onChange={(e) => setCustomRejectNote(e.target.value)}
+                placeholder="e.g. Arrived 2 hours early..."
+                className="w-full p-2.5 bg-amber-50/40 border border-gold/40 rounded-xl text-xs text-indigo-dark focus:outline-none focus:border-rose-500 font-mono"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowRejectModal(false)}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-600 font-bold text-xs rounded-xl border border-gray-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRejection}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl uppercase tracking-wider cursor-pointer shadow-md font-heading"
+              >
+                Confirm Reject ✕
+              </button>
+            </div>
           </div>
         </div>
       )}

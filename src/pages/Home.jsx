@@ -618,7 +618,7 @@ export const Home = () => {
                   <img 
                     src="/official_logo.png" 
                     alt="Official Nirvighna Emblem" 
-                    className="w-full h-full object-contain crisp-img transform-gpu group-hover:scale-105 transition-transform duration-300 select-none drop-shadow-sm" 
+                    className="w-full h-full object-contain crisp-img group-hover:scale-105 transition-transform duration-300 select-none drop-shadow-sm" 
                   />
                 </div>
               </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
+import { isDemoMode } from '../lib/runtimeMode';
 import { User, Mail, Phone, Lock, Loader2, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 
 const translations = {
@@ -137,6 +138,20 @@ export const Signup = () => {
     setCooldownSeconds(60);
 
     try {
+      if (isDemoMode) {
+        const demoUser = {
+          id: 'pilgrim_' + Date.now(),
+          email: email.trim(),
+          full_name: fullName.trim(),
+          role: 'pilgrim',
+          language_preference: currentLanguage
+        };
+        localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(demoUser));
+        setSuccessMessage('Registration successful! Redirecting to your dashboard...');
+        setTimeout(() => navigate('/home'), 800);
+        return;
+      }
+
       const { data, error: signupError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
