@@ -1,13 +1,16 @@
-﻿name: Build Nirvighna Pilgrim APK
+name: Build and Release Nirvighna Pilgrim APK
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build Android APK
+    name: Build & Release Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -45,8 +48,24 @@ jobs:
           cd android
           ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Prepare APK File
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk Nirvighna-Pilgrim.apk
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Nirvighna-Pilgrim-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: Nirvighna-Pilgrim.apk
+
+      - name: Create Direct APK GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Nirvighna Pilgrim App Official Release"
+          body: "Official standalone Android APK for Nirvighna Pilgrim Portal (Darshan Passes, Queue Tracking & Audio Guidance)."
+          draft: false
+          prerelease: false
+          files: Nirvighna-Pilgrim.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
