@@ -293,8 +293,8 @@ export const Notifications = () => {
   }
 
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-4 animate-page-in">
-      <div className="max-w-md mx-auto space-y-4">
+    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 animate-page-in">
+      <div className="max-w-md sm:max-w-lg mx-auto space-y-5">
 
         {/* Header */}
         <div className="flex items-center justify-between">

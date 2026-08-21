@@ -411,8 +411,8 @@ export const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-3 sm:px-6 font-body animate-page-in">
-      <div className="max-w-2xl mx-auto space-y-4">
+    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 font-body animate-page-in">
+      <div className="max-w-2xl mx-auto space-y-5">
         
         {/* Hidden inputs & reference nodes */}
         <input 

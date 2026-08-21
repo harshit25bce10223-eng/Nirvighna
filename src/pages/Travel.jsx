@@ -770,8 +770,8 @@ export const Travel = () => {
   const hasBoat = selectedTemple?.has_boat_crossing || selectedTempleId === 'tmp_dwarka';
 
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-3 sm:px-6 font-body">
-      <div className="max-w-4xl mx-auto space-y-4">
+    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 font-body">
+      <div className="max-w-4xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
