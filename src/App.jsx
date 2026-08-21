@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Signup } from './pages/Signup';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
@@ -236,7 +236,7 @@ const ScrollToTop = () => {
 
 export function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <HashRouter>
       <ScrollToTop />
       <Routes>
         {/* ─── Unified Command Centre — Single Authoritative Hub ─── */}
@@ -321,6 +321,6 @@ export function App() {
           }
         />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
