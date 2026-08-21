@@ -205,19 +205,33 @@ export const AuthProvider = ({ children }) => {
   const verifyOtp = async (email, token) => {
     setLoading(true);
     try {
+      const cleanEmail = email.trim();
       const { data, error } = await supabase.auth.verifyOtp({
-        email: email.trim(),
+        email: cleanEmail,
         token: token.trim(),
         type: 'email'
       });
       if (error) throw error;
       if (data?.user) {
-        const profile = await fetchUserProfile(data.user.id);
-        if (profile) {
-          setCurrentUser(profile);
-          setIsLoggedIn(true);
-          return { success: true, user: profile };
+        let profile = await fetchUserProfile(data.user.id);
+        if (!profile) {
+          const defaultName = cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          const newProfile = {
+            id: data.user.id,
+            email: cleanEmail,
+            full_name: data.user.user_metadata?.full_name || defaultName || 'Devotee',
+            role: 'pilgrim',
+            language_preference: 'en'
+          };
+          try {
+            await supabase.from('users').upsert(newProfile);
+          } catch (_) {}
+          profile = newProfile;
         }
+        localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(profile));
+        setCurrentUser(profile);
+        setIsLoggedIn(true);
+        return { success: true, user: profile };
       }
       return { success: true, user: data?.user };
     } catch (err) {
