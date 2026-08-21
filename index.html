@@ -7,10 +7,35 @@
     <title>Nirvighna — Temple Pilgrimage Crowd Management</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Instant zero-flash ivory background -->
+    <style>
+      html, body, #root {
+        background-color: #FAF7F2 !important;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        width: 100%;
+      }
+    </style>
   </head>
-  <body class="bg-ivory text-gray-900 antialiased selection:bg-gold selection:text-indigo-dark min-h-screen">
+  <body class="bg-[#FAF7F2] text-gray-900 antialiased selection:bg-gold selection:text-indigo-dark min-h-screen">
     <div id="root"></div>
+    <script>
+      (function() {
+        try {
+          var h = window.location.hash || '';
+          if (h.indexOf('access_token=') !== -1) {
+            var params = new URLSearchParams(h.replace(/^#\/?/, ''));
+            var tok = params.get('access_token');
+            var ref = params.get('refresh_token');
+            if (tok) {
+              sessionStorage.setItem('sb_incoming_access_token', tok);
+              sessionStorage.setItem('sb_incoming_refresh_token', ref || '');
+            }
+          }
+        } catch (_) {}
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

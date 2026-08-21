@@ -60,12 +60,24 @@ export const AppUpdateGatekeeper = ({ children }) => {
         prog = 100;
         clearInterval(interval);
         setTimeout(() => {
-          if (updateInfo?.downloadUrl) {
-            try {
-              window.open(updateInfo.downloadUrl, '_system');
-            } catch (_) {}
-            window.location.href = updateInfo.downloadUrl;
-          }
+          const dlUrl = updateInfo?.downloadUrl && updateInfo.downloadUrl.endsWith('.apk')
+            ? updateInfo.downloadUrl
+            : `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`;
+          
+          try {
+            const link = document.createElement('a');
+            link.href = dlUrl;
+            link.setAttribute('download', 'Nirvighna-Pilgrim.apk');
+            link.setAttribute('target', '_system');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (_) {}
+
+          try {
+            window.open(dlUrl, '_system');
+          } catch (_) {}
+          window.location.href = dlUrl;
         }, 300);
       }
       setDownloadProgress(prog);

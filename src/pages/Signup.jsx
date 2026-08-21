@@ -322,8 +322,9 @@ export const Signup = () => {
                   <input
                     type="text" required value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder={t.fullName}
-                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
                 <div className="relative">
@@ -331,8 +332,9 @@ export const Signup = () => {
                   <input
                     type="email" required value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder={t.email}
-                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
                 <div className="relative">
@@ -340,8 +342,9 @@ export const Signup = () => {
                   <input
                     type="tel" value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder={t.phone}
-                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
               </div>
@@ -354,21 +357,24 @@ export const Signup = () => {
                 <input
                   type="text" value={emergencyName}
                   onChange={(e) => setEmergencyName(e.target.value)}
+                  onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                   placeholder="Contact Name"
-                  className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all"
+                  className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="tel" value={emergencyPhone}
                     onChange={(e) => setEmergencyPhone(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder="Phone"
-                    className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all"
+                    className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                   />
                   <input
                     type="email" value={emergencyEmail}
                     onChange={(e) => setEmergencyEmail(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder="Email"
-                    className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all"
+                    className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                   />
                 </div>
               </div>
@@ -383,8 +389,9 @@ export const Signup = () => {
                   <input
                     type="password" required value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder={t.password}
-                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
                 <div className="relative">
@@ -392,8 +399,9 @@ export const Signup = () => {
                   <input
                     type="password" required value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     placeholder={t.confirmPassword}
-                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
               </div>

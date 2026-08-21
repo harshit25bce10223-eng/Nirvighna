@@ -13,8 +13,8 @@
       "showSpinner": false
     },
     "StatusBar": {
-      "style": "DARK",
-      "backgroundColor": "#0F0D22"
+      "style": "DEFAULT",
+      "backgroundColor": "#FAF7F2"
     },
     "PushNotifications": {
       "presentationOptions": [

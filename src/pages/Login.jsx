@@ -299,8 +299,9 @@ export const Login = () => {
                       disabled={otpSent && countdown > 0}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                       placeholder="devotee@example.com"
-                      className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all disabled:opacity-70"
+                      className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all disabled:opacity-70 focus:border-maroon focus:bg-white"
                     />
                   </div>
                 </div>
@@ -331,8 +332,9 @@ export const Login = () => {
                         autoFocus
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value.replace(/\s/g, ''))}
+                        onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                         placeholder="123456"
-                        className="w-full pl-10 pr-4 py-3 bg-ivory border-2 border-gold/60 focus:border-maroon rounded-xl text-center text-lg font-black tracking-widest text-maroon transition-all"
+                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gold/60 focus:border-maroon rounded-xl text-center text-lg font-black tracking-widest text-maroon transition-all shadow-inner"
                       />
                     </div>
                   </div>
@@ -378,8 +380,9 @@ export const Login = () => {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                       placeholder="devotee@example.com"
-                      className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                     />
                   </div>
                 </div>
@@ -394,8 +397,9 @@ export const Login = () => {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                       placeholder="••••••••"
-                      className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                     />
                   </div>
                 </div>

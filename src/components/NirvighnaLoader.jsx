@@ -22,17 +22,17 @@ export const NirvighnaLoader = ({ message, lang: langOverride }) => {
     },
     hi: {
       word: 'निर्विघ्न',
-      letters: ['नि', 'र्वि', 'घ्न'],
+      letters: ['निर्विघ्न'],
       defaultMsg: 'पवित्र तीर्थ पोर्टल',
-      fontSize: 'text-lg sm:text-xl tracking-wider',
-      gap: 'gap-1'
+      fontSize: 'text-xl sm:text-2xl tracking-normal',
+      gap: 'gap-0'
     },
     gu: {
       word: 'નિર્વિઘ્ન',
-      letters: ['નિ', 'ર્વિ', 'ઘ્ન'],
+      letters: ['નિર્વિઘ્ન'],
       defaultMsg: 'પવિત્ર યાત્રા પોર્ટલ',
-      fontSize: 'text-lg sm:text-xl tracking-wider',
-      gap: 'gap-1'
+      fontSize: 'text-xl sm:text-2xl tracking-normal',
+      gap: 'gap-0'
     }
   };
 

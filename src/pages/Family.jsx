@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
+import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { Users, Plus, MapPin, AlertTriangle, Loader2, ChevronLeft } from 'lucide-react';
 
 const translations = {
@@ -242,9 +243,17 @@ export const Family = () => {
     return colors[idx];
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-ivory flex items-center justify-center pb-20">
+        <NirvighnaLoader message={t.loading} />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-4 animate-page-in">
-      <div className="max-w-md mx-auto space-y-4">
+    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 animate-page-in">
+      <div className="max-w-md mx-auto space-y-5">
 
         {/* Header */}
         <div className="flex items-center justify-between">

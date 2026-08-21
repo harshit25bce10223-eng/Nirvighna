@@ -66,14 +66,14 @@ export const fetchLatestVersionInfo = async () => {
       releaseNotes: releaseData?.body || 'Latest darshan features & performance improvements.',
       downloadUrl:
         releaseData?.assets?.[0]?.browser_download_url ||
-        `https://github.com/${GITHUB_REPO}/releases/latest`
+        `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`
     };
   } catch (e) {
     return {
       version: CURRENT_VERSION,
       hasUpdate: false,
       releaseNotes: 'Performance enhancements and bug fixes.',
-      downloadUrl: `https://github.com/${GITHUB_REPO}/releases/latest`
+      downloadUrl: `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`
     };
   }
 };
@@ -114,7 +114,20 @@ export const AppUpdateChecker = ({ manualCheck = false, onCheckComplete }) => {
         prog = 100;
         clearInterval(interval);
         setTimeout(() => {
-          const dlUrl = updateInfo?.downloadUrl || `https://github.com/${GITHUB_REPO}/releases/latest`;
+          const dlUrl = updateInfo?.downloadUrl && updateInfo.downloadUrl.endsWith('.apk')
+            ? updateInfo.downloadUrl
+            : `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`;
+          
+          try {
+            const link = document.createElement('a');
+            link.href = dlUrl;
+            link.setAttribute('download', 'Nirvighna-Pilgrim.apk');
+            link.setAttribute('target', '_system');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (_) {}
+
           try {
             window.open(dlUrl, '_system');
           } catch (_) {}

@@ -8,6 +8,7 @@ import { liveNewsService } from '../lib/liveNewsService';
 import { melaEngine } from '../lib/melaEngine';
 import { PrasadQueueModal } from '../components/PrasadQueueModal';
 import { PilgrimFootwearModal } from '../components/PilgrimFootwearModal';
+import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
@@ -571,13 +572,7 @@ export const Home = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-ivory flex flex-col items-center justify-center pb-20">
-        <div className="text-center space-y-3">
-          <div className="w-14 h-14 rounded-full bg-gold/20 flex items-center justify-center mx-auto border-2 border-gold animate-spin">
-            <Flame className="w-7 h-7 text-maroon" />
-          </div>
-          <p className="text-xs font-bold text-maroon font-heading tracking-wide uppercase">{t.loading}</p>
-          <p className="text-[11px] text-gray-500">Connecting to Nirvighna Temple Servers...</p>
-        </div>
+        <NirvighnaLoader message={t.loading || 'Connecting to Nirvighna Temple Servers...'} />
       </div>
     );
   }
@@ -587,7 +582,7 @@ export const Home = () => {
   const currentMeta = getTempleMeta(selectedTempleId, currentLanguage, currentTime);
 
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-3 sm:px-6 animate-page-in">
+    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 animate-page-in">
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Devotional Hero Greeting Banner */}

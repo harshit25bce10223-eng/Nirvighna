@@ -54,7 +54,7 @@ const Layout = ({ children }) => {
       <div className="min-h-screen bg-ivory text-gray-900 font-body flex flex-col selection:bg-gold selection:text-indigo-dark">
         <AppUpdateChecker />
         {showNav && <Navbar />}
-        <main className="flex-1 pb-20">
+        <main className="flex-1 pb-32 sm:pb-36">
           {children || <Outlet />}
         </main>
         {showNav && <BottomNav />}
