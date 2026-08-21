@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getUniqueTemples, MASTER_TEMPLES, getLocalizedTempleName, getLocalizedTempleLocation, getShortTempleName, getMicroTempleName } from '../lib/templeRegistry';
 import { NirvighnaAIEngine } from '../lib/aiCrowdEngine';
 import { crowdPredictionService } from '../lib/crowdPrediction';
@@ -6,8 +8,6 @@ import { liveNewsService } from '../lib/liveNewsService';
 import { melaEngine } from '../lib/melaEngine';
 import { PrasadQueueModal } from '../components/PrasadQueueModal';
 import { PilgrimFootwearModal } from '../components/PilgrimFootwearModal';
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';

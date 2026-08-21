@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getAllottedGate, getUniqueTemples, MASTER_TEMPLES, getLocalizedTemple } from '../lib/templeRegistry';
 import { NirvighnaAIEngine } from '../lib/aiCrowdEngine';
 import { melaEngine } from '../lib/melaEngine';
@@ -5,8 +7,6 @@ import { panchangCalendarEngine } from '../lib/panchangCalendarEngine';
 import { cctvHeatmapService } from '../lib/cctvHeatmapService';
 import { broadcastBookingToVolunteers } from '../lib/volunteerEngine';
 import { issueSignedToken } from '../lib/signedTokenEngine';
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';

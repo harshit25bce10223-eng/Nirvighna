@@ -1,12 +1,12 @@
 
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NirvighnaAIEngine } from '../lib/aiCrowdEngine';
 import { cctvHeatmapService } from '../lib/cctvHeatmapService';
 import { ropewayEngine } from '../lib/ropewayEngine';
 import { boatCrossingEngine } from '../lib/boatCrossingEngine';
 import { liveWeatherService } from '../lib/liveWeatherService';
 import { getTempleById, getUniqueTemples, getLocalizedTempleName, getLocalizedTempleLocation } from '../lib/templeRegistry';
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
