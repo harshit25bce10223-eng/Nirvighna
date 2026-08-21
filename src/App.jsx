@@ -199,6 +199,10 @@ const ProtectedRoute = ({ children }) => {
 };
 
 // Protect command centre route based on demo mode or admin session
+const AdminRoute = ({ children }) => {
+  const { isLoggedIn, currentUser, loading } = useAuth();
+
+  if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-ivory text-maroon font-semibold">Verifying command access...</div>;
   }
   if (!isDemoMode) {
