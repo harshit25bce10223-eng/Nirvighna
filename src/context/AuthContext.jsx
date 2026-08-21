@@ -187,6 +187,46 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const sendOtp = async (email) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: true
+        }
+      });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message || 'Failed to send OTP' };
+    }
+  };
+
+  const verifyOtp = async (email, token) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: token.trim(),
+        type: 'email'
+      });
+      if (error) throw error;
+      if (data?.user) {
+        const profile = await fetchUserProfile(data.user.id);
+        if (profile) {
+          setCurrentUser(profile);
+          setIsLoggedIn(true);
+          return { success: true, user: profile };
+        }
+      }
+      return { success: true, user: data?.user };
+    } catch (err) {
+      return { success: false, error: err.message || 'Invalid or expired OTP' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -319,6 +359,8 @@ export const AuthProvider = ({ children }) => {
         isLoggedIn,
         loading,
         login,
+        sendOtp,
+        verifyOtp,
         logout,
         fetchUserProfile,
         setCurrentUser,
