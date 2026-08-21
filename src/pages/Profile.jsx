@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { 
   User, ChevronLeft, LogOut, Globe, Shield, ChevronRight, 
-  Loader2, Edit2, X, Check, Phone, Camera, Upload, Trash, Mail, AlertTriangle, Users
+  Loader2, Edit2, X, Check, Phone, Camera, Upload, Trash, Mail, AlertTriangle, Users, Sparkles
 } from 'lucide-react';
 
 const translations = {
@@ -754,9 +754,37 @@ export const Profile = () => {
           )}
         </div>
 
-        {/* Action Buttons */}
+        {/* App Version & Updates */}
+        <div className="bg-white p-4 rounded-3xl border border-gold/20 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-indigo-dark font-heading">Nirvighna Pilgrim</p>
+              <p className="text-[10px] font-bold text-gray-500">Version 1.0.1 (Build 2)</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              alert(
+                currentLanguage === 'gu'
+                  ? 'તમારી પાસે નવીનતમ સંસ્કરણ v1.0.1 છે!'
+                  : currentLanguage === 'hi'
+                  ? 'आपके पास नवीनतम संस्करण v1.0.1 है!'
+                  : 'You are on the latest version v1.0.1!'
+              );
+            }}
+            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer"
+          >
+            {currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check Updates'}
+          </button>
+        </div>
+
+        {/* Sign Out Button */}
         <button
-          onClick={handleLogout}
+          onClick={handleLogoutClick}
           className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs rounded-3xl shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-2 font-heading cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
