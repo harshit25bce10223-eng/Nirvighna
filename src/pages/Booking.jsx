@@ -1000,7 +1000,7 @@ export const Booking = () => {
   const filteredSlots = slots.filter(slot => slot.slot_type === slotType);
 
   return (
-    <div className="min-h-screen bg-ivory pb-20 pt-4 px-4">
+    <div className="min-h-screen bg-ivory pb-28 pt-4 px-3.5 sm:px-6 animate-page-in">
       <div className="max-w-md mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">

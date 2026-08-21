@@ -13,34 +13,34 @@ export const AppUpdateGatekeeper = ({ children }) => {
 
   useEffect(() => {
     let isMounted = true;
-
-    // Hard safety timeout: After 1 second max, smoothly let user into app unconditionally
-    const safetyTimer = setTimeout(() => {
-      if (isMounted && !updateRequired) {
-        setChecking(false);
-      }
-    }, 1000);
+    const MIN_SPLASH_TIME = 1600;
+    const startTime = Date.now();
 
     const checkLiveUpdates = async () => {
       try {
         const info = await fetchLatestVersionInfo();
-        if (isMounted) {
-          if (info.hasUpdate) {
-            setUpdateInfo({
-              version: info.version,
-              notes: info.releaseNotes,
-              downloadUrl: info.downloadUrl
-            });
-            setUpdateRequired(true);
+        const elapsed = Date.now() - startTime;
+        const delay = Math.max(0, MIN_SPLASH_TIME - elapsed);
+
+        setTimeout(() => {
+          if (isMounted) {
+            if (info.hasUpdate) {
+              setUpdateInfo({
+                version: info.version,
+                notes: info.releaseNotes,
+                downloadUrl: info.downloadUrl
+              });
+              setUpdateRequired(true);
+            }
             setChecking(false);
-          } else {
-            setTimeout(() => {
-              if (isMounted) setChecking(false);
-            }, 500);
           }
-        }
+        }, delay);
       } catch (_) {
-        if (isMounted) setChecking(false);
+        const elapsed = Date.now() - startTime;
+        const delay = Math.max(0, MIN_SPLASH_TIME - elapsed);
+        setTimeout(() => {
+          if (isMounted) setChecking(false);
+        }, delay);
       }
     };
 
@@ -48,7 +48,6 @@ export const AppUpdateGatekeeper = ({ children }) => {
 
     return () => {
       isMounted = false;
-      clearTimeout(safetyTimer);
     };
   }, []);
 

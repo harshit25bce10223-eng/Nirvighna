@@ -30,7 +30,7 @@ export const VolunteerBottomNav = () => {
           <span>⚠️ Shared Device Session ending in 2 mins due to inactivity</span>
         </div>
       )}
-      <nav className="fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur-xl border border-gold/40 py-2 px-3 flex justify-around items-center z-50 max-w-md mx-auto rounded-3xl shadow-warm">
+      <nav className="fixed bottom-[max(env(safe-area-inset-bottom,0px),0.75rem)] left-3 right-3 bg-white/95 backdrop-blur-xl border border-gold/40 py-2 px-3 flex justify-around items-center z-50 max-w-md mx-auto rounded-3xl shadow-warm">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path || (item.path === '/v/dashboard' && location.pathname === '/v');

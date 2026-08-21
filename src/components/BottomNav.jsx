@@ -42,7 +42,7 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur-2xl border-2 border-gold/40 py-1.5 px-2 flex justify-around items-center z-50 max-w-lg mx-auto rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.16)] select-none">
+    <nav className="fixed bottom-[max(env(safe-area-inset-bottom,0px),0.75rem)] left-3 right-3 bg-white/95 backdrop-blur-2xl border-2 border-gold/40 py-1.5 px-2 flex justify-around items-center z-50 max-w-lg mx-auto rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.16)] select-none">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path ||
