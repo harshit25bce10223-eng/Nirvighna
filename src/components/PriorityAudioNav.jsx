@@ -32,7 +32,7 @@ import {
   Globe
 } from 'lucide-react';
 import { MASTER_TEMPLES } from '../lib/templeRegistry';
-import { speakNaturalIndianVoice, stopNaturalIndianVoice, getBestIndianFemaleVoice } from '../lib/indianVoiceEngine';
+import { speakNaturalIndianVoice, stopNaturalIndianVoice, getBestIndianFemaleVoice, playDevotionalChime } from '../lib/indianVoiceEngine';
 
 const UI_TEXT = {
   en: {
@@ -750,10 +750,11 @@ export const PriorityAudioNav = () => {
   const activePromptText = isGujarati ? (currentStepData.gu || currentStepData.hi || currentStepData.en) : isHindi ? currentStepData.hi : currentStepData.en;
 
   const speakVoicePrompt = (textToSpeak) => {
-    if (!voiceNavActive) return;
+    setSpeaking(true);
+    setVoiceNavActive(true);
 
-    speakNaturalIndianVoice(textToSpeak, currentLanguage, {
-      pitch: 1.08,
+    speakNaturalIndianVoice(textToSpeak || activePromptText, currentLanguage, {
+      pitch: 1.05,
       rate: 0.88,
       onStart: () => setSpeaking(true),
       onEnd: () => setSpeaking(false),
@@ -761,18 +762,22 @@ export const PriorityAudioNav = () => {
     });
   };
 
-  useEffect(() => {
-    if (voiceNavActive) {
-      speakVoicePrompt(activePromptText);
-    } else {
-      stopNaturalIndianVoice();
-      setSpeaking(false);
-    }
+  const handleTestSound = () => {
+    playDevotionalChime(528, 0.6);
+    speakVoicePrompt(
+      isGujarati
+        ? 'જય શ્રી કૃષ્ણ! નિર્વિઘ્ન ઓડિયો નેવિગેશન સંપૂર્ણ રીતે સક્રિય છે.'
+        : isHindi
+        ? 'जय श्री कृष्ण! निर्विघ्न ऑडियो नेविगेशन पूर्णतः सक्रिय है।'
+        : 'Jai Shri Krishna! Nirvighna Audio Navigation is active and ready.'
+    );
+  };
 
+  useEffect(() => {
     return () => {
       stopNaturalIndianVoice();
     };
-  }, [activeStep, selectedTempleId, voiceNavActive, currentLanguage]);
+  }, []);
 
   const handleNextStep = () => {
     if (activeStep < currentRoute.steps.length) {
@@ -1008,6 +1013,15 @@ export const PriorityAudioNav = () => {
               </div>
               <button
                 type="button"
+                onClick={handleTestSound}
+                className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-gold text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>🔔</span>
+                <span>{isGujarati ? 'અવાજ ટેસ્ટ' : isHindi ? 'ध्वनि टेस्ट' : 'Test Sound'}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => speakVoicePrompt(activePromptText)}
                 className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-maroon border border-gold/40 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
@@ -1017,7 +1031,16 @@ export const PriorityAudioNav = () => {
 
               <button
                 type="button"
-                onClick={() => setVoiceNavActive(!voiceNavActive)}
+                onClick={() => {
+                  if (voiceNavActive) {
+                    stopNaturalIndianVoice();
+                    setSpeaking(false);
+                    setVoiceNavActive(false);
+                  } else {
+                    setVoiceNavActive(true);
+                    speakVoicePrompt(activePromptText);
+                  }
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                   voiceNavActive
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300'

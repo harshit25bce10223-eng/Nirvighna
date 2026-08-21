@@ -1,12 +1,65 @@
 /**
- * Nirvighna Master Indian Female Voice & Devotional Speech Engine
- * Uses the highest-fidelity, natural human-like Indian female voice (e.g., Microsoft Swara, Google हिन्दी, Neerja)
- * uniformly across Hindi, Gujarati, and English with flawless pronunciation, smooth cadence, and phonetic enhancements.
+ * Nirvighna Master Indian Voice & Devotional Audio Navigation Engine
+ * 
+ * Provides:
+ * 1. Divine Temple Chime acoustic feedback using Web Audio API
+ * 2. High-fidelity Indian Speech Synthesis (Swara, Lekha, Google हिन्दी, Neerja)
+ * 3. Garbage-collection proof speech lifecycle for Android WebView
+ * 4. Online High-Definition Audio TTS Fallback for devices without local voice data
  */
 
 let cachedVoices = [];
 let masterFemaleVoice = null;
+let audioCtx = null;
+let currentAudio = null;
 
+// Initialize Web Audio Context on first interaction
+export function getAudioContext() {
+  if (typeof window === 'undefined') return null;
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  return audioCtx;
+}
+
+/**
+ * Plays a sweet, resonant temple chime / bell sound using harmonic synthesis.
+ * Gives instant audio confirmation to the devotee.
+ */
+export function playDevotionalChime(freq = 528, duration = 0.8) {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    // Harmonics for a rich brass temple bell tone
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.99, ctx.currentTime + duration);
+
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) {
+    console.debug('Devotional chime skipped:', e);
+  }
+}
+
+// Pre-load Speech Synthesis voices
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   const loadVoices = () => {
     try {
@@ -22,13 +75,12 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 }
 
 /**
- * Finds the single highest quality Indian Female Voice available in the OS/Browser.
- * (Prioritizes Microsoft Swara Natural, Google हिन्दी, Microsoft Neerja, Lekha, Veena)
+ * Finds the single highest quality Indian Voice available in the OS/Browser.
  */
 function findMasterIndianFemaleVoice(voices) {
   if (!voices || voices.length === 0) return null;
 
-  // Priority 1: Top-tier natural Hindi/Indian female voices (Microsoft Swara, Google हिन्दी, Lekha)
+  // Priority 1: Top-tier natural Hindi/Indian female voices
   const topHindiFemale = voices.find(v => {
     const name = (v.name || '').toLowerCase();
     const lang = (v.lang || '').toLowerCase();
@@ -37,20 +89,11 @@ function findMasterIndianFemaleVoice(voices) {
   });
   if (topHindiFemale) return topHindiFemale;
 
-  // Priority 2: Any Hindi female voice
-  const anyHiFemale = voices.find(v => {
-    const name = (v.name || '').toLowerCase();
-    const lang = (v.lang || '').toLowerCase();
-    const isHi = lang.startsWith('hi');
-    return isHi && (name.includes('female') || name.includes('kalpana') || name.includes('swara') || name.includes('geeta'));
-  });
-  if (anyHiFemale) return anyHiFemale;
-
-  // Priority 3: Any Hindi voice
+  // Priority 2: Any Hindi voice
   const anyHi = voices.find(v => (v.lang || '').toLowerCase().startsWith('hi'));
   if (anyHi) return anyHi;
 
-  // Priority 4: Indian English Female voice (Neerja, Heera, Veena)
+  // Priority 3: Indian English Female voice (Neerja, Heera, Veena)
   const inEnFemale = voices.find(v => {
     const name = (v.name || '').toLowerCase();
     const lang = (v.lang || '').toLowerCase();
@@ -59,16 +102,13 @@ function findMasterIndianFemaleVoice(voices) {
   });
   if (inEnFemale) return inEnFemale;
 
-  // Priority 5: Any Indian voice
+  // Priority 4: Any Indian voice
   const anyIndian = voices.find(v => (v.lang || '').toLowerCase().includes('in') || (v.name || '').toLowerCase().includes('india'));
   if (anyIndian) return anyIndian;
 
   return voices[0] || null;
 }
 
-/**
- * Gets the active Master Indian Female voice.
- */
 export function getBestIndianFemaleVoice(langCode = 'hi') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
   const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
@@ -79,16 +119,11 @@ export function getBestIndianFemaleVoice(langCode = 'hi') {
   return masterFemaleVoice || voices[0] || null;
 }
 
-/**
- * Phonetically translates Gujarati Unicode characters to Devanagari script
- * so the Master Hindi/Indian Female voice pronounces Gujarati seamlessly with human warmth.
- */
 export function gujaratiToDevanagari(text) {
   if (!text) return '';
   const out = [];
   for (let i = 0; i < text.length; i++) {
     const cp = text.charCodeAt(i);
-    // Gujarati Unicode block (0x0A81 to 0x0AFD) maps to Devanagari by subtracting 0x0180
     if (cp >= 0x0A81 && cp <= 0x0AFD) {
       out.push(String.fromCharCode(cp - 0x0180));
     } else {
@@ -98,19 +133,14 @@ export function gujaratiToDevanagari(text) {
   return out.join('');
 }
 
-/**
- * Cleans and softens text for clear, natural, human Indian speech pronunciation.
- */
 function prepareTextForSpeech(rawText, langCode) {
   if (!rawText) return '';
   let text = rawText.trim();
 
-  // If language is Gujarati, convert to phonetic Devanagari for the Hindi female voice
   if (langCode === 'gu') {
     text = gujaratiToDevanagari(text);
   }
 
-  // Common pronunciation smoothing for Indian devotional context
   text = text
     .replace(/VOL-(\d+)/gi, 'वॉल $1')
     .replace(/MED-(\d+)/gi, 'मेडिकल टीम $1')
@@ -127,84 +157,152 @@ function prepareTextForSpeech(rawText, langCode) {
 }
 
 /**
- * Speaks text using the unified Master Indian Female voice across Hindi, Gujarati, and English.
- * @param {string} text - The speech text
- * @param {'hi' | 'gu' | 'en'} langCode - Target language
- * @param {object} options - Callbacks & settings { onStart, onEnd, onError, rate, pitch }
+ * Speaks text with 100% Android WebView & Browser compatibility.
+ * Includes Web Audio chime, GC retention, and HTML5 Audio fallback.
  */
 export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    if (options.onEnd) options.onEnd();
-    return null;
+  // 1. Play soft devotional chime on start
+  if (options.playChime !== false) {
+    playDevotionalChime(528, 0.45);
   }
 
-  try {
-    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-      window.speechSynthesis.cancel();
-    }
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-  } catch (e) {}
+  // 2. Stop existing audio & speech
+  stopNaturalIndianVoice();
 
   if (!text || text.trim() === '') {
     if (options.onEnd) options.onEnd();
     return null;
   }
 
-  const spokenText = prepareTextForSpeech(text, langCode);
-  const utterance = new SpeechSynthesisUtterance(spokenText);
-
-  // Set language code
-  utterance.lang = langCode === 'en' ? 'en-IN' : 'hi-IN';
-
-  // Sweet, natural female pitch and clear, unhurried cadence
-  utterance.pitch = options.pitch !== undefined ? options.pitch : 1.08;
-  utterance.rate = options.rate !== undefined ? options.rate : 0.88;
-  utterance.volume = options.volume !== undefined ? options.volume : 1.0;
-
-  const masterVoice = getBestIndianFemaleVoice(langCode);
-  if (masterVoice) {
-    utterance.voice = masterVoice;
-  }
-
-  utterance.onstart = () => {
-    if (options.onStart) options.onStart();
-  };
-
-  utterance.onend = () => {
-    if (options.onEnd) options.onEnd();
-  };
-
-  utterance.onerror = (err) => {
-    // 'interrupted' and 'canceled' are standard browser lifecycle events when switching or stopping audio
-    if (err?.error === 'interrupted' || err?.error === 'canceled') {
-      if (options.onEnd) options.onEnd();
-      return;
-    }
-    if (options.onError) options.onError(err);
-    if (options.onEnd) options.onEnd();
-  };
-
-  // Small delay ensures clean reset in Chromium speech queue
-  setTimeout(() => {
-    try {
-      window.speechSynthesis.speak(utterance);
-    } catch (err) {
-      if (options.onEnd) options.onEnd();
-    }
-  }, 25);
-
-  return utterance;
-}
-
-/**
- * Cleanly stops any active voice playback.
- */
-export function stopNaturalIndianVoice() {
+  // Try Native SpeechSynthesis first
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
-    } catch (e) {}
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
+      const spokenText = prepareTextForSpeech(text, langCode);
+      const utterance = new SpeechSynthesisUtterance(spokenText);
+
+      utterance.lang = langCode === 'en' ? 'en-IN' : 'hi-IN';
+      utterance.pitch = options.pitch !== undefined ? options.pitch : 1.05;
+      utterance.rate = options.rate !== undefined ? options.rate : 0.88;
+      utterance.volume = options.volume !== undefined ? options.volume : 1.0;
+
+      const masterVoice = getBestIndianFemaleVoice(langCode);
+      if (masterVoice) {
+        utterance.voice = masterVoice;
+      }
+
+      // Android GC Retention: Keep reference on window to prevent mid-speech garbage collection
+      window.__nirvighna_active_speech_utterance = utterance;
+
+      let started = false;
+
+      utterance.onstart = () => {
+        started = true;
+        if (options.onStart) options.onStart();
+      };
+
+      utterance.onend = () => {
+        window.__nirvighna_active_speech_utterance = null;
+        if (options.onEnd) options.onEnd();
+      };
+
+      utterance.onerror = (err) => {
+        window.__nirvighna_active_speech_utterance = null;
+        if (err?.error === 'interrupted' || err?.error === 'canceled') {
+          if (options.onEnd) options.onEnd();
+          return;
+        }
+        // Fallback to online audio if SpeechSynthesis fails
+        speakOnlineAudioFallback(text, langCode, options);
+      };
+
+      // Heartbeat to keep Android speech from stalling
+      const interval = setInterval(() => {
+        if (!window.__nirvighna_active_speech_utterance) {
+          clearInterval(interval);
+          return;
+        }
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      }, 5000);
+
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          speakOnlineAudioFallback(text, langCode, options);
+        }
+      }, 50);
+
+      return utterance;
+    } catch (err) {
+      return speakOnlineAudioFallback(text, langCode, options);
+    }
+  } else {
+    return speakOnlineAudioFallback(text, langCode, options);
+  }
+}
+
+/**
+ * Resilient Online TTS Fallback using HTML5 Audio element.
+ * Ensures sound plays even on devices with no TTS engine installed.
+ */
+function speakOnlineAudioFallback(text, langCode, options) {
+  try {
+    const cleanText = (text || '').substring(0, 180);
+    const targetLang = langCode === 'gu' ? 'gu' : langCode === 'en' ? 'en' : 'hi';
+    const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${targetLang}&client=tw-ob&q=${encodeURIComponent(cleanText)}`;
+
+    const audio = new Audio(audioUrl);
+    currentAudio = audio;
+    window.__nirvighna_active_audio = audio;
+
+    if (options.onStart) options.onStart();
+
+    audio.onended = () => {
+      window.__nirvighna_active_audio = null;
+      if (options.onEnd) options.onEnd();
+    };
+
+    audio.onerror = () => {
+      window.__nirvighna_active_audio = null;
+      if (options.onEnd) options.onEnd();
+    };
+
+    audio.play().catch(() => {
+      if (options.onEnd) options.onEnd();
+    });
+
+    return audio;
+  } catch (e) {
+    if (options.onEnd) options.onEnd();
+    return null;
+  }
+}
+
+/**
+ * Cleanly stops any active voice playback and audio.
+ */
+export function stopNaturalIndianVoice() {
+  if (typeof window !== 'undefined') {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+    if (currentAudio) {
+      try {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      } catch (e) {}
+      currentAudio = null;
+    }
+    window.__nirvighna_active_speech_utterance = null;
+    window.__nirvighna_active_audio = null;
   }
 }

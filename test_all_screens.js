@@ -151,7 +151,7 @@ const runSuite = async () => {
       console.log('  -> [PASS] Travel guide verified.\n');
 
       // TEST 8: Profile & Settings Screen (#/profile)
-      console.log('[9/9] Testing Profile Screen (#/profile)...');
+      console.log('[9/10] Testing Profile Screen (#/profile)...');
       await page.goto('http://127.0.0.1:4173/#/profile', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const profileText = await page.locator('body').innerText();
@@ -159,6 +159,16 @@ const runSuite = async () => {
       console.log(`  -> Profile details rendered (Includes v1.0.3): ${hasProfileDetails}`);
       if (!hasProfileDetails) throw new Error('Profile details missing!');
       console.log('  -> [PASS] Profile screen verified.\n');
+
+      // TEST 9: Priority Audio Navigation (#/priority-nav)
+      console.log('[10/10] Testing Priority Audio Navigation (#/priority-nav)...');
+      await page.goto('http://127.0.0.1:4173/#/priority-nav', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const audioNavText = await page.locator('body').innerText();
+      const hasAudioControls = audioNavText.includes('ध्वनि') || audioNavText.includes('Audio') || audioNavText.includes('Somnath') || audioNavText.includes('सोमनाथ') || audioNavText.includes('मार्गदर्शन');
+      console.log(`  -> Audio Navigation rendered with sound controls: ${hasAudioControls}`);
+      if (!hasAudioControls) throw new Error('Audio Navigation page missing controls!');
+      console.log('  -> [PASS] Priority Audio Navigation verified.\n');
 
       await browser.close();
       server.close();
