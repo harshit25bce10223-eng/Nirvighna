@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
+import { AppUpdateChecker } from '../components/AppUpdateChecker';
 import { 
   User, ChevronLeft, LogOut, Globe, Shield, ChevronRight, 
   Loader2, Edit2, X, Check, Phone, Camera, Upload, Trash, Mail, AlertTriangle, Users, Sparkles
@@ -170,11 +171,11 @@ export const Profile = () => {
   const [isEditingMedical, setIsEditingMedical] = useState(false);
   const [savingMedical, setSavingMedical] = useState(false);
 
-  // Photo Source Picker & Camera Modal States
   const [showPhotoSource, setShowPhotoSource] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [showManualUpdateCheck, setShowManualUpdateCheck] = useState(false);
 
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -767,20 +768,20 @@ export const Profile = () => {
           </div>
           <button
             type="button"
-            onClick={() => {
-              alert(
-                currentLanguage === 'gu'
-                  ? 'તમારી પાસે નવીનતમ સંસ્કરણ v1.0.3 છે!'
-                  : currentLanguage === 'hi'
-                  ? 'आपके पास नवीनतम संस्करण v1.0.3 है!'
-                  : 'You are on the latest version v1.0.3!'
-              );
-            }}
-            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer"
+            onClick={() => setShowManualUpdateCheck(true)}
+            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
           >
-            {currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check Updates'}
+            <Sparkles className="w-3.5 h-3.5 text-gold" />
+            <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check Updates'}</span>
           </button>
         </div>
+
+        {showManualUpdateCheck && (
+          <AppUpdateChecker
+            manualCheck={true}
+            onCheckComplete={() => {}}
+          />
+        )}
 
         {/* Sign Out Button */}
         <button

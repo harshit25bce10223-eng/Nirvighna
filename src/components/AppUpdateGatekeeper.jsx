@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Download, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { supabase } from '../lib/supabaseClient';
-
-const CURRENT_VERSION = '1.0.3';
-const GITHUB_REPO = 'harshit25bce10223-eng/Nirvighna';
+import { fetchLatestVersionInfo, CURRENT_VERSION, GITHUB_REPO } from './AppUpdateChecker';
 
 export const AppUpdateGatekeeper = ({ children }) => {
   const { currentLanguage } = useLanguage();
@@ -26,53 +23,13 @@ export const AppUpdateGatekeeper = ({ children }) => {
 
     const checkLiveUpdates = async () => {
       try {
-        let latestVersion = null;
-        let releaseData = null;
-
-        // Fast fetch with 1.5s abort controller
-        const controller = new AbortController();
-        const fetchTimeout = setTimeout(() => controller.abort(), 1500);
-
-        try {
-          const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-            signal: controller.signal,
-            headers: { Accept: 'application/vnd.github.v3+json' }
-          });
-          clearTimeout(fetchTimeout);
-          if (res.ok) {
-            releaseData = await res.json();
-            latestVersion = releaseData.tag_name ? releaseData.tag_name.replace(/^v/, '') : null;
-          }
-        } catch (_) {}
-
-        // Fallback to Supabase app_versions table if GitHub fails
-        if (!latestVersion) {
-          try {
-            const { data } = await supabase
-              .from('app_versions')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-            if (data?.version) {
-              latestVersion = data.version.replace(/^v/, '');
-              releaseData = {
-                tag_name: data.version,
-                body: data.release_notes || 'New performance updates and bug fixes.',
-                assets: [{ browser_download_url: data.apk_url }]
-              };
-            }
-          } catch (_) {}
-        }
-
+        const info = await fetchLatestVersionInfo();
         if (isMounted) {
-          if (latestVersion && isNewerVersion(latestVersion, CURRENT_VERSION)) {
+          if (info.hasUpdate) {
             setUpdateInfo({
-              version: latestVersion,
-              notes: releaseData?.body || 'Latest darshan features & performance improvements.',
-              downloadUrl:
-                releaseData?.assets?.[0]?.browser_download_url ||
-                `https://github.com/${GITHUB_REPO}/releases/latest`
+              version: info.version,
+              notes: info.releaseNotes,
+              downloadUrl: info.downloadUrl
             });
             setUpdateRequired(true);
             setChecking(false);
@@ -85,18 +42,6 @@ export const AppUpdateGatekeeper = ({ children }) => {
       } catch (_) {
         if (isMounted) setChecking(false);
       }
-    };
-
-    const isNewerVersion = (latest, current) => {
-      const l = latest.split('.').map(Number);
-      const c = current.split('.').map(Number);
-      for (let i = 0; i < Math.max(l.length, c.length); i++) {
-        const lv = l[i] || 0;
-        const cv = c[i] || 0;
-        if (lv > cv) return true;
-        if (lv < cv) return false;
-      }
-      return false;
     };
 
     checkLiveUpdates();
