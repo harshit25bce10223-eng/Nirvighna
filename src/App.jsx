@@ -18,6 +18,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { BottomNav } from './components/BottomNav';
 import { Navbar } from './components/Navbar';
 import { PriorityAudioNav } from './components/PriorityAudioNav';
+import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { useAuth } from './context/AuthContext';
 
 import { AdminLogin } from './pages/admin/AdminLogin';
@@ -51,6 +52,7 @@ const Layout = ({ children }) => {
   return (
     <ErrorBoundary sectionName="Pilgrim Portal">
       <div className="min-h-screen bg-ivory text-gray-900 font-body flex flex-col selection:bg-gold selection:text-indigo-dark">
+        <AppUpdateChecker />
         {showNav && <Navbar />}
         <main className="flex-1 pb-20">
           {children}
