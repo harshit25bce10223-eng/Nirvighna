@@ -179,7 +179,7 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] py-8 px-4 flex flex-col justify-center select-none font-body animate-page-in">
+    <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] pt-14 pb-10 px-4 flex flex-col justify-center select-none font-body animate-page-in">
       <div className="max-w-sm w-full mx-auto space-y-5">
 
         {/* Language Switcher — Top Right */}
@@ -413,22 +413,16 @@ export const Login = () => {
             )}
 
             {/* Footer */}
-            <div className="pt-3 text-center text-xs text-gray-500 font-semibold border-t border-gray-100 flex items-center justify-between flex-wrap gap-2">
+            <div className="pt-3 text-center text-xs text-gray-500 font-semibold border-t border-gray-100 flex items-center justify-center">
               <span>
                 {t.noAccount}{' '}
                 <button
                   onClick={() => navigate('/signup')}
-                  className="text-maroon hover:text-gold underline font-extrabold font-heading cursor-pointer"
+                  className="text-maroon hover:text-gold underline font-extrabold font-heading cursor-pointer ml-1"
                 >
                   {t.signup}
                 </button>
               </span>
-              <button
-                onClick={() => navigate('/home')}
-                className="text-amber-700 hover:text-maroon font-bold hover:underline cursor-pointer"
-              >
-                {currentLanguage === 'gu' ? 'ગેસ્ટ મોડ →' : currentLanguage === 'hi' ? 'गेस्ट मोड →' : 'Guest Mode →'}
-              </button>
             </div>
           </div>
         </div>

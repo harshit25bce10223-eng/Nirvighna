@@ -762,7 +762,7 @@ export const Profile = () => {
             </div>
             <div>
               <p className="text-xs font-black text-indigo-dark font-heading">Nirvighna Pilgrim</p>
-              <p className="text-[10px] font-bold text-gray-500">Version 1.0.2 (Build 3)</p>
+              <p className="text-[10px] font-bold text-gray-500">Version 1.0.3 (Build 4)</p>
             </div>
           </div>
           <button
@@ -770,10 +770,10 @@ export const Profile = () => {
             onClick={() => {
               alert(
                 currentLanguage === 'gu'
-                  ? 'તમારી પાસે નવીનતમ સંસ્કરણ v1.0.2 છે!'
+                  ? 'તમારી પાસે નવીનતમ સંસ્કરણ v1.0.3 છે!'
                   : currentLanguage === 'hi'
-                  ? 'आपके पास नवीनतम संस्करण v1.0.2 है!'
-                  : 'You are on the latest version v1.0.2!'
+                  ? 'आपके पास नवीनतम संस्करण v1.0.3 है!'
+                  : 'You are on the latest version v1.0.3!'
               );
             }}
             className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer"

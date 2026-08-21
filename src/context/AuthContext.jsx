@@ -24,20 +24,19 @@ export const AuthProvider = ({ children }) => {
         if (savedPilgrim) {
           try {
             const parsed = JSON.parse(savedPilgrim);
-            setCurrentUser(parsed);
-            setIsLoggedIn(true);
-          } catch (_) {}
-        } else if (isDemoMode) {
-          const demoUser = {
-            id: '00000000-0000-4000-a000-000000000077',
-            full_name: 'Apex Coder',
-            email: 'apex.coder@nirvighna.org',
-            role: 'pilgrim',
-            language_preference: 'en'
-          };
-          setCurrentUser(demoUser);
-          setIsLoggedIn(true);
+            if (parsed && parsed.id) {
+              setCurrentUser(parsed);
+              setIsLoggedIn(true);
+            } else {
+              setCurrentUser(null);
+              setIsLoggedIn(false);
+            }
+          } catch (_) {
+            setCurrentUser(null);
+            setIsLoggedIn(false);
+          }
         } else {
+          // Fresh install / new device: MUST show Login/Signup first
           setCurrentUser(null);
           setIsLoggedIn(false);
         }
@@ -49,9 +48,17 @@ export const AuthProvider = ({ children }) => {
       if (savedPilgrim) {
         try {
           const parsed = JSON.parse(savedPilgrim);
-          setCurrentUser(parsed);
-          setIsLoggedIn(true);
-        } catch (_) {}
+          if (parsed && parsed.id) {
+            setCurrentUser(parsed);
+            setIsLoggedIn(true);
+          } else {
+            setCurrentUser(null);
+            setIsLoggedIn(false);
+          }
+        } catch (_) {
+          setCurrentUser(null);
+          setIsLoggedIn(false);
+        }
       } else {
         setCurrentUser(null);
         setIsLoggedIn(false);
@@ -125,9 +132,13 @@ export const AuthProvider = ({ children }) => {
       
       setCurrentUser(data);
       setIsLoggedIn(true);
+      if (data) {
+        localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(data));
+      }
       return data;
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      localStorage.removeItem('nirvighna_pilgrim_session');
       setCurrentUser(null);
       setIsLoggedIn(false);
       return null;
@@ -242,7 +253,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {}
+    localStorage.removeItem('nirvighna_pilgrim_session');
     setCurrentUser(null);
     setIsLoggedIn(false);
   };

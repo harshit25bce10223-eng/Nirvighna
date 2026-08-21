@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Sparkles, X } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
-const CURRENT_VERSION = '1.0.0';
+const CURRENT_VERSION = '1.0.3';
 const GITHUB_REPO = 'harshit25bce10223-eng/Nirvighna';
 
 export const AppUpdateChecker = ({ manualCheck = false, onCheckComplete }) => {
