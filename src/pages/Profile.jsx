@@ -762,7 +762,7 @@ export const Profile = () => {
             </div>
             <div>
               <p className="text-xs font-black text-indigo-dark font-heading">Nirvighna Pilgrim</p>
-              <p className="text-[10px] font-bold text-gray-500">Version 1.0.1 (Build 2)</p>
+              <p className="text-[10px] font-bold text-gray-500">Version 1.0.2 (Build 3)</p>
             </div>
           </div>
           <button
@@ -770,10 +770,10 @@ export const Profile = () => {
             onClick={() => {
               alert(
                 currentLanguage === 'gu'
-                  ? 'તમારી પાસે નવીનતમ સંસ્કરણ v1.0.1 છે!'
+                  ? 'તમારી પાસે નવીનતમ સંસ્કરણ v1.0.2 છે!'
                   : currentLanguage === 'hi'
-                  ? 'आपके पास नवीनतम संस्करण v1.0.1 है!'
-                  : 'You are on the latest version v1.0.1!'
+                  ? 'आपके पास नवीनतम संस्करण v1.0.2 है!'
+                  : 'You are on the latest version v1.0.2!'
               );
             }}
             className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer"
@@ -784,7 +784,7 @@ export const Profile = () => {
 
         {/* Sign Out Button */}
         <button
-          onClick={handleLogoutClick}
+          onClick={handleLogout}
           className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs rounded-3xl shadow-md uppercase tracking-wider transition-all flex items-center justify-center gap-2 font-heading cursor-pointer"
         >
           <LogOut className="w-4 h-4" />

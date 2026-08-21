@@ -76,7 +76,7 @@ export const Family = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { currentLanguage } = useLanguage();
-  const t = translations[currentLanguage];
+  const t = translations[currentLanguage] || translations.en;
 
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);

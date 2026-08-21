@@ -253,13 +253,13 @@ export function App() {
         <Route
           path="/command-centre"
           element={
-            <CommandCentreRoute>
+            <AdminRoute>
               <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-ivory text-maroon font-semibold">Loading command operations...</div>}>
                 <ErrorBoundary sectionName="Command Centre Unified Safety Hub">
                   <CommandCentre />
                 </ErrorBoundary>
               </React.Suspense>
-            </CommandCentreRoute>
+            </AdminRoute>
           }
         />
         <Route path="/admin" element={<Navigate to="/command-centre" replace />} />
