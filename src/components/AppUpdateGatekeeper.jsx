@@ -61,7 +61,10 @@ export const AppUpdateGatekeeper = ({ children }) => {
         clearInterval(interval);
         setTimeout(() => {
           if (updateInfo?.downloadUrl) {
-            window.open(updateInfo.downloadUrl, '_system');
+            try {
+              window.open(updateInfo.downloadUrl, '_system');
+            } catch (_) {}
+            window.location.href = updateInfo.downloadUrl;
           }
         }, 300);
       }

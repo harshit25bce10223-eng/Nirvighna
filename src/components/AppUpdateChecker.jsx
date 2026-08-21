@@ -115,7 +115,10 @@ export const AppUpdateChecker = ({ manualCheck = false, onCheckComplete }) => {
         clearInterval(interval);
         setTimeout(() => {
           const dlUrl = updateInfo?.downloadUrl || `https://github.com/${GITHUB_REPO}/releases/latest`;
-          window.open(dlUrl, '_system');
+          try {
+            window.open(dlUrl, '_system');
+          } catch (_) {}
+          window.location.href = dlUrl;
         }, 300);
       }
       setDownloadProgress(prog);
