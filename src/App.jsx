@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Signup } from './pages/Signup';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
@@ -55,7 +55,7 @@ const Layout = ({ children }) => {
         <AppUpdateChecker />
         {showNav && <Navbar />}
         <main className="flex-1 pb-20">
-          {children}
+          {children || <Outlet />}
         </main>
         {showNav && <BottomNav />}
       </div>
@@ -289,37 +289,31 @@ export function App() {
         />
 
         {/* ─── All pilgrim portal routes inside the shared Layout ─── */}
-        <Route
-          path="/*"
-          element={
-            <Layout>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/login" element={<Login />} />
+        <Route element={<Layout />}>
+          {/* Public routes */}
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
 
-                {/* Protected routes */}
-                <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-                <Route path="/book/:templeId" element={<ProtectedRoute><Booking /></ProtectedRoute>} />
-                <Route path="/pass" element={<ProtectedRoute><Pass /></ProtectedRoute>} />
-                <Route path="/travel" element={<ProtectedRoute><Travel /></ProtectedRoute>} />
-                <Route path="/family" element={<ProtectedRoute><Family /></ProtectedRoute>} />
-                <Route path="/lost-report" element={<ProtectedRoute><LostReport /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
-                <Route path="/mela-route" element={<ProtectedRoute><MelaRoute /></ProtectedRoute>} />
-                <Route path="/priority-nav" element={<ProtectedRoute><PriorityAudioNav /></ProtectedRoute>} />
+          {/* Protected routes */}
+          <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/book/:templeId" element={<ProtectedRoute><Booking /></ProtectedRoute>} />
+          <Route path="/pass" element={<ProtectedRoute><Pass /></ProtectedRoute>} />
+          <Route path="/travel" element={<ProtectedRoute><Travel /></ProtectedRoute>} />
+          <Route path="/family" element={<ProtectedRoute><Family /></ProtectedRoute>} />
+          <Route path="/lost-report" element={<ProtectedRoute><LostReport /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
+          <Route path="/mela-route" element={<ProtectedRoute><MelaRoute /></ProtectedRoute>} />
+          <Route path="/priority-nav" element={<ProtectedRoute><PriorityAudioNav /></ProtectedRoute>} />
 
-                <Route path="/volunteer-hub" element={<RoleRoute allowedRoles={['volunteer', 'admin']}><VolunteerHub /></RoleRoute>} />
-                <Route path="/volunteer" element={<RoleRoute allowedRoles={['volunteer', 'admin']}><VolunteerDashboard /></RoleRoute>} />
+          <Route path="/volunteer-hub" element={<RoleRoute allowedRoles={['volunteer', 'admin']}><VolunteerHub /></RoleRoute>} />
+          <Route path="/volunteer" element={<RoleRoute allowedRoles={['volunteer', 'admin']}><VolunteerDashboard /></RoleRoute>} />
 
-                {/* Default redirect */}
-                <Route path="*" element={<Navigate to="/home" replace />} />
-              </Routes>
-            </Layout>
-          }
-        />
+          {/* Default redirect for / or empty hash */}
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </Route>
       </Routes>
     </HashRouter>
   );

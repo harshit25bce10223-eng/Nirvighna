@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Download, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Sparkles, Download, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
 
@@ -13,30 +13,39 @@ export const AppUpdateGatekeeper = ({ children }) => {
   const [updateInfo, setUpdateInfo] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloading, setDownloading] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('checking'); // 'checking' | 'uptodate' | 'update_available' | 'error'
 
   useEffect(() => {
     let isMounted = true;
 
+    // Hard safety timeout: After 1 second max, let user into app unconditionally if no update
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && !updateRequired) {
+        setChecking(false);
+      }
+    }, 1000);
+
     const checkLiveUpdates = async () => {
       try {
-        setSyncStatus('checking');
-
-        // 1. Check GitHub latest release or Supabase remote config
         let latestVersion = null;
         let releaseData = null;
 
+        // Fast fetch with 1.5s abort controller
+        const controller = new AbortController();
+        const fetchTimeout = setTimeout(() => controller.abort(), 1500);
+
         try {
           const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+            signal: controller.signal,
             headers: { Accept: 'application/vnd.github.v3+json' }
           });
+          clearTimeout(fetchTimeout);
           if (res.ok) {
             releaseData = await res.json();
             latestVersion = releaseData.tag_name ? releaseData.tag_name.replace(/^v/, '') : null;
           }
         } catch (_) {}
 
-        // Fallback: Check Supabase app_versions table if GitHub fails
+        // Fallback to Supabase app_versions table if GitHub fails
         if (!latestVersion) {
           try {
             const { data } = await supabase
@@ -57,7 +66,6 @@ export const AppUpdateGatekeeper = ({ children }) => {
         }
 
         if (isMounted) {
-          // Compare versions: if remote version is strictly greater than CURRENT_VERSION
           if (latestVersion && isNewerVersion(latestVersion, CURRENT_VERSION)) {
             setUpdateInfo({
               version: latestVersion,
@@ -67,26 +75,18 @@ export const AppUpdateGatekeeper = ({ children }) => {
                 `https://github.com/${GITHUB_REPO}/releases/latest`
             });
             setUpdateRequired(true);
-            setSyncStatus('update_available');
             setChecking(false);
           } else {
-            // Already on latest version
-            setSyncStatus('uptodate');
             setTimeout(() => {
               if (isMounted) setChecking(false);
-            }, 600);
+            }, 400);
           }
         }
-      } catch (err) {
-        // In case of offline/network failure, allow user to continue
-        if (isMounted) {
-          setSyncStatus('uptodate');
-          setChecking(false);
-        }
+      } catch (_) {
+        if (isMounted) setChecking(false);
       }
     };
 
-    // Helper function to compare semver versions
     const isNewerVersion = (latest, current) => {
       const l = latest.split('.').map(Number);
       const c = current.split('.').map(Number);
@@ -103,6 +103,7 @@ export const AppUpdateGatekeeper = ({ children }) => {
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -110,7 +111,7 @@ export const AppUpdateGatekeeper = ({ children }) => {
     setDownloading(true);
     let prog = 0;
     const interval = setInterval(() => {
-      prog += 15;
+      prog += 20;
       if (prog >= 100) {
         prog = 100;
         clearInterval(interval);
@@ -118,10 +119,10 @@ export const AppUpdateGatekeeper = ({ children }) => {
           if (updateInfo?.downloadUrl) {
             window.open(updateInfo.downloadUrl, '_system');
           }
-        }, 400);
+        }, 300);
       }
       setDownloadProgress(prog);
-    }, 150);
+    }, 120);
   };
 
   // 1. Initial Launch Sync Screen
@@ -129,14 +130,14 @@ export const AppUpdateGatekeeper = ({ children }) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50 to-[#FAF7F2] flex flex-col items-center justify-center p-6 text-center select-none font-body">
         <div className="max-w-xs w-full space-y-6 animate-page-in">
-          {/* Logo with Devotional Aura */}
+          {/* Official Emblem */}
           <div className="relative inline-flex mx-auto">
             <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gold via-amber-400 to-amber-600 animate-logo-aura flex items-center justify-center p-1.5 shadow-2xl border-2 border-gold">
               <div className="w-full h-full rounded-full bg-white flex items-center justify-center p-2 overflow-hidden">
                 <img
                   src="./official_logo.png"
                   alt="Nirvighna Emblem"
-                  className="w-full h-full object-contain crisp-img"
+                  className="w-full h-full object-contain"
                   onError={(e) => { e.target.src = '/official_logo.png'; }}
                 />
               </div>
@@ -156,7 +157,6 @@ export const AppUpdateGatekeeper = ({ children }) => {
             </p>
           </div>
 
-          {/* Syncing Progress Indicator */}
           <div className="w-full bg-amber-100 rounded-full h-2 overflow-hidden border border-amber-200">
             <div className="bg-gradient-to-r from-maroon via-gold to-amber-600 h-full w-2/3 animate-pulse rounded-full" />
           </div>
@@ -176,12 +176,11 @@ export const AppUpdateGatekeeper = ({ children }) => {
     );
   }
 
-  // 2. Mandatory Update Required Screen (Blocks access until updated)
+  // 2. Mandatory Update Required Screen
   if (updateRequired && updateInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50 to-[#FAF7F2] flex flex-col items-center justify-center p-6 text-center select-none font-body">
         <div className="max-w-sm w-full bg-white rounded-3xl shadow-2xl border-2 border-gold/40 p-6 space-y-5 animate-page-in">
-          {/* Animated Update Icon */}
           <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-gold via-amber-400 to-amber-600 flex items-center justify-center text-white shadow-xl shadow-amber-500/20">
             <Sparkles className="w-10 h-10 animate-bounce" />
           </div>
@@ -258,6 +257,6 @@ export const AppUpdateGatekeeper = ({ children }) => {
     );
   }
 
-  // 3. Render the application smoothly when up to date
-  return children;
+  // 3. Render children directly
+  return <>{children}</>;
 };
