@@ -236,7 +236,7 @@ const ScrollToTop = () => {
 
 export function App() {
   return (
-    <HashRouter>
+    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ScrollToTop />
       <Routes>
         {/* ─── Unified Command Centre — Single Authoritative Hub ─── */}

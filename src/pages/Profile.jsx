@@ -758,8 +758,8 @@ export const Profile = () => {
         {/* App Version & Updates */}
         <div className="bg-white p-4 rounded-3xl border border-gold/20 shadow-xs flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-white border-2 border-gold/40 flex items-center justify-center p-1 shadow-inner overflow-hidden">
+              <img src="/official_logo.png" alt="Nirvighna Emblem" className="w-full h-full object-contain drop-shadow-xs" />
             </div>
             <div>
               <p className="text-xs font-black text-indigo-dark font-heading">Nirvighna Pilgrim</p>
@@ -769,9 +769,8 @@ export const Profile = () => {
           <button
             type="button"
             onClick={() => setShowManualUpdateCheck(true)}
-            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-xs"
           >
-            <Sparkles className="w-3.5 h-3.5 text-gold" />
             <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check Updates'}</span>
           </button>
         </div>
