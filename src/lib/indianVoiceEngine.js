@@ -161,17 +161,17 @@ function prepareTextForSpeech(rawText, langCode) {
  * Includes Web Audio chime, GC retention, and HTML5 Audio fallback.
  */
 export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
-  // 1. Play soft devotional chime on start
-  if (options.playChime !== false) {
-    playDevotionalChime(528, 0.45);
-  }
-
-  // 2. Stop existing audio & speech
+  // Stop existing audio & speech cleanly
   stopNaturalIndianVoice();
 
   if (!text || text.trim() === '') {
     if (options.onEnd) options.onEnd();
     return null;
+  }
+
+  // Optional chime only if explicitly requested, default to false (clean normal voice)
+  if (options.playChime === true) {
+    playDevotionalChime(528, 0.3);
   }
 
   // Try Native SpeechSynthesis first
@@ -185,9 +185,9 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
       const spokenText = prepareTextForSpeech(text, langCode);
       const utterance = new SpeechSynthesisUtterance(spokenText);
 
-      utterance.lang = langCode === 'en' ? 'en-IN' : 'hi-IN';
-      utterance.pitch = options.pitch !== undefined ? options.pitch : 1.05;
-      utterance.rate = options.rate !== undefined ? options.rate : 0.88;
+      utterance.lang = langCode === 'en' ? 'en-IN' : langCode === 'gu' ? 'gu-IN' : 'hi-IN';
+      utterance.pitch = options.pitch !== undefined ? options.pitch : 1.0;
+      utterance.rate = options.rate !== undefined ? options.rate : 0.95;
       utterance.volume = options.volume !== undefined ? options.volume : 1.0;
 
       const masterVoice = getBestIndianFemaleVoice(langCode);
@@ -198,10 +198,7 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
       // Android GC Retention: Keep reference on window to prevent mid-speech garbage collection
       window.__nirvighna_active_speech_utterance = utterance;
 
-      let started = false;
-
       utterance.onstart = () => {
-        started = true;
         if (options.onStart) options.onStart();
       };
 

@@ -390,3 +390,15 @@ input:focus, textarea:focus, select:focus {
 .animate-spin-slow {
   animation: spinSlow 8s linear infinite;
 }
+
+/* Global Smooth Scroll & Active Feedback */
+html {
+  scroll-behavior: smooth;
+}
+
+.card-press {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-press:active {
+  transform: scale(0.97);
+}

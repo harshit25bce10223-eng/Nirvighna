@@ -754,8 +754,9 @@ export const PriorityAudioNav = () => {
     setVoiceNavActive(true);
 
     speakNaturalIndianVoice(textToSpeak || activePromptText, currentLanguage, {
-      pitch: 1.05,
-      rate: 0.88,
+      pitch: 1.0,
+      rate: 0.95,
+      playChime: false,
       onStart: () => setSpeaking(true),
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false)
@@ -763,7 +764,6 @@ export const PriorityAudioNav = () => {
   };
 
   const handleTestSound = () => {
-    playDevotionalChime(528, 0.6);
     speakVoicePrompt(
       isGujarati
         ? 'જય શ્રી કૃષ્ણ! નિર્વિઘ્ન ઓડિયો નેવિગેશન સંપૂર્ણ રીતે સક્રિય છે.'
@@ -778,6 +778,14 @@ export const PriorityAudioNav = () => {
       stopNaturalIndianVoice();
     };
   }, []);
+
+  // Auto-center screen on active waypoint card whenever step changes
+  useEffect(() => {
+    const cardEl = document.getElementById(`waypoint-step-${activeStep}`);
+    if (cardEl) {
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeStep, selectedTempleId]);
 
   const handleNextStep = () => {
     if (activeStep < currentRoute.steps.length) {
@@ -802,7 +810,7 @@ export const PriorityAudioNav = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pb-28 pt-4 px-4 sm:px-6 lg:px-8 font-body text-gray-800 selection:bg-gold selection:text-indigo-dark">
+    <div className="min-h-screen bg-[#FDFBF7] pt-5 pb-10 px-3.5 sm:px-6 lg:px-8 font-body text-gray-800 selection:bg-gold selection:text-indigo-dark">
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* Top Navigation Bar with Tri-Language Voice Switcher */}
