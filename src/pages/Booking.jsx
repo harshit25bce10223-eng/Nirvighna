@@ -882,8 +882,12 @@ export const Booking = () => {
           start_time: selectedSlot.start_time,
           end_time: selectedSlot.end_time,
           slot_type: selectedSlot.slot_type
-        }
+        },
+        include_prasad: includePrasad,
+        prasad_type: includePrasad ? prasadType : null,
+        prasad_fee: (includePrasad && prasadType === 'laddu_box') ? 51 : 0
       };
+
 
       const existingLocalBookings = JSON.parse(localStorage.getItem('nirvighna_my_local_bookings') || '[]');
       existingLocalBookings.unshift(localBookingObj);
@@ -959,8 +963,12 @@ export const Booking = () => {
           start_time: selectedSlot?.start_time || '08:00 AM',
           end_time: selectedSlot?.end_time || '10:00 AM',
           slot_type: selectedSlot?.slot_type || 'general'
-        }
+        },
+        include_prasad: includePrasad,
+        prasad_type: includePrasad ? prasadType : null,
+        prasad_fee: (includePrasad && prasadType === 'laddu_box') ? 51 : 0
       };
+
 
       const existingLocalBookings = JSON.parse(localStorage.getItem('nirvighna_my_local_bookings') || '[]');
       existingLocalBookings.unshift(localBookingObj);
@@ -2026,7 +2034,8 @@ export const Booking = () => {
           const basePrice = slotType === 'vip' ? 501 : 21;
           const priorityFee = 0; // Priority Line is 100% Free
           const wheelchairFee = needsWheelchair ? 51 : 0;
-          const totalAmount = (basePrice * totalPilgrims) + priorityFee + wheelchairFee;
+          const prasadFee = (includePrasad && prasadType === 'laddu_box') ? 51 : 0;
+          const totalAmount = (basePrice * totalPilgrims) + priorityFee + wheelchairFee + prasadFee;
 
           const activeBeneficiaries = Object.entries(priorityAllocations).filter(([_, a]) => a.enabled);
 
@@ -2078,6 +2087,13 @@ export const Booking = () => {
                 </div>
               )}
 
+              {includePrasad && (
+                <div className="flex justify-between text-xs text-amber-300">
+                  <span>🍲 {prasadType === 'laddu_box' ? t.specialLadduBox : t.nishulkAnnakshetra}</span>
+                  <span className="font-mono">{prasadType === 'laddu_box' ? '+₹51' : t.free}</span>
+                </div>
+              )}
+
               <div className="border-t border-gold/20 pt-2 flex justify-between items-center">
                 <span className="text-xs font-bold">{t.totalPayable}</span>
                 <span className="text-base font-extrabold text-gold font-mono">
@@ -2101,7 +2117,8 @@ export const Booking = () => {
           const basePrice = slotType === 'vip' ? 501 : 21;
           const priorityFee = 0; // Priority Line is Free
           const wheelchairFee = needsWheelchair ? 51 : 0;
-          const totalAmount = (basePrice * totalPilgrims) + priorityFee + wheelchairFee;
+          const prasadFee = (includePrasad && prasadType === 'laddu_box') ? 51 : 0;
+          const totalAmount = (basePrice * totalPilgrims) + priorityFee + wheelchairFee + prasadFee;
 
           return (
             <button
@@ -2124,6 +2141,7 @@ export const Booking = () => {
             </button>
           );
         })()}
+
 
         {!selectedSlot && (
           <p className="text-xs text-center text-gray-500">{t.selectSlot}</p>

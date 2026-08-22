@@ -320,7 +320,12 @@ export const Pass = () => {
         }
         setBooking(bookingData);
         setQrPasses(bookingData.qr_passes || []);
+        if (bookingData.include_prasad) {
+          setHasBookedPrasad(true);
+          setPrasadType(bookingData.prasad_type || 'laddu_box');
+        }
       } else {
+
         setBooking(null);
         setQrPasses([]);
       }
