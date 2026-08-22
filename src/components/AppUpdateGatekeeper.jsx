@@ -64,6 +64,18 @@ export const AppUpdateGatekeeper = ({ children }) => {
             ? updateInfo.downloadUrl
             : `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`;
           
+          // 1. If running in Android native app, trigger in-app direct background downloader & installer
+          if (window.NirvighnaNativeUpdater && typeof window.NirvighnaNativeUpdater.downloadAndInstallApk === 'function') {
+            try {
+              window.NirvighnaNativeUpdater.downloadAndInstallApk(dlUrl);
+              setDownloading(false);
+              return;
+            } catch (e) {
+              console.warn('Native updater failed, falling back:', e);
+            }
+          }
+
+          // 2. Web browser fallback
           try {
             const link = document.createElement('a');
             link.href = dlUrl;
@@ -83,6 +95,7 @@ export const AppUpdateGatekeeper = ({ children }) => {
       setDownloadProgress(prog);
     }, 120);
   };
+
 
   // 1. Initial Launch Sync Screen — Beautiful Animated Devotional Splash
   if (checking) {
