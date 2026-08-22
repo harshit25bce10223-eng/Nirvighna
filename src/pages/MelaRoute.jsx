@@ -126,8 +126,9 @@ export const MelaRoute = () => {
   }
 
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-4 font-body">
+    <div className="min-h-screen bg-ivory pb-28 pt-[max(env(safe-area-inset-top,28px),28px)] px-4 font-body">
       <div className="max-w-md mx-auto space-y-4">
+
         
         {/* Header */}
         <div className="flex items-center gap-3">

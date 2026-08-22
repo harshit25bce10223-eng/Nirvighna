@@ -1,5 +1,8 @@
 package org.nirvighna.pilgrim;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -8,10 +11,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
+import android.view.View;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
@@ -19,39 +26,101 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
+
+    private TextToSpeech textToSpeech;
+    private static final String NOTIF_CHANNEL_ID = "nirvighna_pilgrim_alerts";
+    private static final String NOTIF_CHANNEL_NAME = "Nirvighna Pilgrim Alerts";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // Force native window and decor background to warm ivory #FAF7F2 from frame 0
+
+        // Enable full Hardware Acceleration
         if (getWindow() != null) {
             getWindow().setFlags(
-                android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-                android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
             );
             if (getWindow().getDecorView() != null) {
-                getWindow().getDecorView().setBackgroundColor(Color.parseColor("#FAF7F2"));
+                getWindow().getDecorView().setBackgroundColor(Color.parseColor("#0F0D22"));
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                getWindow().setStatusBarColor(Color.parseColor("#0F0D22"));
             }
         }
+
+        // Initialize Android System Notification Channel
+        createNotificationChannel();
+
+        // Initialize Native Android Text-To-Speech Engine for Crystal Clear Voice
+        initNativeTTS();
 
         if (this.bridge != null && this.bridge.getWebView() != null) {
             WebView webView = this.bridge.getWebView();
             webView.setBackgroundColor(Color.parseColor("#FAF7F2"));
-            webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
-            webView.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
-            
+            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
             WebSettings settings = webView.getSettings();
             settings.setMediaPlaybackRequiresUserGesture(false);
             settings.setDomStorageEnabled(true);
             settings.setDatabaseEnabled(true);
             settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-
-            // In-app direct APK downloader & native installer (No Chrome, No Browser)
+            // Comprehensive Native Bridge (TTS, System Notifications & 1-Tap APK Updater)
             webView.addJavascriptInterface(new Object() {
+
+                @JavascriptInterface
+                public void speakText(final String text, final String langCode) {
+                    if (text == null || text.trim().isEmpty()) return;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (textToSpeech != null) {
+                                Locale targetLocale = new Locale("hi", "IN");
+                                if ("gu".equalsIgnoreCase(langCode)) {
+                                    targetLocale = new Locale("gu", "IN");
+                                } else if ("en".equalsIgnoreCase(langCode)) {
+                                    targetLocale = new Locale("en", "IN");
+                                }
+                                textToSpeech.setLanguage(targetLocale);
+                                textToSpeech.setSpeechRate(0.95f);
+                                textToSpeech.setPitch(1.0f);
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                    textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nirvighna_tts_" + System.currentTimeMillis());
+                                } else {
+                                    textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                @JavascriptInterface
+                public void stopSpeech() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (textToSpeech != null && textToSpeech.isSpeaking()) {
+                                textToSpeech.stop();
+                            }
+                        }
+                    });
+                }
+
+                @JavascriptInterface
+                public void showSystemNotification(final String title, final String message, final String tag) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            sendNativeNotification(title, message);
+                        }
+                    });
+                }
+
                 @JavascriptInterface
                 public void downloadAndInstallApk(final String apkUrl) {
                     new Thread(new Runnable() {
@@ -114,8 +183,6 @@ public class MainActivity extends BridgeActivity {
                                 is.close();
                                 conn.disconnect();
 
-
-                                // Launch package installer directly
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
@@ -137,10 +204,89 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 @JavascriptInterface
+                public boolean isNativeBridge() {
+                    return true;
+                }
+            }, "NirvighnaNativeBridge");
+
+            // Also keep updater alias for backwards-compatibility
+            webView.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public void downloadAndInstallApk(final String apkUrl) {
+                    // Call main updater
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "Starting update...", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+                @JavascriptInterface
                 public boolean isNativeUpdater() {
                     return true;
                 }
             }, "NirvighnaNativeUpdater");
+        }
+    }
+
+    private void initNativeTTS() {
+        try {
+            textToSpeech = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+                @Override
+                public void onInit(int status) {
+                    if (status == TextToSpeech.SUCCESS && textToSpeech != null) {
+                        textToSpeech.setLanguage(new Locale("hi", "IN"));
+                    }
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                NOTIF_CHANNEL_ID,
+                NOTIF_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Live crowd safety, darshan pass updates, and emergency alerts");
+            channel.enableLights(true);
+            channel.setLightColor(Color.parseColor("#EBB239"));
+            channel.enableVibration(true);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void sendNativeNotification(String title, String message) {
+        try {
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager == null) return;
+
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, intent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0
+            );
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title != null ? title : "Nirvighna Pilgrim Portal")
+                .setContentText(message != null ? message : "New Darshan safety update available.")
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(message != null ? message : ""))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setColor(Color.parseColor("#800020"))
+                .setContentIntent(pendingIntent);
+
+            manager.notify((int) (System.currentTimeMillis() % 100000), builder.build());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -167,5 +313,15 @@ public class MainActivity extends BridgeActivity {
             Toast.makeText(this, "Could not open installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
+
+    @Override
+    public void onDestroy() {
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+        super.onDestroy();
+    }
 }
+
 

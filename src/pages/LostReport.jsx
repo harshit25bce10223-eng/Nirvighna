@@ -202,6 +202,17 @@ export const LostReport = () => {
       } catch (_) {}
 
 
+      // Trigger native notification for the user
+      try {
+        if (window.NirvighnaNativeBridge && typeof window.NirvighnaNativeBridge.showSystemNotification === 'function') {
+          window.NirvighnaNativeBridge.showSystemNotification(
+            '🚨 Safety Alert Dispatched!',
+            `Lost person report for ${cleanName} broadcast to on-duty volunteers.`,
+            'safety'
+          );
+        }
+      } catch (_) {}
+
       // Navigate to notifications after 2 seconds
       setTimeout(() => {
         navigate('/notifications');
@@ -224,7 +235,8 @@ export const LostReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-ivory pb-28 pt-4 px-4 animate-page-in">
+    <div className="min-h-screen bg-ivory pb-28 pt-[max(env(safe-area-inset-top,28px),28px)] px-4 animate-page-in">
+
       <div className="max-w-md mx-auto space-y-4">
 
         {/* Header */}

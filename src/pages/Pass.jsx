@@ -398,8 +398,9 @@ export const Pass = () => {
 
 
   return (
-    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 animate-page-in">
+    <div className="min-h-screen bg-ivory pt-[max(env(safe-area-inset-top,28px),28px)] pb-12 px-3.5 sm:px-6 animate-page-in">
       <div className="max-w-md sm:max-w-lg mx-auto space-y-5">
+
         {/* Gate Notification Banner */}
         {gateNotification && (
           <div className="bg-gradient-to-r from-gold/20 via-amber-50 to-gold/10 border-2 border-gold p-3.5 rounded-2xl shadow-sm animate-in slide-in-from-top-2">

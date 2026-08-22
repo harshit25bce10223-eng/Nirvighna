@@ -155,9 +155,19 @@ export const Notifications = () => {
     const handleLiveNotif = (e) => {
       if (e.detail) {
         setNotifications(prev => [e.detail, ...prev.filter(n => n.id !== e.detail.id)]);
+        try {
+          if (window.NirvighnaNativeBridge && typeof window.NirvighnaNativeBridge.showSystemNotification === 'function') {
+            window.NirvighnaNativeBridge.showSystemNotification(
+              e.detail.title || 'Nirvighna Alert',
+              e.detail.message || 'New live update available.',
+              'alert'
+            );
+          }
+        } catch (_) {}
       }
     };
     window.addEventListener('nirvighna_notification_alert', handleLiveNotif);
+
 
     // Setup realtime subscription for DB notifications if user ID is a valid UUID
     let channel;
@@ -293,8 +303,9 @@ export const Notifications = () => {
   }
 
   return (
-    <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 animate-page-in">
+    <div className="min-h-screen bg-ivory pt-[max(env(safe-area-inset-top,28px),28px)] pb-12 px-3.5 sm:px-6 animate-page-in">
       <div className="max-w-md sm:max-w-lg mx-auto space-y-5">
+
 
         {/* Header */}
         <div className="flex items-center justify-between">

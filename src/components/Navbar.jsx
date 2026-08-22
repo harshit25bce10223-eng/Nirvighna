@@ -42,9 +42,10 @@ export const Navbar = () => {
   const activeRole = getActiveRole();
 
   return (
-    <header className="relative bg-[#0F0D22]/95 backdrop-blur-2xl text-white border-b border-gold/30 sticky top-0 z-50 shadow-[0_4px_30px_rgba(0,0,0,0.35)] pt-[max(env(safe-area-inset-top,0px),0.5rem)]">
+    <header className="relative bg-[#0F0D22]/95 backdrop-blur-2xl text-white border-b border-gold/30 sticky top-0 z-50 shadow-[0_4px_30px_rgba(0,0,0,0.35)] pt-[max(env(safe-area-inset-top,28px),28px)] pb-1">
       {/* Top subtle golden light streak */}
       <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/80 to-transparent pointer-events-none" />
+
 
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 pt-2 pb-2.5 sm:py-3 flex items-center justify-between gap-3">
         {/* Brand Header */}

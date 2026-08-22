@@ -156,6 +156,30 @@ function prepareTextForSpeech(rawText, langCode) {
   return text;
 }
 
+export function stopNaturalIndianVoice() {
+
+  if (typeof window !== 'undefined') {
+    // 1. Native Android Bridge
+    if (window.NirvighnaNativeBridge && typeof window.NirvighnaNativeBridge.stopSpeech === 'function') {
+      try { window.NirvighnaNativeBridge.stopSpeech(); } catch (_) {}
+    }
+
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (_) {}
+    }
+    if (window.__nirvighna_fallback_audio) {
+      try {
+        window.__nirvighna_fallback_audio.pause();
+        window.__nirvighna_fallback_audio.currentTime = 0;
+        window.__nirvighna_fallback_audio = null;
+      } catch (_) {}
+    }
+    window.__nirvighna_active_speech_utterance = null;
+  }
+}
+
 /**
  * Speaks text with 100% Android WebView & Browser compatibility.
  * Includes Web Audio chime, GC retention, voice-loading assurance, and failsafe fallback.
@@ -177,7 +201,20 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
     playDevotionalChime(528, 0.25);
   }
 
+  // 1. Prefer Ultra-Reliable Native Android TextToSpeech Engine
+  if (typeof window !== 'undefined' && window.NirvighnaNativeBridge && typeof window.NirvighnaNativeBridge.speakText === 'function') {
+    try {
+      const spokenText = prepareTextForSpeech(text, langCode);
+      window.NirvighnaNativeBridge.speakText(spokenText, langCode);
+      if (options.onStart) options.onStart();
+      return { native: true };
+    } catch (e) {
+      console.warn('Native TTS bridge fallback to WebSpeech:', e);
+    }
+  }
+
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+
     try {
       window.speechSynthesis.cancel();
       if (window.speechSynthesis.paused) {
@@ -313,24 +350,3 @@ function speakOnlineAudioFallback(text, langCode, options) {
   }
 }
 
-/**
- * Cleanly stops any active voice playback and audio.
- */
-export function stopNaturalIndianVoice() {
-  if (typeof window !== 'undefined') {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch (e) {}
-    }
-    if (currentAudio) {
-      try {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-      } catch (e) {}
-      currentAudio = null;
-    }
-    window.__nirvighna_active_speech_utterance = null;
-    window.__nirvighna_active_audio = null;
-  }
-}

@@ -749,14 +749,14 @@ export const PriorityAudioNav = () => {
   const currentStepData = currentRoute.steps.find(s => s.step === activeStep) || currentRoute.steps[0];
   const activePromptText = isGujarati ? (currentStepData.gu || currentStepData.hi || currentStepData.en) : isHindi ? currentStepData.hi : currentStepData.en;
 
-  const speakVoicePrompt = (textToSpeak) => {
+  const speakVoicePrompt = (textToSpeak, withChime = true) => {
     setSpeaking(true);
     setVoiceNavActive(true);
 
     speakNaturalIndianVoice(textToSpeak || activePromptText, currentLanguage, {
       pitch: 1.0,
       rate: 0.95,
-      playChime: false,
+      playChime: withChime,
       onStart: () => setSpeaking(true),
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false)
@@ -769,7 +769,8 @@ export const PriorityAudioNav = () => {
         ? 'જય શ્રી કૃષ્ણ! નિર્વિઘ્ન ઓડિયો નેવિગેશન સંપૂર્ણ રીતે સક્રિય છે.'
         : isHindi
         ? 'जय श्री कृष्ण! निर्विघ्न ऑडियो नेविगेशन पूर्णतः सक्रिय है।'
-        : 'Jai Shri Krishna! Nirvighna Audio Navigation is active and ready.'
+        : 'Jai Shri Krishna! Nirvighna Audio Navigation is active and ready.',
+      true
     );
   };
 
@@ -793,7 +794,7 @@ export const PriorityAudioNav = () => {
       setActiveStep(next);
       const nextData = currentRoute.steps.find(s => s.step === next);
       if (voiceNavActive && nextData) {
-        speakVoicePrompt(isGujarati ? (nextData.gu || nextData.hi || nextData.en) : isHindi ? nextData.hi : nextData.en);
+        speakVoicePrompt(isGujarati ? (nextData.gu || nextData.hi || nextData.en) : isHindi ? nextData.hi : nextData.en, true);
       }
     }
   };
@@ -804,13 +805,14 @@ export const PriorityAudioNav = () => {
       setActiveStep(prev);
       const prevData = currentRoute.steps.find(s => s.step === prev);
       if (voiceNavActive && prevData) {
-        speakVoicePrompt(isGujarati ? (prevData.gu || prevData.hi || prevData.en) : isHindi ? prevData.hi : prevData.en);
+        speakVoicePrompt(isGujarati ? (prevData.gu || prevData.hi || prevData.en) : isHindi ? prevData.hi : prevData.en, true);
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pt-5 pb-10 px-3.5 sm:px-6 lg:px-8 font-body text-gray-800 selection:bg-gold selection:text-indigo-dark">
+    <div className="min-h-screen bg-[#FDFBF7] pt-[max(env(safe-area-inset-top,28px),28px)] pb-12 px-3.5 sm:px-6 lg:px-8 font-body text-gray-800 selection:bg-gold selection:text-indigo-dark">
+
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* Top Navigation Bar with Tri-Language Voice Switcher */}
@@ -1123,13 +1125,15 @@ export const PriorityAudioNav = () => {
               return (
                 <div
                   key={s.step}
+                  id={`waypoint-step-${s.step}`}
                   onClick={() => {
                     setActiveStep(s.step);
                     if (voiceNavActive) {
-                      speakVoicePrompt(isGujarati ? (s.gu || s.hi || s.en) : isHindi ? s.hi : s.en);
+                      speakVoicePrompt(isGujarati ? (s.gu || s.hi || s.en) : isHindi ? s.hi : s.en, true);
                     }
                   }}
                   className={`relative p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+
                     isActive
                       ? 'bg-amber-50/40 border-gold shadow-md ring-2 ring-gold/40'
                       : isDone

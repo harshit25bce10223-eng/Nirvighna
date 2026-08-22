@@ -530,7 +530,8 @@ export const MyBookings = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-ivory via-[#FFFDF8] to-amber-50/30 pb-28 font-body selection:bg-gold selection:text-indigo-dark animate-page-in">
       {/* Devotional Hero Header */}
-      <div className="relative bg-gradient-to-br from-[#4A1017] via-[#6B1B25] to-[#3B0A10] text-white px-4 sm:px-6 pt-10 pb-7 border-b border-gold/30 shadow-[0_10px_35px_rgba(0,0,0,0.25)] overflow-hidden">
+      <div className="relative bg-gradient-to-br from-[#4A1017] via-[#6B1B25] to-[#3B0A10] text-white px-4 sm:px-6 pt-[max(env(safe-area-inset-top,28px),28px)] pb-7 border-b border-gold/30 shadow-[0_10px_35px_rgba(0,0,0,0.25)] overflow-hidden">
+
         {/* Ambient Top Light & Golden Radial Flares */}
         <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/80 to-transparent pointer-events-none" />
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-gold/15 rounded-full blur-3xl pointer-events-none" />
