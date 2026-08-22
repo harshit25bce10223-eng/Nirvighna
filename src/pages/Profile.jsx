@@ -769,19 +769,20 @@ export const Profile = () => {
           </div>
           <button
             type="button"
-            onClick={() => setShowManualUpdateCheck(true)}
-            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-xs"
+            onClick={() => setShowManualUpdateCheck(prev => !prev)}
+            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-xs font-heading"
           >
-            <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check Updates'}</span>
+            <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check for Update'}</span>
           </button>
         </div>
 
         {showManualUpdateCheck && (
           <AppUpdateChecker
             manualCheck={true}
-            onCheckComplete={() => {}}
+            onCheckComplete={() => setShowManualUpdateCheck(false)}
           />
         )}
+
 
         {/* Sign Out Button */}
         <button

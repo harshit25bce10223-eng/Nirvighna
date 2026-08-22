@@ -47,7 +47,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Auto-relaunch Nirvighna into updated version upon package replacement -->
+        <receiver
+            android:name=".AppUpdateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
+
 
     <!-- Permissions for Nirvighna Pilgrim Portal -->
     <uses-permission android:name="android.permission.INTERNET" />

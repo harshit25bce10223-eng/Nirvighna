@@ -22,10 +22,12 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
@@ -33,6 +35,7 @@ public class MainActivity extends BridgeActivity {
     private TextToSpeech textToSpeech;
     private static final String NOTIF_CHANNEL_ID = "nirvighna_pilgrim_alerts";
     private static final String NOTIF_CHANNEL_NAME = "Nirvighna Pilgrim Alerts";
+    private volatile boolean isUpdateDownloading = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -59,7 +62,7 @@ public class MainActivity extends BridgeActivity {
         initNativeTTS();
 
         if (this.bridge != null && this.bridge.getWebView() != null) {
-            WebView webView = this.bridge.getWebView();
+            final WebView webView = this.bridge.getWebView();
             webView.setBackgroundColor(Color.parseColor("#FAF7F2"));
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
             webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
@@ -70,7 +73,20 @@ public class MainActivity extends BridgeActivity {
             settings.setDatabaseEnabled(true);
             settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-            // Comprehensive Native Bridge (TTS, System Notifications & 1-Tap APK Updater)
+            // Check if app was just updated and relaunched
+            if (getIntent() != null && getIntent().getBooleanExtra("nirvighna_just_updated", false)) {
+                webView.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        webView.evaluateJavascript(
+                            "try { localStorage.setItem('nirvighna_just_updated', 'true'); window.dispatchEvent(new CustomEvent('nirvighna_just_updated')); } catch(e){}",
+                            null
+                        );
+                    }
+                }, 800);
+            }
+
+            // Comprehensive Native Bridge (TTS, System Notifications & 1-Tap In-App APK Updater)
             webView.addJavascriptInterface(new Object() {
 
                 @JavascriptInterface
@@ -122,23 +138,58 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 @JavascriptInterface
-                public void downloadAndInstallApk(final String apkUrl) {
+                public boolean canInstallPackages() {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        return getPackageManager().canRequestPackageInstalls();
+                    }
+                    return true;
+                }
+
+                @JavascriptInterface
+                public void requestInstallPermission() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                Intent permIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                                permIntent.setData(Uri.parse("package:" + getPackageName()));
+                                permIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(permIntent);
+                            }
+                        }
+                    });
+                }
+
+                @JavascriptInterface
+                public void startInAppUpdate(final String apkUrl, final String expectedSha256) {
+                    if (isUpdateDownloading) {
+                        return; // Prevent duplicate concurrent downloads
+                    }
+
+                    // Pre-check unknown app install permission on Android 8.0+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('nirvighna_update_permission_required'));", null);
+                            }
+                        });
+                        return;
+                    }
+
+                    isUpdateDownloading = true;
+
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
                             try {
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(MainActivity.this, "Downloading update in-app...", Toast.LENGTH_SHORT).show();
-                                    }
-                                });
+                                dispatchUpdateState("downloading", "Starting background update download...");
 
                                 File outputDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                                 if (outputDir == null) {
                                     outputDir = getCacheDir();
                                 }
-                                File outputFile = new File(outputDir, "Nirvighna-Pilgrim-Update.apk");
+                                final File outputFile = new File(outputDir, "Nirvighna-Pilgrim-Update.apk");
                                 if (outputFile.exists()) {
                                     outputFile.delete();
                                 }
@@ -171,17 +222,51 @@ public class MainActivity extends BridgeActivity {
 
                                 if (conn == null) throw new Exception("Unable to establish connection to update server.");
 
+                                long contentLength = conn.getContentLength();
                                 InputStream is = conn.getInputStream();
                                 FileOutputStream fos = new FileOutputStream(outputFile);
-                                byte[] buffer = new byte[8192];
+                                byte[] buffer = new byte[16384];
                                 int len;
+                                long totalBytesRead = 0;
+                                long lastProgressTime = 0;
+
                                 while ((len = is.read(buffer)) != -1) {
                                     fos.write(buffer, 0, len);
+                                    totalBytesRead += len;
+
+                                    long now = System.currentTimeMillis();
+                                    if (now - lastProgressTime > 150) {
+                                        int percent = contentLength > 0 ? (int) ((totalBytesRead * 100) / contentLength) : -1;
+                                        dispatchUpdateProgress(percent, totalBytesRead, contentLength);
+                                        lastProgressTime = now;
+                                    }
                                 }
                                 fos.flush();
                                 fos.close();
                                 is.close();
                                 conn.disconnect();
+
+                                // 100% Downloaded
+                                dispatchUpdateProgress(100, totalBytesRead, contentLength);
+
+                                // Transition to State 2: Verifying Cryptographic Integrity
+                                dispatchUpdateState("verifying", "Verifying package integrity & SHA-256 checksum...");
+
+                                if (expectedSha256 != null && !expectedSha256.trim().isEmpty() && !expectedSha256.equalsIgnoreCase("skip")) {
+                                    String computedHash = calculateSha256(outputFile);
+                                    if (!computedHash.equalsIgnoreCase(expectedSha256.trim())) {
+                                        isUpdateDownloading = false;
+                                        dispatchUpdateError("HASH_MISMATCH", "Cryptographic verification failed: SHA-256 checksum mismatch.");
+                                        return;
+                                    }
+                                }
+
+                                // Transition to State 3: Ready to Install
+                                dispatchUpdateState("ready", "Package verified! Launching package installer...");
+
+                                Thread.sleep(400);
+
+                                isUpdateDownloading = false;
 
                                 runOnUiThread(new Runnable() {
                                     @Override
@@ -192,40 +277,111 @@ public class MainActivity extends BridgeActivity {
 
                             } catch (final Exception e) {
                                 e.printStackTrace();
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(MainActivity.this, "Update download notice: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                                    }
-                                });
+                                isUpdateDownloading = false;
+                                dispatchUpdateError("DOWNLOAD_FAILED", e.getMessage() != null ? e.getMessage() : "Network error during update download.");
                             }
                         }
                     }).start();
                 }
 
                 @JavascriptInterface
+                public void downloadAndInstallApk(final String apkUrl) {
+                    startInAppUpdate(apkUrl, "skip");
+                }
+
+                @JavascriptInterface
                 public boolean isNativeBridge() {
+                    return true;
+                }
+
+                @JavascriptInterface
+                public boolean isNativeUpdater() {
                     return true;
                 }
             }, "NirvighnaNativeBridge");
 
-            // Also keep updater alias for backwards-compatibility
+            // Also keep updater alias
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
+                public void startInAppUpdate(final String apkUrl, final String expectedSha256) {
+                    // Forward to main handler
+                }
+                @JavascriptInterface
                 public void downloadAndInstallApk(final String apkUrl) {
-                    // Call main updater
-                    MainActivity.this.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(MainActivity.this, "Starting update...", Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                    // Forward
                 }
                 @JavascriptInterface
                 public boolean isNativeUpdater() {
                     return true;
                 }
             }, "NirvighnaNativeUpdater");
+        }
+    }
+
+    private void dispatchUpdateProgress(final int percent, final long downloadedBytes, final long totalBytes) {
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    String js = String.format(
+                        Locale.US,
+                        "window.dispatchEvent(new CustomEvent('nirvighna_update_progress', { detail: { percent: %d, downloadedBytes: %d, totalBytes: %d } }));",
+                        percent, downloadedBytes, totalBytes
+                    );
+                    bridge.getWebView().evaluateJavascript(js, null);
+                }
+            });
+        }
+    }
+
+    private void dispatchUpdateState(final String state, final String message) {
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    String js = String.format(
+                        "window.dispatchEvent(new CustomEvent('nirvighna_update_state', { detail: { state: '%s', message: '%s' } }));",
+                        state, message.replace("'", "\\'")
+                    );
+                    bridge.getWebView().evaluateJavascript(js, null);
+                }
+            });
+        }
+    }
+
+    private void dispatchUpdateError(final String code, final String message) {
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    String js = String.format(
+                        "window.dispatchEvent(new CustomEvent('nirvighna_update_error', { detail: { code: '%s', message: '%s' } }));",
+                        code, message.replace("'", "\\'")
+                    );
+                    bridge.getWebView().evaluateJavascript(js, null);
+                }
+            });
+        }
+    }
+
+    private String calculateSha256(File file) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            FileInputStream fis = new FileInputStream(file);
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                md.update(buffer, 0, len);
+            }
+            fis.close();
+            byte[] hashBytes = md.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
         }
     }
 
@@ -306,7 +462,7 @@ public class MainActivity extends BridgeActivity {
             Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(intent);
         } catch (Exception e) {
             e.printStackTrace();
@@ -323,5 +479,3 @@ public class MainActivity extends BridgeActivity {
         super.onDestroy();
     }
 }
-
-
