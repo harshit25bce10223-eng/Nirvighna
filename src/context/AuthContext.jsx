@@ -42,6 +42,27 @@ export const AuthProvider = ({ children }) => {
 
           if (data?.session?.user && isMounted) {
             const u = data.session.user;
+
+            // Save pending profile from signup if it belongs to this user
+            try {
+              const pendingRaw = sessionStorage.getItem('nirvighna_pending_profile');
+              if (pendingRaw) {
+                const pp = JSON.parse(pendingRaw);
+                if (pp && pp.id === u.id) {
+                  const { emergency_name, emergency_phone, emergency_email, ...profileFields } = pp;
+                  await supabase.from('users').upsert(profileFields);
+                  if (emergency_name && emergency_phone) {
+                    await supabase.from('emergency_contacts').upsert({
+                      pilgrim_id: pp.id, name: emergency_name,
+                      phone: emergency_phone || null, email: emergency_email || null,
+                      is_primary: true, relationship: 'Family Contact'
+                    });
+                  }
+                }
+                sessionStorage.removeItem('nirvighna_pending_profile');
+              }
+            } catch (_) {}
+
             await fetchUserProfile(u.id, u);
             // Clean redirect to home
             if (window.location.hash.includes('access_token') || !window.location.hash.includes('#/')) {
@@ -294,6 +315,8 @@ export const AuthProvider = ({ children }) => {
       await supabase.auth.signOut();
     } catch (_) {}
     localStorage.removeItem('nirvighna_pilgrim_session');
+    localStorage.removeItem('nirvighna_admin_session');
+    sessionStorage.removeItem('nirvighna_pending_profile');
     setCurrentUser(null);
     setIsLoggedIn(false);
   };
@@ -350,64 +373,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   // booking states
-  const [bookings, setBookings] = useState([
-    {
-      id: 'bk_somnath_9042',
-      temple_id: 'tmp_somnath',
-      temple_name: 'Shri Somnath Jyotirlinga',
-      gate_number: 2,
-      slot_time: '04:00 PM - 05:00 PM',
-      date: '2026-08-20',
-      qr_code: 'NIRVIGHNA-SOM-9042',
-      status: 'confirmed',
-      is_priority: false,
-      shared_booking_code: 'KV-8921',
-      qr_passes: [
-        {
-          id: 'pass_1',
-          pilgrim_name: 'Apex Coder',
-          qr_value: 'KV-8921-APEX-CODER',
-          scan_status: 'not_scanned',
-          is_valid: true
-        },
-        {
-          id: 'pass_2',
-          pilgrim_name: 'Varun Bansal',
-          qr_value: 'KV-8921-VARUN-BANSAL',
-          scan_status: 'not_scanned',
-          is_valid: true
-        },
-        {
-          id: 'pass_3',
-          pilgrim_name: 'Tanvi Agarwal',
-          qr_value: 'KV-8921-TANVI-AGARWAL',
-          scan_status: 'not_scanned',
-          is_valid: true
-        },
-        {
-          id: 'pass_4',
-          pilgrim_name: 'Harshit Jain',
-          qr_value: 'KV-8921-HARSHIT-JAIN',
-          scan_status: 'not_scanned',
-          is_valid: true
-        },
-        {
-          id: 'pass_5',
-          pilgrim_name: 'Lokesh Kasana',
-          qr_value: 'KV-8921-LOKESH-KASANA',
-          scan_status: 'not_scanned',
-          is_valid: true
-        },
-        {
-          id: 'pass_6',
-          pilgrim_name: 'Navya Agarwal',
-          qr_value: 'KV-8921-NAVYA-AGARWAL',
-          scan_status: 'not_scanned',
-          is_valid: true
-        }
-      ]
-    }
-  ]);
+  const [bookings, setBookings] = useState([]);
+
 
   const [isMelaMode, setIsMelaMode] = useState(false);
   const toggleMelaMode = () => setIsMelaMode(prev => !prev);

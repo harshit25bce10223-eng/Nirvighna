@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
 import { isDemoMode } from '../lib/runtimeMode';
-import { User, Mail, Phone, Lock, Loader2, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Mail, Phone, Lock, Loader2, ArrowRight, AlertCircle, CheckCircle, MailOpen, RefreshCw } from 'lucide-react';
 
 const translations = {
   en: {
@@ -107,21 +107,24 @@ export const Signup = () => {
 
   const [dpdpMedicalConsent, setDpdpMedicalConsent] = useState(false);
   const [dpdpContactConsent, setDpdpContactConsent] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resentMsg, setResentMsg] = useState('');
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
-    if (cooldownSeconds > 0) {
-      setError(`Rate limit protection active. Please wait ${cooldownSeconds} seconds before requesting again.`);
-      return;
-    }
 
     if (!fullName.trim() || !email.trim() || !password.trim()) {
       setError('Please fill in all required fields');
       return;
     }
     if (phone && !/^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))) {
-      setError('Please enter a valid 10-digit Indian phone number starting with 6, 7, 8, or 9.');
+      setError('Please enter a valid 10-digit Indian phone number.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
     if (password !== confirmPassword) {
@@ -129,7 +132,7 @@ export const Signup = () => {
       return;
     }
     if (!dpdpMedicalConsent || !dpdpContactConsent) {
-      setError('DPDP Act 2023 Consent required: Please accept data protection & emergency contact consent.');
+      setError('DPDP Act 2023 Consent required: Please accept both checkboxes.');
       return;
     }
 
@@ -137,7 +140,7 @@ export const Signup = () => {
     setError('');
 
     try {
-      const cleanEmail = email.trim();
+      const cleanEmail = email.trim().toLowerCase();
       const cleanName = fullName.trim();
       const cleanPhone = phone.trim();
 
@@ -153,100 +156,108 @@ export const Signup = () => {
         }
       });
 
-      // If user is already registered, try direct login or navigate
       if (signupError) {
         if (signupError.message?.toLowerCase().includes('already registered')) {
-          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password
-          });
-          if (!signInErr && signInData?.user) {
-            const profile = {
-              id: signInData.user.id,
-              email: cleanEmail,
-              full_name: cleanName || 'Devotee',
-              phone: cleanPhone || null,
-              role: 'pilgrim',
-              language_preference: currentLanguage
-            };
-            localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(profile));
-            setSuccessMessage('Welcome back! Logging you in...');
-            setTimeout(() => navigate('/home'), 500);
-            return;
-          }
+          setError('This email is already registered. Please use Login instead.');
+        } else {
+          throw signupError;
         }
-        throw signupError;
+        return;
       }
 
-      const user = data?.user;
-      if (user) {
-        const profile = {
-          id: user.id,
+      // Store pending profile data in sessionStorage
+      // It will be saved to DB when the user verifies and logs in
+      if (data?.user) {
+        const pendingProfile = {
+          id: data.user.id,
           email: cleanEmail,
           full_name: cleanName,
           phone: cleanPhone || null,
           role: 'pilgrim',
           language_preference: currentLanguage,
           medical_data_consent: dpdpMedicalConsent,
-          consent_given_at: new Date().toISOString()
+          consent_given_at: new Date().toISOString(),
+          emergency_name: emergencyName?.trim() || null,
+          emergency_phone: emergencyPhone?.trim() || null,
+          emergency_email: emergencyEmail?.trim() || null,
         };
-
-        try {
-          await supabase.from('users').upsert(profile);
-        } catch (_) {}
-
-        if (emergencyName.trim() && (emergencyPhone.trim() || emergencyEmail.trim())) {
-          try {
-            await supabase.from('emergency_contacts').upsert({
-              pilgrim_id: user.id,
-              name: emergencyName.trim(),
-              phone: emergencyPhone.trim() || null,
-              email: emergencyEmail.trim() || null,
-              relationship: 'Family Contact',
-              is_primary: true
-            });
-          } catch (_) {}
-        }
-
-        localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(profile));
-        setSuccessMessage('Registration successful! Opening your Darshan portal...');
-        setTimeout(() => navigate('/home'), 600);
-      } else {
-        const localProfile = {
-          id: 'pilgrim_' + Math.floor(100000 + Math.random() * 900000),
-          email: cleanEmail,
-          full_name: cleanName,
-          phone: cleanPhone || null,
-          role: 'pilgrim',
-          language_preference: currentLanguage
-        };
-        localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(localProfile));
-        setSuccessMessage('Account ready! Welcome to Nirvighna.');
-        setTimeout(() => navigate('/home'), 500);
+        sessionStorage.setItem('nirvighna_pending_profile', JSON.stringify(pendingProfile));
       }
+
+      // Always show verification screen — never skip it
+      setPendingEmail(cleanEmail);
+      setVerificationPending(true);
+
     } catch (err) {
       console.error('Signup error:', err);
-      if (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('rate limit')) {
-        const cleanEmail = email.trim();
-        const cleanName = fullName.trim();
-        const localProfile = {
-          id: 'pilgrim_' + Math.floor(100000 + Math.random() * 900000),
-          email: cleanEmail,
-          full_name: cleanName,
-          phone: phone.trim() || null,
-          role: 'pilgrim',
-          language_preference: currentLanguage
-        };
-        localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(localProfile));
-        setSuccessMessage('Account created! Welcome to Nirvighna.');
-        setTimeout(() => navigate('/home'), 500);
-      } else {
-        setError(err.message || t.signupError || 'Signup failed. Please check details.');
-      }
+      setError(err.message || t.signupError || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResending(true);
+    setResentMsg('');
+    try {
+      await supabase.auth.resend({ type: 'signup', email: pendingEmail });
+      setResentMsg('Verification email sent! Please check your inbox.');
+    } catch (_) {
+      setResentMsg('Could not resend. Please wait a moment and try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
+
+
+  // ── Verification Pending Screen ──
+  if (verificationPending) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/30 to-[#FAF7F2] flex flex-col items-center justify-center px-5 py-10 select-none font-body animate-page-in">
+        <div className="max-w-sm w-full space-y-6 text-center">
+          <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/25 border-4 border-white">
+            <MailOpen className="w-12 h-12 text-white" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-black font-heading text-indigo-dark">Check Your Email ✉️</h1>
+            <p className="text-sm text-gray-600 font-semibold">We sent a verification link to:</p>
+            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2 text-xs font-extrabold text-emerald-800 mt-1">
+              <Mail className="w-3.5 h-3.5" />
+              <span>{pendingEmail}</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl border border-gold/30 shadow-warm p-5 space-y-4 text-left">
+            {['Open your email inbox and find the email from Nirvighna.',
+              'Tap the verification link in that email.',
+              'After verifying, come back here and tap "Go to Login" below.'
+            ].map((step, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-sm font-black text-amber-900">{i + 1}</div>
+                <p className="text-sm text-gray-700 font-semibold pt-0.5">{step}</p>
+              </div>
+            ))}
+          </div>
+          {resentMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-700 font-semibold flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" /><span>{resentMsg}</span>
+            </div>
+          )}
+          <div className="space-y-3">
+            <button onClick={() => navigate('/login')} className="btn-warm-primary font-heading uppercase tracking-wider">
+              <ArrowRight className="w-5 h-5" />
+              Go to Login
+            </button>
+            <button onClick={handleResend} disabled={resending}
+              className="w-full py-3 flex items-center justify-center gap-2 text-xs font-extrabold text-maroon hover:text-gold border-2 border-maroon/20 hover:border-gold rounded-2xl transition-all cursor-pointer disabled:opacity-50">
+              {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {resending ? 'Resending...' : 'Resend Verification Email'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] pt-[max(env(safe-area-inset-top,0px),2.5rem)] pb-[max(env(safe-area-inset-bottom,0px),2.5rem)] px-4 flex flex-col justify-center select-none font-body animate-page-in">

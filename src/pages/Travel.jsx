@@ -348,68 +348,46 @@ export const Travel = () => {
   // Helper to load all family members from storage + previous bookings
   const loadMergedFamilyMembers = () => {
     try {
-      const existingSaved = JSON.parse(localStorage.getItem('nirvighna_saved_family_members') || '[]');
+      const existingSaved = JSON.parse(localStorage.getItem('nirvighna_saved_family_members') || localStorage.getItem('nirvighna_local_family_members') || '[]');
       const rpwBookings = JSON.parse(localStorage.getItem('nirvighna_ropeway_bookings') || '[]');
       const boatBookings = JSON.parse(localStorage.getItem('nirvighna_boat_bookings') || '[]');
       const darshanBookings = JSON.parse(localStorage.getItem('nirvighna_darshan_bookings') || '[]');
 
       const allMembersMap = new Map();
 
-      // Default family members for demo
-      const defaultMembers = [
-        { name: 'Varun Bansal', age: '28', phone: '9876543211' },
-        { name: 'Tanvi Agarwal', age: '26', phone: '9876543210' },
-        { name: 'Harshit Jain', age: '25', phone: '9876543212' },
-        { name: 'Lokesh Kasana', age: '27', phone: '9876543213' },
-        { name: 'Navya Agarwal', age: '24', phone: '9876543214' }
-      ];
-
-      defaultMembers.forEach(m => {
-        if (m.name) allMembersMap.set(m.name.toLowerCase().trim(), m);
-      });
-
       // Merge valid saved members
-      existingSaved.forEach(m => {
-        if (m.name && m.name.trim()) {
-          const l = m.name.toLowerCase().trim();
-          if (!l.includes('ramesh') && !l.includes('kavita') && !l.includes('hkhk') && !l.includes('hukh') && !l.includes('patel') && !l.includes('dave')) {
-            allMembersMap.set(l, { ...allMembersMap.get(l), ...m });
+      if (Array.isArray(existingSaved)) {
+        existingSaved.forEach(m => {
+          if (m && m.name && m.name.trim()) {
+            allMembersMap.set(m.name.toLowerCase().trim(), m);
           }
-        }
-      });
+        });
+      }
 
       // Extract from all past bookings
       [...rpwBookings, ...boatBookings, ...darshanBookings].forEach(b => {
         const memberList = b.members || b.family_members || [];
         if (Array.isArray(memberList)) {
           memberList.forEach(m => {
-            if (m.name && m.name.trim()) {
+            if (m && m.name && m.name.trim()) {
               const key = m.name.toLowerCase().trim();
-              if (!key.includes('ramesh') && !key.includes('kavita') && !key.includes('hkhk') && !key.includes('hukh') && !key.includes('patel') && !key.includes('dave')) {
-                allMembersMap.set(key, {
-                  name: m.name.trim(),
-                  age: m.age || (allMembersMap.get(key)?.age ?? ''),
-                  phone: m.phone || (allMembersMap.get(key)?.phone ?? '')
-                });
-              }
+              allMembersMap.set(key, {
+                name: m.name.trim(),
+                age: m.age || (allMembersMap.get(key)?.age ?? ''),
+                phone: m.phone || (allMembersMap.get(key)?.phone ?? '')
+              });
             }
           });
         }
       });
 
       const merged = Array.from(allMembersMap.values());
-      localStorage.setItem('nirvighna_saved_family_members', JSON.stringify(merged));
       return merged;
     } catch (e) {
-      return [
-        { name: 'Varun Bansal', age: '28', phone: '9876543211' },
-        { name: 'Tanvi Agarwal', age: '26', phone: '9876543210' },
-        { name: 'Harshit Jain', age: '25', phone: '9876543212' },
-        { name: 'Lokesh Kasana', age: '27', phone: '9876543213' },
-        { name: 'Navya Agarwal', age: '24', phone: '9876543214' }
-      ];
+      return [];
     }
   };
+
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState(() => loadMergedFamilyMembers());
   const [bookingMembers, setBookingMembers] = useState([]);

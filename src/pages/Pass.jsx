@@ -306,114 +306,30 @@ export const Pass = () => {
         }
       }
 
-      if (!bookingData) {
-        bookingData = {
-          id: 'bk_somnath_9042',
-          temple_id: 'tmp_somnath',
-          temple_name: 'Shri Somnath Jyotirlinga',
-          gate_number: 2,
-          slot_time: '04:00 PM - 05:00 PM',
-          slot_date: new Date().toISOString().split('T')[0],
-          shared_booking_code: 'KV-8921',
-          booking_mode: 'general',
-          is_priority: false,
-          qr_passes: [
+      if (bookingData) {
+        if (!bookingData.qr_passes || bookingData.qr_passes.length === 0) {
+          bookingData.qr_passes = [
             {
               id: 'pass_1',
-              pilgrim_name: currentUser?.full_name || 'Apex Coder',
-              qr_value: 'KV-8921-APEX-CODER',
-              scan_status: 'not_scanned',
-              is_valid: true
-            },
-            {
-              id: 'pass_2',
-              pilgrim_name: 'Varun Bansal',
-              qr_value: 'KV-8921-VARUN-BANSAL',
-              scan_status: 'not_scanned',
-              is_valid: true
-            },
-            {
-              id: 'pass_3',
-              pilgrim_name: 'Tanvi Agarwal',
-              qr_value: 'KV-8921-TANVI-AGARWAL',
-              scan_status: 'not_scanned',
-              is_valid: true
-            },
-            {
-              id: 'pass_4',
-              pilgrim_name: 'Harshit Jain',
-              qr_value: 'KV-8921-HARSHIT-JAIN',
-              scan_status: 'not_scanned',
-              is_valid: true
-            },
-            {
-              id: 'pass_5',
-              pilgrim_name: 'Lokesh Kasana',
-              qr_value: 'KV-8921-LOKESH-KASANA',
-              scan_status: 'not_scanned',
-              is_valid: true
-            },
-            {
-              id: 'pass_6',
-              pilgrim_name: 'Navya Agarwal',
-              qr_value: 'KV-8921-NAVYA-AGARWAL',
+              pilgrim_name: currentUser?.full_name || 'Pilgrim',
+              qr_value: `${bookingData.shared_booking_code || 'NIRVIGHNA'}-${(currentUser?.full_name || 'PASS').toUpperCase().replace(/\s+/g, '-')}`,
               scan_status: 'not_scanned',
               is_valid: true
             }
-          ]
-        };
-      } else if (!bookingData.qr_passes || bookingData.qr_passes.length === 0) {
-        bookingData.qr_passes = [
-          {
-            id: 'pass_1',
-            pilgrim_name: currentUser?.full_name || 'Apex Coder',
-            qr_value: `${bookingData.shared_booking_code || 'KV-8921'}-APEX-CODER`,
-            scan_status: 'not_scanned',
-            is_valid: true
-          },
-          {
-            id: 'pass_2',
-            pilgrim_name: 'Varun Bansal',
-            qr_value: `${bookingData.shared_booking_code || 'KV-8921'}-VARUN-BANSAL`,
-            scan_status: 'not_scanned',
-            is_valid: true
-          },
-          {
-            id: 'pass_3',
-            pilgrim_name: 'Tanvi Agarwal',
-            qr_value: `${bookingData.shared_booking_code || 'KV-8921'}-TANVI-AGARWAL`,
-            scan_status: 'not_scanned',
-            is_valid: true
-          },
-          {
-            id: 'pass_4',
-            pilgrim_name: 'Harshit Jain',
-            qr_value: `${bookingData.shared_booking_code || 'KV-8921'}-HARSHIT-JAIN`,
-            scan_status: 'not_scanned',
-            is_valid: true
-          },
-          {
-            id: 'pass_5',
-            pilgrim_name: 'Lokesh Kasana',
-            qr_value: `${bookingData.shared_booking_code || 'KV-8921'}-LOKESH-KASANA`,
-            scan_status: 'not_scanned',
-            is_valid: true
-          },
-          {
-            id: 'pass_6',
-            pilgrim_name: 'Navya Agarwal',
-            qr_value: `${bookingData.shared_booking_code || 'KV-8921'}-NAVYA-AGARWAL`,
-            scan_status: 'not_scanned',
-            is_valid: true
-          }
-        ];
+          ];
+        }
+        setBooking(bookingData);
+        setQrPasses(bookingData.qr_passes || []);
+      } else {
+        setBooking(null);
+        setQrPasses([]);
       }
-
-      setBooking(bookingData);
-      setQrPasses(bookingData.qr_passes || []);
     } catch (err) {
       console.error('Error fetching booking:', err);
-    } finally {
+      setBooking(null);
+      setQrPasses([]);
+    }
+ finally {
       setLoading(false);
     }
   };
@@ -446,19 +362,40 @@ export const Pass = () => {
 
   if (!booking || qrPasses.length === 0) {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center pb-20 px-4">
-        <div className="text-center">
-          <p className="text-sm text-gray-600 mb-4">{t.noPass}</p>
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 bg-gold text-indigo-dark rounded-xl text-xs font-bold cursor-pointer"
-          >
-            {backLabel}
-          </button>
+      <div className="min-h-screen bg-ivory flex items-center justify-center pb-24 px-4 animate-page-in">
+        <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center border border-gold/30 shadow-warm space-y-4">
+          <div className="w-16 h-16 rounded-full bg-amber-50 border-2 border-gold/40 flex items-center justify-center mx-auto text-2xl">
+            🎟️
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-black font-heading text-maroon">{t.noPass}</h2>
+            <p className="text-xs text-gray-500 font-semibold">
+              {currentLanguage === 'gu'
+                ? 'કોઈ સક્રિય દર્શન પાસ મળ્યો નથી. દર્શન સ્લોટ બુક કરો.'
+                : currentLanguage === 'hi'
+                ? 'कोई सक्रिय दर्शन पास नहीं मिला। दर्शन स्लॉट बुक करें।'
+                : 'You currently have no active temple pass. Book a darshan slot to generate your QR ticket.'}
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => navigate('/home')}
+              className="btn-warm-primary py-3 font-heading uppercase text-xs tracking-wider"
+            >
+              🔱 {currentLanguage === 'gu' ? 'દર્શન બુક કરો' : currentLanguage === 'hi' ? 'दर्शन बुक करें' : 'Book Darshan Pass'}
+            </button>
+            <button
+              onClick={handleBack}
+              className="w-full py-2.5 text-xs font-bold text-gray-500 hover:text-maroon transition-all cursor-pointer"
+            >
+              {backLabel}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-ivory pt-5 pb-10 px-3.5 sm:px-6 animate-page-in">

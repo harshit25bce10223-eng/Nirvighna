@@ -11,39 +11,20 @@ export const DigitalPass = ({ booking, onBack }) => {
 
   const defaultPasses = [
     {
-      holder_name: user?.full_name || 'Apex Coder',
-      qr_value: `${currentBooking?.shared_booking_code || 'KV-8921'}-APEX-CODER`
-    },
-    {
-      holder_name: 'Varun Bansal',
-      qr_value: `${currentBooking?.shared_booking_code || 'KV-8921'}-VARUN-BANSAL`
-    },
-    {
-      holder_name: 'Tanvi Agarwal',
-      qr_value: `${currentBooking?.shared_booking_code || 'KV-8921'}-TANVI-AGARWAL`
-    },
-    {
-      holder_name: 'Harshit Jain',
-      qr_value: `${currentBooking?.shared_booking_code || 'KV-8921'}-HARSHIT-JAIN`
-    },
-    {
-      holder_name: 'Lokesh Kasana',
-      qr_value: `${currentBooking?.shared_booking_code || 'KV-8921'}-LOKESH-KASANA`
-    },
-    {
-      holder_name: 'Navya Agarwal',
-      qr_value: `${currentBooking?.shared_booking_code || 'KV-8921'}-NAVYA-AGARWAL`
+      holder_name: user?.full_name || 'Pilgrim',
+      qr_value: `${currentBooking?.shared_booking_code || 'NIRVIGHNA'}-${(user?.full_name || 'PASS').toUpperCase().replace(/\s+/g, '-')}`
     }
   ];
 
   const passes = currentBooking?.qr_passes && currentBooking.qr_passes.length > 0 
     ? currentBooking.qr_passes.map(p => ({
         ...p,
-        holder_name: p.holder_name || p.pilgrim_name || user?.full_name || 'Apex Coder'
+        holder_name: p.holder_name || p.pilgrim_name || user?.full_name || 'Pilgrim'
       }))
     : defaultPasses;
 
   const currentPass = passes[activeQrIndex] || defaultPasses[0];
+
 
   useEffect(() => {
     if (canvasRef.current && currentPass.qr_value) {

@@ -44,7 +44,8 @@ export const NirvighnaLoader = ({ message, lang: langOverride }) => {
       <div className="relative w-16 h-16 sm:w-18 sm:h-18 flex items-center justify-center">
         {/* glowing aura */}
         <div className="absolute inset-0 rounded-full border-2 border-gold/40 animate-ping duration-1000"></div>
-        <div className="absolute -inset-1.5 rounded-full border border-maroon/30 animate-spin duration-[3500ms]"></div>
+        <div className="absolute -inset-1.5 rounded-full border border-maroon/30 animate-spin-slow"></div>
+
         
         <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-gold/70 overflow-hidden p-1">
           <img 

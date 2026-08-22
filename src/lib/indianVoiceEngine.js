@@ -158,7 +158,7 @@ function prepareTextForSpeech(rawText, langCode) {
 
 /**
  * Speaks text with 100% Android WebView & Browser compatibility.
- * Includes Web Audio chime, GC retention, and HTML5 Audio fallback.
+ * Includes Web Audio chime, GC retention, voice-loading assurance, and failsafe fallback.
  */
 export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
   // Stop existing audio & speech cleanly
@@ -169,12 +169,14 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
     return null;
   }
 
-  // Optional chime only if explicitly requested, default to false (clean normal voice)
+  // Unlock AudioContext on interaction
+  getAudioContext();
+
+  // Optional chime only if explicitly requested
   if (options.playChime === true) {
-    playDevotionalChime(528, 0.3);
+    playDevotionalChime(528, 0.25);
   }
 
-  // Try Native SpeechSynthesis first
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
@@ -182,61 +184,89 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
         window.speechSynthesis.resume();
       }
 
-      const spokenText = prepareTextForSpeech(text, langCode);
-      const utterance = new SpeechSynthesisUtterance(spokenText);
-
-      utterance.lang = langCode === 'en' ? 'en-IN' : langCode === 'gu' ? 'gu-IN' : 'hi-IN';
-      utterance.pitch = options.pitch !== undefined ? options.pitch : 1.0;
-      utterance.rate = options.rate !== undefined ? options.rate : 0.95;
-      utterance.volume = options.volume !== undefined ? options.volume : 1.0;
-
-      const masterVoice = getBestIndianFemaleVoice(langCode);
-      if (masterVoice) {
-        utterance.voice = masterVoice;
-      }
-
-      // Android GC Retention: Keep reference on window to prevent mid-speech garbage collection
-      window.__nirvighna_active_speech_utterance = utterance;
-
-      utterance.onstart = () => {
-        if (options.onStart) options.onStart();
-      };
-
-      utterance.onend = () => {
-        window.__nirvighna_active_speech_utterance = null;
-        if (options.onEnd) options.onEnd();
-      };
-
-      utterance.onerror = (err) => {
-        window.__nirvighna_active_speech_utterance = null;
-        if (err?.error === 'interrupted' || err?.error === 'canceled') {
-          if (options.onEnd) options.onEnd();
-          return;
-        }
-        // Fallback to online audio if SpeechSynthesis fails
-        speakOnlineAudioFallback(text, langCode, options);
-      };
-
-      // Heartbeat to keep Android speech from stalling
-      const interval = setInterval(() => {
-        if (!window.__nirvighna_active_speech_utterance) {
-          clearInterval(interval);
-          return;
-        }
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-      }, 5000);
-
-      setTimeout(() => {
+      const doSpeak = () => {
         try {
-          window.speechSynthesis.speak(utterance);
-        } catch (e) {
-          speakOnlineAudioFallback(text, langCode, options);
-        }
-      }, 50);
+          const spokenText = prepareTextForSpeech(text, langCode);
+          const utterance = new SpeechSynthesisUtterance(spokenText);
 
-      return utterance;
+          // Language selection
+          utterance.lang = langCode === 'en' ? 'en-IN' : 'hi-IN';
+          utterance.pitch = options.pitch !== undefined ? options.pitch : 1.0;
+          utterance.rate = options.rate !== undefined ? options.rate : 0.95;
+          utterance.volume = options.volume !== undefined ? options.volume : 1.0;
+
+          const allVoices = window.speechSynthesis.getVoices() || [];
+          const masterVoice = getBestIndianFemaleVoice(langCode);
+          if (masterVoice) {
+            utterance.voice = masterVoice;
+          } else if (allVoices.length > 0) {
+            // Fallback to first available voice
+            utterance.voice = allVoices[0];
+          }
+
+          // Android GC Retention
+          window.__nirvighna_active_speech_utterance = utterance;
+
+          let started = false;
+
+          utterance.onstart = () => {
+            started = true;
+            if (options.onStart) options.onStart();
+          };
+
+          utterance.onend = () => {
+            window.__nirvighna_active_speech_utterance = null;
+            if (options.onEnd) options.onEnd();
+          };
+
+          utterance.onerror = (err) => {
+            window.__nirvighna_active_speech_utterance = null;
+            if (err?.error === 'interrupted' || err?.error === 'canceled') {
+              if (options.onEnd) options.onEnd();
+              return;
+            }
+            speakOnlineAudioFallback(text, langCode, options);
+          };
+
+          // Failsafe: If speech synthesis didn't start within 1.5s, unhang
+          setTimeout(() => {
+            if (!started && window.__nirvighna_active_speech_utterance === utterance) {
+              if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.resume();
+              }
+            }
+          }, 1500);
+
+          window.speechSynthesis.speak(utterance);
+          return utterance;
+        } catch (e) {
+          return speakOnlineAudioFallback(text, langCode, options);
+        }
+      };
+
+      const currentVoices = window.speechSynthesis.getVoices();
+      if (currentVoices && currentVoices.length > 0) {
+        return doSpeak();
+      } else {
+        // Voices not yet loaded; wait for onvoiceschanged or timeout
+        let executed = false;
+        const voiceHandler = () => {
+          if (!executed) {
+            executed = true;
+            cachedVoices = window.speechSynthesis.getVoices() || [];
+            masterFemaleVoice = findMasterIndianFemaleVoice(cachedVoices);
+            doSpeak();
+          }
+        };
+
+        window.speechSynthesis.onvoiceschanged = voiceHandler;
+        setTimeout(() => {
+          if (!executed) {
+            executed = true;
+            doSpeak();
+          }
+        }, 300);
+      }
     } catch (err) {
       return speakOnlineAudioFallback(text, langCode, options);
     }
@@ -244,6 +274,7 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
     return speakOnlineAudioFallback(text, langCode, options);
   }
 }
+
 
 /**
  * Resilient Online TTS Fallback using HTML5 Audio element.

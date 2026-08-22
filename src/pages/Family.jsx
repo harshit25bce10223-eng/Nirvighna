@@ -102,22 +102,17 @@ export const Family = () => {
     try {
       setLoading(true);
       
-      // Fetch all group members linked to this pilgrim (both linked and unlinked to bookings)
+      // 1. Check local storage first
+      const localGroup = JSON.parse(localStorage.getItem('nirvighna_local_family_members') || '[]');
+
+      // 2. Fetch from Supabase
       const { data, error } = await supabase
         .from('group_members')
         .select('*')
         .order('created_at', { ascending: false });
 
-      const defaultMembersList = [
-        { id: 'gm_1', name: 'Varun Bansal', age: 28, phone: '+91 98765 43211' },
-        { id: 'gm_2', name: 'Tanvi Agarwal', age: 26, phone: '+91 98765 43210' },
-        { id: 'gm_3', name: 'Harshit Jain', age: 25, phone: '+91 98765 43212' },
-        { id: 'gm_4', name: 'Lokesh Kasana', age: 27, phone: '+91 98765 43213' },
-        { id: 'gm_5', name: 'Navya Agarwal', age: 24, phone: '+91 98765 43214' }
-      ];
-
-      const loaded = data && data.length > 0 ? data : defaultMembersList;
-      setMembers(loaded);
+      const loaded = (data && data.length > 0) ? data : localGroup;
+      setMembers(loaded || []);
       
       // Initialize locations from checkins or mock for each member
       const initialLocations = {};
@@ -129,7 +124,7 @@ export const Family = () => {
         { id: 'cp_5', checkpoint_name: 'Ambaji Temple Entry (Sanctum)' }
       ];
 
-      loaded.forEach(member => {
+      (loaded || []).forEach(member => {
         const checkins = JSON.parse(localStorage.getItem(`nirvighna_padyatri_checkins_${member.id}`) || '[]');
         if (checkins.length > 0) {
           const last = checkins[checkins.length - 1];
@@ -144,19 +139,14 @@ export const Family = () => {
       setMemberLocations(initialLocations);
       
     } catch (err) {
-      console.error('Error fetching group members:', err);
-      const defaultMembersList = [
-        { id: 'gm_1', name: 'Varun Bansal', age: 28, phone: '+91 98765 43211' },
-        { id: 'gm_2', name: 'Tanvi Agarwal', age: 26, phone: '+91 98765 43210' },
-        { id: 'gm_3', name: 'Harshit Jain', age: 25, phone: '+91 98765 43212' },
-        { id: 'gm_4', name: 'Lokesh Kasana', age: 27, phone: '+91 98765 43213' },
-        { id: 'gm_5', name: 'Navya Agarwal', age: 24, phone: '+91 98765 43214' }
-      ];
-      setMembers(defaultMembersList);
+      console.warn('Group fetch fallback:', err);
+      const localGroup = JSON.parse(localStorage.getItem('nirvighna_local_family_members') || '[]');
+      setMembers(localGroup || []);
     } finally {
       setLoading(false);
     }
   };
+
 
   const updateMockLocations = () => {
     const updatedLocations = {};
@@ -191,26 +181,40 @@ export const Family = () => {
     setError('');
 
     try {
-      const { data, error } = await supabase
-        .from('group_members')
-        .insert({
-          booking_id: null, // Will be linked when booking is created
-          name: newMember.name,
-          age: newMember.age ? parseInt(newMember.age) : null,
-          phone: newMember.phone || null,
-        })
-        .select()
-        .single();
+      let saved = null;
+      try {
+        const { data, error } = await supabase
+          .from('group_members')
+          .insert({
+            booking_id: null,
+            name: newMember.name.trim(),
+            age: newMember.age ? parseInt(newMember.age) : null,
+            phone: newMember.phone?.trim() || null,
+          })
+          .select()
+          .single();
+        if (!error && data) saved = data;
+      } catch (_) {}
 
-      if (error) throw error;
+      if (!saved) {
+        saved = {
+          id: 'gm_' + Date.now(),
+          name: newMember.name.trim(),
+          age: newMember.age ? parseInt(newMember.age) : null,
+          phone: newMember.phone?.trim() || null,
+        };
+      }
+
+      const updated = [saved, ...members];
+      setMembers(updated);
+      localStorage.setItem('nirvighna_local_family_members', JSON.stringify(updated));
 
       // Add mock location for new member
       setMemberLocations(prev => ({
         ...prev,
-        [data.id]: mockLocations[Math.floor(Math.random() * mockLocations.length)]
+        [saved.id]: mockLocations[Math.floor(Math.random() * mockLocations.length)]
       }));
 
-      setMembers([data, ...members]);
       setNewMember({ name: '', age: '', phone: '' });
       setShowAddForm(false);
       
@@ -221,6 +225,7 @@ export const Family = () => {
       setSaving(false);
     }
   };
+
 
   const handleReportLost = (member) => {
     navigate('/lost-report', {

@@ -496,40 +496,25 @@ export const Booking = () => {
     if (currentUser?.phone) {
       setUserPhone(currentUser.phone);
     }
-    // Load and clean saved family members
-    const defaultSaved = [
-      { name: 'Varun Bansal', age: 28, phone: '+91 98765 43211' },
-      { name: 'Tanvi Agarwal', age: 26, phone: '+91 98765 43210' },
-      { name: 'Harshit Jain', age: 25, phone: '+91 98765 43212' },
-      { name: 'Lokesh Kasana', age: 27, phone: '+91 98765 43213' },
-      { name: 'Navya Agarwal', age: 24, phone: '+91 98765 43214' }
-    ];
-
+    // Load user's actual saved family members
     try {
-      const saved = localStorage.getItem('nirvighna_saved_family_members');
-      let list = defaultSaved;
+      const saved = localStorage.getItem('nirvighna_saved_family_members') || localStorage.getItem('nirvighna_local_family_members');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Filter out obsolete / junk test entries (e.g. Ramesh, Kavita, hkhk, hukh)
-          const valid = parsed.filter(m => {
-            if (!m || !m.name || typeof m.name !== 'string') return false;
-            const l = m.name.toLowerCase().trim();
-            return !l.includes('ramesh') && !l.includes('kavita') && !l.includes('hkhk') && !l.includes('hukh') && !l.includes('patel') && !l.includes('dave');
-          });
-          const map = new Map();
-          defaultSaved.forEach(m => map.set(m.name.toLowerCase().trim(), m));
-          valid.forEach(m => map.set(m.name.toLowerCase().trim(), m));
-          list = Array.from(map.values());
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter(m => m && m.name && typeof m.name === 'string' && m.name.trim().length > 0);
+          setSavedFamilyMembers(valid);
+        } else {
+          setSavedFamilyMembers([]);
         }
+      } else {
+        setSavedFamilyMembers([]);
       }
-      setSavedFamilyMembers(list);
-      localStorage.setItem('nirvighna_saved_family_members', JSON.stringify(list));
     } catch (e) {
-      setSavedFamilyMembers(defaultSaved);
-      localStorage.setItem('nirvighna_saved_family_members', JSON.stringify(defaultSaved));
+      setSavedFamilyMembers([]);
     }
   }, [currentUser]);
+
 
   // Combined list of all pilgrims in this booking
   const combinedPilgrims = [
