@@ -143,6 +143,9 @@ export const Signup = () => {
       const cleanEmail = email.trim().toLowerCase();
       const cleanName = fullName.trim();
       const cleanPhone = phone.trim();
+      const cleanEmergencyName = emergencyName?.trim() || null;
+      const cleanEmergencyPhone = emergencyPhone?.trim() || null;
+      const cleanEmergencyEmail = emergencyEmail?.trim() || null;
 
       const { data, error: signupError } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -152,7 +155,10 @@ export const Signup = () => {
           data: {
             full_name: cleanName,
             phone: cleanPhone || null,
-            role: 'pilgrim'
+            role: 'pilgrim',
+            emergency_name: cleanEmergencyName,
+            emergency_phone: cleanEmergencyPhone,
+            emergency_email: cleanEmergencyEmail
           }
         }
       });
@@ -167,8 +173,7 @@ export const Signup = () => {
         return;
       }
 
-      // Store pending profile data in sessionStorage
-      // It will be saved to DB when the user verifies and logs in
+      // Store pending profile and emergency contact data
       if (data?.user) {
         const pendingProfile = {
           id: data.user.id,
@@ -179,16 +184,24 @@ export const Signup = () => {
           language_preference: currentLanguage,
           medical_data_consent: dpdpMedicalConsent,
           consent_given_at: new Date().toISOString(),
-          emergency_name: emergencyName?.trim() || null,
-          emergency_phone: emergencyPhone?.trim() || null,
-          emergency_email: emergencyEmail?.trim() || null,
+          emergency_name: cleanEmergencyName,
+          emergency_phone: cleanEmergencyPhone,
+          emergency_email: cleanEmergencyEmail,
         };
         sessionStorage.setItem('nirvighna_pending_profile', JSON.stringify(pendingProfile));
+        localStorage.setItem('nirvighna_pending_profile', JSON.stringify(pendingProfile));
+        
+        if (cleanEmergencyName || cleanEmergencyPhone) {
+          const emObj = { name: cleanEmergencyName || '', phone: cleanEmergencyPhone || '' };
+          localStorage.setItem(`nirvighna_emergency_${data.user.id}`, JSON.stringify(emObj));
+          localStorage.setItem(`nirvighna_pending_emergency_${cleanEmail}`, JSON.stringify(emObj));
+        }
       }
 
       // Always show verification screen — never skip it
       setPendingEmail(cleanEmail);
       setVerificationPending(true);
+
 
     } catch (err) {
       console.error('Signup error:', err);

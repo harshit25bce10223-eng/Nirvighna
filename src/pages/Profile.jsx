@@ -228,11 +228,34 @@ export const Profile = () => {
   const fetchEmergencyContact = async () => {
     if (!currentUser) return;
     try {
+      // 1. Check user-scoped local storage
       const savedLocal = localStorage.getItem(`nirvighna_emergency_${currentUser.id}`);
       if (savedLocal) {
-        setEmergencyContact(JSON.parse(savedLocal));
+        try {
+          const parsed = JSON.parse(savedLocal);
+          if (parsed && (parsed.name || parsed.phone)) {
+            setEmergencyContact(parsed);
+          }
+        } catch (_) {}
       }
 
+      // 2. Check pending emergency by email
+      if (currentUser.email) {
+        const emailSaved = localStorage.getItem(`nirvighna_pending_emergency_${currentUser.email.toLowerCase()}`);
+        if (emailSaved) {
+          try {
+            const parsed = JSON.parse(emailSaved);
+            if (parsed && (parsed.name || parsed.phone)) {
+              setEmergencyContact((prev) => ({
+                name: prev.name || parsed.name || '',
+                phone: prev.phone || parsed.phone || ''
+              }));
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 3. Query DB table emergency_contacts
       if (isRealDbUser(currentUser)) {
         const { data, error } = await supabase
           .from('emergency_contacts')
@@ -241,13 +264,40 @@ export const Profile = () => {
           .maybeSingle();
 
         if (!error && data) {
-          setEmergencyContact({ name: data.contact_name || data.name || '', phone: data.contact_phone || data.phone || '' });
+          const resolved = {
+            name: data.name || data.contact_name || '',
+            phone: data.phone || data.contact_phone || ''
+          };
+          if (resolved.name || resolved.phone) {
+            setEmergencyContact(resolved);
+            localStorage.setItem(`nirvighna_emergency_${currentUser.id}`, JSON.stringify(resolved));
+          }
         }
       }
+
+      // 4. Check user metadata directly from Auth user
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.user_metadata) {
+          const metaName = user.user_metadata.emergency_name;
+          const metaPhone = user.user_metadata.emergency_phone;
+          if (metaName || metaPhone) {
+            setEmergencyContact((prev) => {
+              const updated = {
+                name: prev.name || metaName || '',
+                phone: prev.phone || metaPhone || ''
+              };
+              localStorage.setItem(`nirvighna_emergency_${currentUser.id}`, JSON.stringify(updated));
+              return updated;
+            });
+          }
+        }
+      } catch (_) {}
     } catch (err) {
       console.warn('Fallback to local emergency contact:', err);
     }
   };
+
 
   const handleSaveProfileDetails = async (e) => {
     e.preventDefault();

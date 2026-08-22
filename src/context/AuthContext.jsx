@@ -143,6 +143,50 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = async (userId, fallbackUser = null) => {
     try {
+      // 1. Sync any pending emergency contacts from signup
+      try {
+        const pendingRaw = localStorage.getItem('nirvighna_pending_profile') || sessionStorage.getItem('nirvighna_pending_profile');
+        const u = fallbackUser || (await supabase.auth.getUser())?.data?.user;
+        const meta = u?.user_metadata || {};
+        let emName = meta.emergency_name || null;
+        let emPhone = meta.emergency_phone || null;
+
+        if (pendingRaw) {
+          const pp = JSON.parse(pendingRaw);
+          if (pp && (pp.id === userId || pp.email === u?.email)) {
+            emName = emName || pp.emergency_name;
+            emPhone = emPhone || pp.emergency_phone;
+            const { emergency_name, emergency_phone, emergency_email, ...profileFields } = pp;
+            try {
+              await supabase.from('users').upsert({ id: userId, ...profileFields });
+            } catch (_) {}
+          }
+        }
+
+        if (!emName && u?.email) {
+          const emailPending = localStorage.getItem(`nirvighna_pending_emergency_${u.email.toLowerCase()}`);
+          if (emailPending) {
+            const ep = JSON.parse(emailPending);
+            emName = ep.name;
+            emPhone = ep.phone;
+          }
+        }
+
+        if (emName || emPhone) {
+          const emObj = { name: emName || '', phone: emPhone || '' };
+          localStorage.setItem(`nirvighna_emergency_${userId}`, JSON.stringify(emObj));
+          try {
+            await supabase.from('emergency_contacts').upsert({
+              pilgrim_id: userId,
+              name: emName || 'Emergency Contact',
+              phone: emPhone || '',
+              relationship: 'Family Contact',
+              is_primary: true
+            });
+          } catch (_) {}
+        }
+      } catch (_) {}
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -196,6 +240,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   };
+
 
   const login = async (email, password) => {
     setLoading(true);
