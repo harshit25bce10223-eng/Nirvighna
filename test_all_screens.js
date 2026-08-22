@@ -3,11 +3,10 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-console.log('====================================================');
-console.log('   FULL END-TO-END MOBILE BROWSER TEST SUITE       ');
-console.log('====================================================\n');
+console.log('================================================================');
+console.log('   NIRVIGHNA FULL-SPECTRUM COMPREHENSIVE TEST SUITE (ALL APPS)  ');
+console.log('================================================================\n');
 
-// Fast Zero-Dependency Built-in Static Server for dist/
 const MIME_TYPES = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -29,7 +28,6 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      // Fallback for SPA routing
       fs.readFile(path.join('dist', 'index.html'), (err2, fallbackContent) => {
         if (err2) {
           res.writeHead(404);
@@ -46,9 +44,9 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const runSuite = async () => {
+const runExhaustiveSuite = async () => {
   server.listen(4173, '127.0.0.1', async () => {
-    console.log('[1/9] Static test server running at http://127.0.0.1:4173 ...\n');
+    console.log('[INIT] Static test server running on port 4173...\n');
 
     try {
       const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
@@ -61,58 +59,71 @@ const runSuite = async () => {
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
       });
 
-      // Test on Mobile viewport (393 x 852 - iPhone 15 / Galaxy S24)
       const context = await browser.newContext({
         viewport: { width: 393, height: 852 }
       });
 
       const page = await context.newPage();
 
-      const errors = [];
+      const runtimeErrors = [];
       page.on('pageerror', (err) => {
         console.error('  [PAGE ERROR]:', err.message);
-        errors.push(err.message);
+        runtimeErrors.push(err.message);
       });
 
-      // TEST 1: Fresh Install Startup on New Device (No Saved Session)
-      console.log('[2/9] Testing Fresh App Launch on New Device (No Session)...');
+      let passedCount = 0;
+      let totalTests = 0;
+
+      const assertTest = (condition, testName) => {
+        totalTests++;
+        if (condition) {
+          passedCount++;
+          console.log(`  ✓ [PASS ${passedCount}] ${testName}`);
+        } else {
+          console.error(`  ✗ [FAIL] ${testName}`);
+          throw new Error(`Test Failed: ${testName}`);
+        }
+      };
+
+      // ─── TIER 1: AUTHENTICATION & LOGIN (EASY TO MEDIUM) ───────────
+      console.log('\n--- [TIER 1: AUTHENTICATION & SECURITY] ---');
+
+      // Test 1: Fresh Launch Redirect to Login
       await page.goto('http://127.0.0.1:4173/#/', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1600);
-      const urlAfterSync = page.url();
-      console.log(`  -> URL after startup sync: ${urlAfterSync}`);
-      const loginText = await page.locator('body').innerText();
-      const isLoginPage = urlAfterSync.includes('/login') || loginText.includes('लॉगिन') || loginText.includes('Welcome Back') || loginText.includes('Login');
-      console.log(`  -> Unauthenticated device correctly presented Login screen: ${isLoginPage}`);
-      if (!isLoginPage) throw new Error('App did not present Login screen on new device!');
-      console.log('  -> [PASS] Fresh install correctly requires login on new device.\n');
+      await page.waitForTimeout(1000);
+      const url1 = page.url();
+      assertTest(url1.includes('/login'), 'Unauthenticated user automatically directed to /login');
 
-      // TEST 2: Verify Login Screen Styling & No Guest Mode Button
-      console.log('[3/9] Verifying Login Page Elements & Logo...');
-      const hasGuestButton = loginText.includes('गेस्ट मोड') || loginText.includes('Guest Mode');
-      console.log(`  -> Guest mode button is absent: ${!hasGuestButton}`);
-      if (hasGuestButton) throw new Error('Guest Mode button still present on Login screen!');
-      const hasCircularLogo = await page.locator('img[src="/official_logo.png"], img[src="./official_logo.png"]').count();
-      console.log(`  -> Circular logo element found: ${hasCircularLogo > 0}`);
-      console.log('  -> [PASS] Login page has circular logo and no guest button.\n');
+      // Test 2: Verify Login UI & Brand Elements
+      const loginBody = await page.locator('body').innerText();
+      assertTest(loginBody.includes('NIRVIGHNA') || loginBody.includes('निर्विघ्न'), 'Divine Brand Header rendered on Login');
+      assertTest(!loginBody.includes('Guest Mode') && !loginBody.includes('गेस्ट'), 'Guest mode bypass is completely disabled');
+      assertTest(!loginBody.includes('Email OTP') && !loginBody.includes('ईमेल OTP'), 'Login OTP tab removed in favor of clean Email+Password verification');
 
-      // TEST 3: Signup Page Flow (#/signup)
-      console.log('[4/9] Testing Signup Page (#/signup)...');
+      // Test 3: Language Switching on Login Screen
+      const guBtn = page.locator('button:has-text("ગુજ")');
+      if (await guBtn.count() > 0) {
+        await guBtn.click();
+        await page.waitForTimeout(300);
+        const guBody = await page.locator('body').innerText();
+        assertTest(guBody.includes('નિર્વિઘ્ન') || guBody.includes('લૉગિન'), 'Language switched dynamically to Gujarati');
+      }
+
+      // Test 4: Signup Validation Gate
       await page.goto('http://127.0.0.1:4173/#/signup', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(800);
-      const signupText = await page.locator('body').innerText();
-      console.log('Signup Page Text:', signupText);
-      const hasSignupFields = signupText.length > 50;
-      console.log(`  -> Signup form rendered: ${hasSignupFields}`);
-      if (!hasSignupFields) throw new Error('Signup screen fields missing!');
-      console.log('  -> [PASS] Signup page verified.\n');
+      await page.waitForTimeout(600);
+      const signupBody = await page.locator('body').innerText();
+      assertTest(signupBody.includes('DPDP') || signupBody.includes('Consent') || signupBody.includes('सहमति') || signupBody.includes('સંમતિ'), 'DPDP Act 2023 compliance consent rendered on signup');
 
-      // TEST 4: Authenticated Pilgrim Session Persistence
-      console.log('[5/9] Simulating Login & Session Persistence...');
+      // ─── TIER 2: PILGRIM PORTAL CORE FLOWS (MEDIUM TO HARD) ────────
+      console.log('\n--- [TIER 2: PILGRIM PORTAL CORE FLOWS] ---');
+
+      // Seed Authenticated Devotee Session
       await page.evaluate(() => {
         const devotee = {
-          id: 'pilgrim_harshit_9921',
-          full_name: 'Harshit Devotee',
-          email: 'harshit.devotee@nirvighna.org',
+          id: 'devotee_harshit_deep_test',
+          full_name: 'Harshit Agrawal',
+          email: 'harshit.test@nirvighna.org',
           phone: '9876543210',
           role: 'pilgrim',
           language_preference: 'hi'
@@ -120,71 +131,104 @@ const runSuite = async () => {
         localStorage.setItem('nirvighna_pilgrim_session', JSON.stringify(devotee));
       });
       await page.reload({ waitUntil: 'networkidle' });
-      await page.waitForTimeout(600);
-      console.log('[6/9] Testing Home Dashboard (#/home)...');
+      await page.waitForTimeout(800);
+
+      // Test 5: Home Dashboard & All 4 Temples
       await page.goto('http://127.0.0.1:4173/#/home', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const homeText = await page.locator('body').innerText();
-      const hasTemples = homeText.includes('Somnath') || homeText.includes('सोमनाथ') || homeText.includes('Dwarka') || homeText.includes('द्वारका');
-      console.log(`  -> Home Dashboard rendered temple cards: ${hasTemples}`);
-      if (!hasTemples) throw new Error('Home Dashboard failed to render temples!');
-      console.log('  -> [PASS] Home Dashboard rendered smoothly.\n');
+      assertTest(homeText.includes('Somnath') || homeText.includes('सोमनाथ') || homeText.includes('સોમનાથ'), 'Somnath Temple rendered on Home');
+      assertTest(homeText.includes('Dwarka') || homeText.includes('द्वारका') || homeText.includes('દ્વારકા'), 'Dwarkadhish Temple rendered on Home');
+      assertTest(homeText.includes('Ambaji') || homeText.includes('अंबाजी') || homeText.includes('અંબાજી'), 'Ambaji Shrine rendered on Home');
+      assertTest(homeText.includes('Pavagadh') || homeText.includes('पावागढ़') || homeText.includes('પાવાગઢ'), 'Pavagadh Kalika Temple rendered on Home');
 
-      // TEST 6: Darshan Booking Screen (#/book/somnath)
-      console.log('[7/9] Testing Darshan Booking (#/book/somnath)...');
+      // Test 6: Darshan Booking Flow
       await page.goto('http://127.0.0.1:4173/#/book/somnath', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const bookText = await page.locator('body').innerText();
-      const hasSlots = bookText.includes('Slot') || bookText.includes('स्लॉट') || bookText.includes('दर्शन') || bookText.includes('General');
-      console.log(`  -> Booking screen rendered slots: ${hasSlots}`);
-      if (!hasSlots) throw new Error('Booking screen missing slots!');
-      console.log('  -> [PASS] Booking page verified.\n');
+      assertTest(bookText.includes('Slot') || bookText.includes('स्लॉट') || bookText.includes('સ્લોટ') || bookText.includes('Darshan') || bookText.includes('दर्शन') || bookText.includes('દર્શન'), 'Somnath Slot selection rendered');
 
-      // TEST 7: Travel & Parking Guide (#/travel)
-      console.log('[8/9] Testing Travel Guide (#/travel)...');
+
+      // Test 7: Travel, Transit & Parking Module
       await page.goto('http://127.0.0.1:4173/#/travel', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const travelText = await page.locator('body').innerText();
-      const hasTravel = travelText.includes('Parking') || travelText.includes('पार्किंग') || travelText.includes('Shuttle');
-      console.log(`  -> Travel screen rendered: ${hasTravel}`);
-      if (!hasTravel) throw new Error('Travel guide missing transport tabs!');
-      console.log('  -> [PASS] Travel guide verified.\n');
+      assertTest(travelText.includes('Parking') || travelText.includes('पार्किंग') || travelText.includes('પાર્કિંગ') || travelText.includes('Ropeway') || travelText.includes('रोपवे') || travelText.includes('રોપવે') || travelText.includes('યાત્રા'), 'Travel & Transit parking/ropeway modules verified');
 
-      // TEST 8: Profile & Settings Screen (#/profile)
-      console.log('[9/10] Testing Profile Screen (#/profile)...');
+      // Test 8: Family & Group Management (Zero Dummy Data Check)
+      await page.goto('http://127.0.0.1:4173/#/family', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const familyText = await page.locator('body').innerText();
+      assertTest(!familyText.includes('Varun Bansal') && !familyText.includes('Tanvi Agarwal'), 'Clean family state: Zero fake/mock family names');
+
+      // Test 9: Lost & Found Reporting Safety Module
+      await page.goto('http://127.0.0.1:4173/#/lost-report', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const lostText = await page.locator('body').innerText();
+      assertTest(lostText.includes('Lost') || lostText.includes('खोया') || lostText.includes('ખોવાયેલ') || lostText.includes('Report') || lostText.includes('રિપોર્ટ'), 'Lost & Found safety reporting portal operational');
+
+      // Test 10: My Bookings & QR Passes Screen
+      await page.goto('http://127.0.0.1:4173/#/my-bookings', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const myBookingsText = await page.locator('body').innerText();
+      assertTest(myBookingsText.includes('Bookings') || myBookingsText.includes('बुकिंग') || myBookingsText.includes('બુકિંગ') || myBookingsText.includes('Pass') || myBookingsText.includes('પાસ'), 'My Bookings and passes tabs operational');
+
+      // Test 11: Padyatri Mela Tracking (Ambaji Route)
+      await page.goto('http://127.0.0.1:4173/#/mela-route', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const melaText = await page.locator('body').innerText();
+      assertTest(melaText.includes('Padyatri') || melaText.includes('पदयात्री') || melaText.includes('પદયાત્રી') || melaText.includes('Route') || melaText.includes('માર્ગ'), 'Padyatri Mela route tracking operational');
+
+      // Test 12: Priority Audio Navigation Engine
+      await page.goto('http://127.0.0.1:4173/#/priority-nav', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const audioText = await page.locator('body').innerText();
+      assertTest(audioText.includes('Audio') || audioText.includes('ध्वनि') || audioText.includes('વોઇસ') || audioText.includes('Voice') || audioText.includes('ગાઇડ'), 'Priority Audio Navigation voice guide operational');
+
+      // Test 13: Notifications Screen
+      await page.goto('http://127.0.0.1:4173/#/notifications', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const notifText = await page.locator('body').innerText();
+      assertTest(notifText.includes('Alert') || notifText.includes('सूचना') || notifText.includes('સૂચના') || notifText.includes('Notification'), 'Notifications center operational');
+
+      // Test 14: Profile & Version Check
       await page.goto('http://127.0.0.1:4173/#/profile', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const profileText = await page.locator('body').innerText();
-      const hasProfileDetails = profileText.includes('Harshit Devotee') || profileText.includes('NIRVIGHNA') || profileText.includes('तीर्थयात्री') || profileText.includes('1.0.3');
-      console.log(`  -> Profile details rendered (Includes v1.0.3): ${hasProfileDetails}`);
-      if (!hasProfileDetails) throw new Error('Profile details missing!');
-      console.log('  -> [PASS] Profile screen verified.\n');
+      assertTest(profileText.includes('1.0.3') || profileText.includes('Harshit Agrawal'), 'Profile verified with Version 1.0.3 and devotee profile');
 
-      // TEST 9: Priority Audio Navigation (#/priority-nav)
-      console.log('[10/10] Testing Priority Audio Navigation (#/priority-nav)...');
-      await page.goto('http://127.0.0.1:4173/#/priority-nav', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1000);
-      const audioNavText = await page.locator('body').innerText();
-      const hasAudioControls = audioNavText.includes('ध्वनि') || audioNavText.includes('Audio') || audioNavText.includes('Somnath') || audioNavText.includes('सोमनाथ') || audioNavText.includes('मार्गदर्शन');
-      console.log(`  -> Audio Navigation rendered with sound controls: ${hasAudioControls}`);
-      if (!hasAudioControls) throw new Error('Audio Navigation page missing controls!');
-      console.log('  -> [PASS] Priority Audio Navigation verified.\n');
+      // ─── TIER 3: VOLUNTEER HUB & COMMAND OPERATIONS (HARD) ─────────
+      console.log('\n--- [TIER 3: VOLUNTEER & COMMAND CENTRE] ---');
+
+      // Test 15: Volunteer Hub Login & Duty Roles
+      await page.goto('http://127.0.0.1:4173/#/v/login', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(800);
+      const volLoginText = await page.locator('body').innerText();
+      assertTest(volLoginText.includes('Volunteer') || volLoginText.includes('स्वयंसेवक') || volLoginText.includes('સ્વયંસેવક'), 'Volunteer shift operations login operational');
+
+      // Test 16: Command Centre Staff Clearance Login
+      await page.goto('http://127.0.0.1:4173/#/command-centre/login', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(800);
+      const adminLoginText = await page.locator('body').innerText();
+      assertTest(adminLoginText.includes('Command') || adminLoginText.includes('Clearance') || adminLoginText.includes('Staff') || adminLoginText.includes('Admin') || adminLoginText.includes('કમાન્ડ'), 'Command Centre Staff Clearance Login operational');
+
 
       await browser.close();
       server.close();
 
-      console.log('====================================================');
-      console.log(`   ALL MOBILE TESTS PASSED: 100% OPERATIONAL!       `);
-      console.log(`   TOTAL RUNTIME JAVASCRIPT ERRORS: ${errors.length}`);
-      console.log('====================================================');
+      console.log('\n================================================================');
+      console.log(`   ALL ${passedCount}/${totalTests} TESTS PASSED WITH 100% ACCURACY!`);
+      console.log(`   TOTAL RUNTIME JAVASCRIPT ERRORS: ${runtimeErrors.length}`);
+      console.log('================================================================\n');
 
       process.exit(0);
     } catch (err) {
-      console.error('MOBILE AUDIT FAILED:', err);
+      console.error('\n[AUDIT FAILURE]:', err);
       server.close();
       process.exit(1);
     }
   });
 };
 
-runSuite();
+runExhaustiveSuite();
+

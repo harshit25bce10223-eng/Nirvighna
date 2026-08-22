@@ -63,27 +63,31 @@ public class MainActivity extends BridgeActivity {
 
                                 String currentUrlStr = apkUrl;
                                 URL url = new URL(currentUrlStr);
-                                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                                conn.setInstanceFollowRedirects(true);
-                                conn.setConnectTimeout(15000);
-                                conn.setReadTimeout(30000);
-                                conn.setRequestProperty("User-Agent", "Nirvighna-Android-Updater");
-                                conn.connect();
-
-                                int responseCode = conn.getResponseCode();
-                                // Handle GitHub 301, 302, 307, 308 redirect
-                                if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP 
-                                        || responseCode == HttpURLConnection.HTTP_MOVED_PERM 
-                                        || responseCode == 307 
-                                        || responseCode == 308) {
-                                    String redirectUrl = conn.getHeaderField("Location");
-                                    conn.disconnect();
-                                    url = new URL(redirectUrl);
+                                HttpURLConnection conn = null;
+                                int redirects = 0;
+                                while (redirects < 6) {
                                     conn = (HttpURLConnection) url.openConnection();
                                     conn.setInstanceFollowRedirects(true);
+                                    conn.setConnectTimeout(15000);
+                                    conn.setReadTimeout(30000);
                                     conn.setRequestProperty("User-Agent", "Nirvighna-Android-Updater");
                                     conn.connect();
+
+                                    int responseCode = conn.getResponseCode();
+                                    if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP 
+                                            || responseCode == HttpURLConnection.HTTP_MOVED_PERM 
+                                            || responseCode == 307 
+                                            || responseCode == 308) {
+                                        String redirectUrl = conn.getHeaderField("Location");
+                                        conn.disconnect();
+                                        url = new URL(redirectUrl);
+                                        redirects++;
+                                    } else {
+                                        break;
+                                    }
                                 }
+
+                                if (conn == null) throw new Exception("Unable to establish connection to update server.");
 
                                 InputStream is = conn.getInputStream();
                                 FileOutputStream fos = new FileOutputStream(outputFile);
@@ -96,6 +100,7 @@ public class MainActivity extends BridgeActivity {
                                 fos.close();
                                 is.close();
                                 conn.disconnect();
+
 
                                 // Launch package installer directly
                                 runOnUiThread(new Runnable() {
