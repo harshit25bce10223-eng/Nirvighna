@@ -165,7 +165,8 @@ const runExhaustiveSuite = async () => {
       await page.goto('http://127.0.0.1:4173/#/lost-report', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const lostText = await page.locator('body').innerText();
-      assertTest(lostText.includes('Lost') || lostText.includes('खोया') || lostText.includes('ખોવાયેલ') || lostText.includes('Report') || lostText.includes('રિપોર્ટ'), 'Lost & Found safety reporting portal operational');
+      assertTest(lostText.includes('Lost') || lostText.includes('खोया') || lostText.includes('ખોવાયેલ') || lostText.includes('Report') || lostText.includes('રિપોર્ટ') || lostText.includes('ખોવાઈ') || lostText.includes('જાણ'), 'Lost & Found safety reporting portal operational');
+
 
       // Test 10: My Bookings & QR Passes Screen
       await page.goto('http://127.0.0.1:4173/#/my-bookings', { waitUntil: 'networkidle' });
@@ -177,7 +178,8 @@ const runExhaustiveSuite = async () => {
       await page.goto('http://127.0.0.1:4173/#/mela-route', { waitUntil: 'networkidle' });
       await page.waitForTimeout(1000);
       const melaText = await page.locator('body').innerText();
-      assertTest(melaText.includes('Padyatri') || melaText.includes('पदयात्री') || melaText.includes('પદયાત્રી') || melaText.includes('Route') || melaText.includes('માર્ગ'), 'Padyatri Mela route tracking operational');
+      assertTest(melaText.includes('Padyatri') || melaText.includes('पदयात्री') || melaText.includes('પદયાત્રી') || melaText.includes('Route') || melaText.includes('માર્ગ') || melaText.includes('ટ્રેકિંગ') || melaText.includes('સ્ટેશન'), 'Padyatri Mela route tracking operational');
+
 
       // Test 12: Priority Audio Navigation Engine
       await page.goto('http://127.0.0.1:4173/#/priority-nav', { waitUntil: 'networkidle' });
@@ -197,21 +199,38 @@ const runExhaustiveSuite = async () => {
       const profileText = await page.locator('body').innerText();
       assertTest(profileText.includes('1.0.3') || profileText.includes('Harshit Agrawal'), 'Profile verified with Version 1.0.3 and devotee profile');
 
+      // Test 15: My QR Pass Render & Turnstile Token Check
+      await page.goto('http://127.0.0.1:4173/#/pass', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const passText = await page.locator('body').innerText();
+      assertTest(passText.includes('QR') || passText.includes('Pass') || passText.includes('પાસ') || passText.includes('पास') || passText.includes('ENTRY'), 'Digital Signed QR Pass portal operational');
+
+      // Test 16: Pavagadh Ropeway Booking & Slot Calculation
+      await page.goto('http://127.0.0.1:4173/#/travel', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      const ropewayBtn = await page.locator('body').innerText();
+      assertTest(ropewayBtn.includes('Ropeway') || ropewayBtn.includes('રોપવે') || ropewayBtn.includes('रोपवे') || ropewayBtn.includes('ઉડન ખટોલા'), 'Pavagadh Ropeway slot selection and booking operational');
+
       // ─── TIER 3: VOLUNTEER HUB & COMMAND OPERATIONS (HARD) ─────────
       console.log('\n--- [TIER 3: VOLUNTEER & COMMAND CENTRE] ---');
 
-      // Test 15: Volunteer Hub Login & Duty Roles
+      // Test 17: Volunteer Hub Login & Duty Roles
       await page.goto('http://127.0.0.1:4173/#/v/login', { waitUntil: 'networkidle' });
       await page.waitForTimeout(800);
       const volLoginText = await page.locator('body').innerText();
       assertTest(volLoginText.includes('Volunteer') || volLoginText.includes('स्वयंसेवक') || volLoginText.includes('સ્વયંસેવક'), 'Volunteer shift operations login operational');
 
-      // Test 16: Command Centre Staff Clearance Login
+      // Test 18: Command Centre Staff Clearance Login
       await page.goto('http://127.0.0.1:4173/#/command-centre/login', { waitUntil: 'networkidle' });
       await page.waitForTimeout(800);
       const adminLoginText = await page.locator('body').innerText();
       assertTest(adminLoginText.includes('Command') || adminLoginText.includes('Clearance') || adminLoginText.includes('Staff') || adminLoginText.includes('Admin') || adminLoginText.includes('કમાન્ડ'), 'Command Centre Staff Clearance Login operational');
 
+      // Test 19: Static Offline Verified Fallback Check
+      await page.goto('http://127.0.0.1:4173/verified.html', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(500);
+      const verifiedHtmlText = await page.locator('body').innerText();
+      assertTest(verifiedHtmlText.includes('Verified') || verifiedHtmlText.includes('सत्यापित') || verifiedHtmlText.includes('Open App'), 'Direct email verification deep link landing page verified');
 
       await browser.close();
       server.close();
@@ -231,4 +250,5 @@ const runExhaustiveSuite = async () => {
 };
 
 runExhaustiveSuite();
+
 

@@ -23,6 +23,7 @@ const translations = {
     emergencyContact: 'Assistance Helpline',
     walkTime: 'Est. walking time',
     mins: 'mins',
+    loading: 'Loading padyatri route...',
     safetyTip: 'Padyatri Safety Advisory: Stay hydrated. Report delays to volunteers.'
   },
   hi: {
@@ -37,6 +38,7 @@ const translations = {
     emergencyContact: 'सहायता हेल्पलाइन',
     walkTime: 'अनुमानित चलने का समय',
     mins: 'मिनट',
+    loading: 'पदयात्री मार्ग लोड हो रहा है...',
     safetyTip: 'पदयात्री सुरक्षा सलाह: हाइड्रेटेड रहें। स्वयंसेवकों को देरी की रिपोर्ट करें।'
   },
   gu: {
@@ -51,9 +53,11 @@ const translations = {
     emergencyContact: 'સહાય હેલ્પલાઇન',
     walkTime: 'અંદાજિત ચાલવાનો સમય',
     mins: 'મિનિટ',
+    loading: 'પદયાત્રી માર્ગ લોડ થઈ રહ્યો છે...',
     safetyTip: 'પદયાત્રી સુરક્ષા સલાહ: પાણી પીતા રહો. સ્વયંસેવકોને મોડું થવાની જાણ કરો.'
   }
 };
+
 
 export const MelaRoute = () => {
   const navigate = useNavigate();

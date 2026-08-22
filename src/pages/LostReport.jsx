@@ -9,9 +9,10 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { stripExifMetadata } from '../lib/exifStripper';
-import { sanitizeText } from '../lib/sanitizeInput';
+import { getUniqueTemples } from '../lib/templeRegistry';
 
 const translations = {
+
   en: {
     back: 'Back',
     reportLost: 'Report Lost Person',
@@ -81,8 +82,8 @@ export const LostReport = () => {
   const { currentLanguage } = useLanguage();
   const t = translations[currentLanguage];
 
-  const [temples, setTemples] = useState([]);
-  const [selectedTempleId, setSelectedTempleId] = useState('');
+  const [temples, setTemples] = useState(() => getUniqueTemples());
+  const [selectedTempleId, setSelectedTempleId] = useState('tmp_somnath');
   const [formData, setFormData] = useState({
     name: location.state?.memberName || '',
     age: '',
@@ -116,24 +117,19 @@ export const LostReport = () => {
 
   const fetchTemples = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('temples')
         .select('*')
         .order('name');
 
-      if (error) throw error;
-      setTemples(data || []);
-      
-      if (data && data.length > 0) {
-        setSelectedTempleId(data[0].id);
+      if (!error && data && data.length > 0) {
+        setTemples(data);
       }
     } catch (err) {
-      console.error('Error fetching temples:', err);
-    } finally {
-      setLoading(false);
+      console.warn('Error fetching temples, using master registry:', err);
     }
   };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();

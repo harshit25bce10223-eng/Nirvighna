@@ -148,6 +148,7 @@ export const Signup = () => {
         email: cleanEmail,
         password: password,
         options: {
+          emailRedirectTo: 'nirvighna://login',
           data: {
             full_name: cleanName,
             phone: cleanPhone || null,
@@ -155,6 +156,7 @@ export const Signup = () => {
           }
         }
       });
+
 
       if (signupError) {
         if (signupError.message?.toLowerCase().includes('already registered')) {
