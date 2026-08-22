@@ -209,15 +209,25 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (error) {
-        const isNotFound = error.message?.toLowerCase().includes('invalid login credentials') ||
-                           error.message?.toLowerCase().includes('user not found');
+        const msg = error.message?.toLowerCase() || '';
+        const isUnconfirmed = msg.includes('email not confirmed') || msg.includes('not confirmed') || msg.includes('unconfirmed');
+        const isNotFound = msg.includes('invalid login credentials') || msg.includes('user not found');
+        
+        if (isUnconfirmed) {
+          return {
+            success: false,
+            error: 'ईमेल अभी सत्यापित (Verify) नहीं हुआ है। कृपया अपने इनबॉक्स में जाकर वेरिफिकेशन लिंक पर क्लिक करें!'
+          };
+        }
+
         return {
           success: false,
           error: isNotFound
-            ? 'खाता नहीं मिला या गलत पासवर्ड। कृपया पहले "साइन अप करें" (Sign Up) पर जाकर नया खाता बनाएं।'
+            ? 'गलत ईमेल अथवा पासवर्ड। यदि आपने अभी रजिस्टर किया है, तो पहले ईमेल लिंक से वेरिफाई करें या नया खाता बनाएं।'
             : error.message
         };
       }
+
 
       if (data?.user) {
         const profile = await fetchUserProfile(data.user.id, data.user);

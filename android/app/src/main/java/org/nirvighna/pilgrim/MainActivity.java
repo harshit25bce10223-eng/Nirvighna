@@ -27,15 +27,28 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         
         // Force native window and decor background to warm ivory #FAF7F2 from frame 0
-        if (getWindow() != null && getWindow().getDecorView() != null) {
-            getWindow().getDecorView().setBackgroundColor(Color.parseColor("#FAF7F2"));
+        if (getWindow() != null) {
+            getWindow().setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+            );
+            if (getWindow().getDecorView() != null) {
+                getWindow().getDecorView().setBackgroundColor(Color.parseColor("#FAF7F2"));
+            }
         }
 
         if (this.bridge != null && this.bridge.getWebView() != null) {
             WebView webView = this.bridge.getWebView();
             webView.setBackgroundColor(Color.parseColor("#FAF7F2"));
+            webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+            webView.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
+            
             WebSettings settings = webView.getSettings();
             settings.setMediaPlaybackRequiresUserGesture(false);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
 
             // In-app direct APK downloader & native installer (No Chrome, No Browser)
             webView.addJavascriptInterface(new Object() {
