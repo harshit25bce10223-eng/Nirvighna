@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Download, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchLatestVersionInfo, CURRENT_VERSION, GITHUB_REPO } from './AppUpdateChecker';
+import { NirvighnaSplash } from './NirvighnaSplash';
+
+
 
 export const AppUpdateGatekeeper = ({ children }) => {
   const { currentLanguage } = useLanguage();
@@ -97,70 +100,19 @@ export const AppUpdateGatekeeper = ({ children }) => {
   };
 
 
-  // 1. Initial Launch Sync Screen — Beautiful Animated Devotional Splash
+  // 1. Initial Launch Screen — "Nirvighna Awakening" Custom Animated Splash Sequence
   if (checking) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FAF7F2] via-amber-50/70 to-[#F5EFE6] flex flex-col items-center justify-center p-6 text-center select-none font-body relative overflow-hidden">
-        {/* Soft Golden Background Halo */}
-        <div className="absolute w-80 h-80 rounded-full bg-amber-400/15 blur-3xl -top-10 pointer-events-none animate-pulse" />
-        <div className="absolute w-96 h-96 rounded-full bg-gold/10 blur-3xl -bottom-10 pointer-events-none" />
-
-        <div className="max-w-xs w-full space-y-6 animate-page-in relative z-10">
-          {/* Official Glowing Emblem */}
-          <div className="relative inline-flex mx-auto">
-            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-gold via-amber-300 to-amber-600 animate-logo-aura flex items-center justify-center p-1.5 shadow-[0_0_35px_rgba(245,158,11,0.4)] border-2 border-gold">
-              <div className="w-full h-full rounded-full bg-white flex items-center justify-center p-2.5 overflow-hidden shadow-inner">
-                <img
-                  src="./official_logo.png"
-                  alt="Nirvighna Official Emblem"
-                  className="w-full h-full object-contain drop-shadow-md select-none crisp-img animate-in zoom-in-75 duration-500"
-                  onError={(e) => { e.target.src = '/official_logo.png'; }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Devotional Branding */}
-          <div className="space-y-1.5">
-            <h1 className="text-3xl font-black font-heading tracking-wider text-indigo-dark drop-shadow-xs">
-              {currentLanguage === 'gu' ? 'નિર્વિઘ્ન' : currentLanguage === 'hi' ? 'निर्विघ्न' : 'NIRVIGHNA'}
-            </h1>
-            <p className="text-xs font-black text-maroon tracking-wide">
-              {currentLanguage === 'gu'
-                ? 'યાત્રા વિના વિઘ્ને • સરળ દર્શન'
-                : currentLanguage === 'hi'
-                ? 'यात्रा बिना विघ्न के • सुगम दर्शन'
-                : 'Yatra Without Obstacles • Easy Darshan'}
-            </p>
-            <p className="text-[11px] text-amber-800/80 font-bold mt-1">
-              {currentLanguage === 'gu'
-                ? 'ॐ નમઃ શિવાય • જય શ્રી કૃષ્ણ • જય માતાજી'
-                : currentLanguage === 'hi'
-                ? 'ॐ नमः शिवाय • जय श्री कृष्ण • जय माता दी'
-                : 'Jai Shri Krishna • Jai Mata Di • Har Har Mahadev'}
-            </p>
-          </div>
-
-          {/* Animated Gold Progress Bar */}
-          <div className="w-full bg-amber-100/80 rounded-full h-2 overflow-hidden border border-amber-300/60 shadow-inner">
-            <div className="bg-gradient-to-r from-maroon via-gold to-amber-500 h-full w-full animate-pulse rounded-full" />
-          </div>
-
-          {/* Sync Status Badge */}
-          <div className="inline-flex items-center justify-center gap-2 text-xs font-bold text-amber-900 bg-white/90 backdrop-blur-xs py-2 px-4 rounded-full border border-gold/30 shadow-xs">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-maroon shrink-0" />
-            <span>
-              {currentLanguage === 'gu'
-                ? 'મંદિર સર્વર સાથે સિંક થઈ રહ્યું છે...'
-                : currentLanguage === 'hi'
-                ? 'मंदिर सर्वर से सिंक हो रहा है...'
-                : 'Connecting to Temple Cloud...'}
-            </span>
-          </div>
+      <>
+        {/* Pre-mount children in background to prevent any blank-screen flash */}
+        <div className="opacity-0 pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          {children}
         </div>
-      </div>
+        <NirvighnaSplash onComplete={() => setChecking(false)} />
+      </>
     );
   }
+
 
   // 2. Mandatory Update Required Screen
   if (updateRequired && updateInfo) {

@@ -19,7 +19,9 @@ import { BottomNav } from './components/BottomNav';
 import { Navbar } from './components/Navbar';
 import { PriorityAudioNav } from './components/PriorityAudioNav';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
+import { NirvighnaSplash } from './components/NirvighnaSplash';
 import { useAuth } from './context/AuthContext';
+
 
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { VolunteerAuthProvider, useVolunteerAuth } from './context/VolunteerAuthContext';
@@ -293,6 +295,8 @@ export function App() {
           {/* Public routes */}
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/splash-preview" element={<NirvighnaSplash isPreview={true} onComplete={() => window.history.back()} />} />
+
 
           {/* Protected routes */}
           <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />

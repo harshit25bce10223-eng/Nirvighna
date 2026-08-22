@@ -5,13 +5,14 @@
   "bundledWebRuntime": false,
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 1500,
-      "launchAutoHide": true,
-      "backgroundColor": "#FAF7F2",
+      "launchShowDuration": 0,
+      "launchAutoHide": false,
+      "backgroundColor": "#0F0D0E",
       "androidSplashResourceName": "splash",
-      "androidScaleType": "CENTER_CROP",
+      "androidScaleType": "CENTER_INSIDE",
       "showSpinner": false
     },
+
     "StatusBar": {
       "style": "DEFAULT",
       "backgroundColor": "#FAF7F2"

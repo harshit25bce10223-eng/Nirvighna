@@ -26,14 +26,14 @@
     </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#FAF7F2</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">#0F0D0E</item>
+        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
-        <item name="android:background">#FAF7F2</item>
-        <item name="android:windowBackground">#FAF7F2</item>
-        <item name="android:colorBackground">#FAF7F2</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
-        <item name="android:statusBarColor">#FAF7F2</item>
-        <item name="android:navigationBarColor">#FAF7F2</item>
+        <item name="android:background">#0F0D0E</item>
+        <item name="android:windowBackground">#0F0D0E</item>
+        <item name="android:colorBackground">#0F0D0E</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:statusBarColor">#0F0D0E</item>
+        <item name="android:navigationBarColor">#0F0D0E</item>
     </style>
 </resources>

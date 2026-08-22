@@ -5,7 +5,9 @@ import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { AppUpdateChecker } from '../components/AppUpdateChecker';
+import { NirvighnaSplash } from '../components/NirvighnaSplash';
 import { 
+
   User, ChevronLeft, LogOut, Globe, Shield, ChevronRight, 
   Loader2, Edit2, X, Check, Phone, Camera, Upload, Trash, Mail, AlertTriangle, Users, Sparkles
 } from 'lucide-react';
@@ -176,6 +178,8 @@ export const Profile = () => {
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [showManualUpdateCheck, setShowManualUpdateCheck] = useState(false);
+  const [showSplashPreview, setShowSplashPreview] = useState(false);
+
 
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -767,14 +771,31 @@ export const Profile = () => {
               <p className="text-[10px] font-bold text-gray-500">Version 1.0.3 (Build 4)</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowManualUpdateCheck(prev => !prev)}
-            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-xs font-heading"
-          >
-            <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check for Update'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSplashPreview(true)}
+              className="px-3 py-1.5 bg-indigo-950/10 hover:bg-indigo-950/20 border border-indigo-950/20 text-indigo-dark text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-xs font-heading flex items-center gap-1"
+            >
+              <Sparkles className="w-3 h-3 text-gold" />
+              <span>{currentLanguage === 'gu' ? 'એનિમેશન જુઓ' : currentLanguage === 'hi' ? 'एनिमेशन देखें' : 'Preview Splash'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowManualUpdateCheck(prev => !prev)}
+              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-xs font-heading"
+            >
+              <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check for Update'}</span>
+            </button>
+          </div>
         </div>
+
+        {showSplashPreview && (
+          <NirvighnaSplash
+            isPreview={true}
+            onComplete={() => setShowSplashPreview(false)}
+          />
+        )}
 
         {showManualUpdateCheck && (
           <AppUpdateChecker
@@ -782,6 +803,7 @@ export const Profile = () => {
             onCheckComplete={() => setShowManualUpdateCheck(false)}
           />
         )}
+
 
 
         {/* Sign Out Button */}
