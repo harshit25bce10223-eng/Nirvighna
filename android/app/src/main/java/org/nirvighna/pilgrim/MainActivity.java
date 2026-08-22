@@ -6,7 +6,9 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.AudioManager;
 import android.net.Uri;
+
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -28,7 +30,9 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
+import java.util.HashMap;
 import java.util.Locale;
+
 
 public class MainActivity extends BridgeActivity {
 
@@ -95,21 +99,47 @@ public class MainActivity extends BridgeActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            if (textToSpeech != null) {
-                                Locale targetLocale = new Locale("hi", "IN");
-                                if ("gu".equalsIgnoreCase(langCode)) {
-                                    targetLocale = new Locale("gu", "IN");
-                                } else if ("en".equalsIgnoreCase(langCode)) {
-                                    targetLocale = new Locale("en", "IN");
+                            try {
+                                if (textToSpeech == null) {
+                                    initNativeTTS();
                                 }
-                                textToSpeech.setLanguage(targetLocale);
-                                textToSpeech.setSpeechRate(0.95f);
-                                textToSpeech.setPitch(1.0f);
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                    textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nirvighna_tts_" + System.currentTimeMillis());
-                                } else {
-                                    textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null);
+                                if (textToSpeech != null) {
+                                    Locale targetLocale = new Locale("hi", "IN");
+                                    if ("gu".equalsIgnoreCase(langCode)) {
+                                        int avail = textToSpeech.isLanguageAvailable(new Locale("gu", "IN"));
+                                        if (avail >= TextToSpeech.LANG_AVAILABLE) {
+                                            targetLocale = new Locale("gu", "IN");
+                                        } else {
+                                            targetLocale = new Locale("hi", "IN");
+                                        }
+                                    } else if ("en".equalsIgnoreCase(langCode)) {
+                                        targetLocale = new Locale("en", "IN");
+                                    } else {
+                                        targetLocale = new Locale("hi", "IN");
+                                    }
+
+                                    int langResult = textToSpeech.setLanguage(targetLocale);
+                                    if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                                        textToSpeech.setLanguage(Locale.ENGLISH);
+                                    }
+
+                                    textToSpeech.setSpeechRate(0.95f);
+                                    textToSpeech.setPitch(1.0f);
+
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                        Bundle params = new Bundle();
+                                        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
+                                        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC);
+                                        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nirvighna_tts_" + System.currentTimeMillis());
+                                    } else {
+                                        HashMap<String, String> params = new HashMap<>();
+                                        params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, "1.0");
+                                        params.put(TextToSpeech.Engine.KEY_PARAM_STREAM, String.valueOf(AudioManager.STREAM_MUSIC));
+                                        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, params);
+                                    }
                                 }
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
                         }
                     });
@@ -120,12 +150,17 @@ public class MainActivity extends BridgeActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            if (textToSpeech != null && textToSpeech.isSpeaking()) {
-                                textToSpeech.stop();
+                            try {
+                                if (textToSpeech != null && textToSpeech.isSpeaking()) {
+                                    textToSpeech.stop();
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
                         }
                     });
                 }
+
 
                 @JavascriptInterface
                 public void showSystemNotification(final String title, final String message, final String tag) {
@@ -387,11 +422,14 @@ public class MainActivity extends BridgeActivity {
 
     private void initNativeTTS() {
         try {
-            textToSpeech = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            textToSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
                 @Override
                 public void onInit(int status) {
                     if (status == TextToSpeech.SUCCESS && textToSpeech != null) {
-                        textToSpeech.setLanguage(new Locale("hi", "IN"));
+                        int res = textToSpeech.setLanguage(new Locale("hi", "IN"));
+                        if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                            textToSpeech.setLanguage(Locale.ENGLISH);
+                        }
                     }
                 }
             });
@@ -399,6 +437,7 @@ public class MainActivity extends BridgeActivity {
             e.printStackTrace();
         }
     }
+
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

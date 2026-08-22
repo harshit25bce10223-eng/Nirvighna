@@ -207,11 +207,19 @@ export function speakNaturalIndianVoice(text, langCode = 'hi', options = {}) {
       const spokenText = prepareTextForSpeech(text, langCode);
       window.NirvighnaNativeBridge.speakText(spokenText, langCode);
       if (options.onStart) options.onStart();
+      
+      const wordCount = spokenText.split(/\s+/).filter(Boolean).length;
+      const approxDurationMs = Math.max(1800, wordCount * 380);
+      setTimeout(() => {
+        if (options.onEnd) options.onEnd();
+      }, approxDurationMs);
+
       return { native: true };
     } catch (e) {
       console.warn('Native TTS bridge fallback to WebSpeech:', e);
     }
   }
+
 
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 

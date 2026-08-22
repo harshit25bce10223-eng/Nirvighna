@@ -29,10 +29,10 @@ export const NirvighnaSplash = ({ onComplete, isPreview = false }) => {
 
   // Main lifecycle timing controller
   useEffect(() => {
-    // Phase 4 Exit Transition begins at 2800ms, completed at 3100ms
-    const exitDuration = prefersReducedMotion ? 1200 : 2800;
-    const finishDuration = prefersReducedMotion ? 1500 : 3100;
-    const safetyTimeout = 3500; // Hard max cap to prevent any user block
+    // Settle window: user clearly sees Mandir + NIRVIGHNA wordmark + tagline together until 3400ms
+    const exitDuration = prefersReducedMotion ? 1200 : 3400;
+    const finishDuration = prefersReducedMotion ? 1500 : 3700;
+    const safetyTimeout = 4200; // Hard max cap to prevent any user block
 
     const exitTimer = setTimeout(() => {
       setIsExiting(true);
@@ -58,6 +58,7 @@ export const NirvighnaSplash = ({ onComplete, isPreview = false }) => {
       clearTimeout(maxCapTimer);
     };
   }, [onComplete, prefersReducedMotion]);
+
 
   // Tap-to-skip interruptibility
   const handleTapToSkip = () => {

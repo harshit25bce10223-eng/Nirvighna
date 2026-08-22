@@ -8,7 +8,7 @@ import { NirvighnaSplash } from './NirvighnaSplash';
 
 export const AppUpdateGatekeeper = ({ children }) => {
   const { currentLanguage } = useLanguage();
-  const [checking, setChecking] = useState(true);
+  const [splashFinished, setSplashFinished] = useState(false);
   const [updateRequired, setUpdateRequired] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -16,35 +16,19 @@ export const AppUpdateGatekeeper = ({ children }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const MIN_SPLASH_TIME = 1600;
-    const startTime = Date.now();
 
     const checkLiveUpdates = async () => {
       try {
         const info = await fetchLatestVersionInfo();
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, MIN_SPLASH_TIME - elapsed);
-
-        setTimeout(() => {
-          if (isMounted) {
-            if (info.hasUpdate) {
-              setUpdateInfo({
-                version: info.version,
-                notes: info.releaseNotes,
-                downloadUrl: info.downloadUrl
-              });
-              setUpdateRequired(true);
-            }
-            setChecking(false);
-          }
-        }, delay);
-      } catch (_) {
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, MIN_SPLASH_TIME - elapsed);
-        setTimeout(() => {
-          if (isMounted) setChecking(false);
-        }, delay);
-      }
+        if (isMounted && info?.hasUpdate) {
+          setUpdateInfo({
+            version: info.version,
+            notes: info.releaseNotes,
+            downloadUrl: info.downloadUrl
+          });
+          setUpdateRequired(true);
+        }
+      } catch (_) {}
     };
 
     checkLiveUpdates();
@@ -53,6 +37,7 @@ export const AppUpdateGatekeeper = ({ children }) => {
       isMounted = false;
     };
   }, []);
+
 
   const handleStartUpdate = () => {
     setDownloading(true);
@@ -101,17 +86,18 @@ export const AppUpdateGatekeeper = ({ children }) => {
 
 
   // 1. Initial Launch Screen — "Nirvighna Awakening" Custom Animated Splash Sequence
-  if (checking) {
+  if (!splashFinished) {
     return (
       <>
         {/* Pre-mount children in background to prevent any blank-screen flash */}
         <div className="opacity-0 pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           {children}
         </div>
-        <NirvighnaSplash onComplete={() => setChecking(false)} />
+        <NirvighnaSplash onComplete={() => setSplashFinished(true)} />
       </>
     );
   }
+
 
 
   // 2. Mandatory Update Required Screen

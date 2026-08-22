@@ -64,13 +64,8 @@ def generate_icons():
 
         print(f"Generated {folder}: launcher {l_size}x{l_size}, fg {fg_size}x{fg_size}")
 
-    # Also update public web assets for consistency
-    src_img.resize((512, 512), Image.Resampling.LANCZOS).save(os.path.join(public_dir, 'official_logo.png'), 'PNG')
-    src_img.resize((512, 512), Image.Resampling.LANCZOS).save(os.path.join(public_dir, 'logo.png'), 'PNG')
-    src_img.resize((64, 64), Image.Resampling.LANCZOS).save(os.path.join(public_dir, 'favicon.png'), 'PNG')
-    src_img.resize((192, 192), Image.Resampling.LANCZOS).save(os.path.join(public_dir, 'favicon.ico'), 'ICO')
-
-    print("All app icons successfully replaced and generated from 'app icon.png'!")
+    print("Android app launcher icons (mipmap) successfully generated from 'app icon.png'!")
 
 if __name__ == '__main__':
     generate_icons()
+
