@@ -349,26 +349,27 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-gold/20 border border-gold/40 flex items-center justify-center text-gold shadow-sm shrink-0 font-bold text-xl">
-              🍲
+                🍲
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-white font-heading uppercase tracking-wide flex items-center gap-2">
+                  <span>{t.title}</span>
+                  <span className="text-[10px] bg-gold/30 text-amber-200 font-mono font-bold px-2 py-0.5 rounded-full border border-gold/40">
+                    FREE
+                  </span>
+                </h3>
+                <p className="text-[11px] text-amber-200/90 font-medium">
+                  {shrine.name} • {t.subtitle}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-extrabold text-sm sm:text-base text-white font-heading uppercase tracking-wide flex items-center gap-2">
-                <span>{t.title}</span>
-                <span className="text-[10px] bg-gold/30 text-amber-200 font-mono font-bold px-2 py-0.5 rounded-full border border-gold/40">
-                  FREE
-                </span>
-              </h3>
-              <p className="text-[11px] text-amber-200/90 font-medium">
-                {shrine.name} • {t.subtitle}
-              </p>
-            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-200 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-200 hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Tab Switcher */}
