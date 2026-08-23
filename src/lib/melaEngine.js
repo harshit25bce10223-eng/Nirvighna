@@ -7,11 +7,56 @@ export const melaEngine = {
   // Mock checkpoints for Bhadarvi Poonam
   // Geographically accurate checkpoints for Ambaji Bhadarvi Poonam Padyatra (Banaskantha District)
   DEFAULT_CHECKPOINTS: [
-    { id: 'cp_1', checkpoint_name: 'Palanpur Base Shelter (Start)', sequence_order: 1, avg_walk_minutes_to_next: 45, latitude: 24.17, longitude: 72.43 },
-    { id: 'cp_2', checkpoint_name: 'Danta Ghati Water Station', sequence_order: 2, avg_walk_minutes_to_next: 60, latitude: 24.18, longitude: 72.77 },
-    { id: 'cp_3', checkpoint_name: 'Trishulia Ghat Rest Shelter', sequence_order: 3, avg_walk_minutes_to_next: 90, latitude: 24.23, longitude: 72.82 },
-    { id: 'cp_4', checkpoint_name: 'Chhatariya Gate Checkpoint', sequence_order: 4, avg_walk_minutes_to_next: 30, latitude: 24.31, longitude: 72.84 },
-    { id: 'cp_5', checkpoint_name: 'Ambaji Temple Entry (Sanctum)', sequence_order: 5, avg_walk_minutes_to_next: 0, latitude: 24.33, longitude: 72.85 }
+    { 
+      id: 'cp_1', 
+      checkpoint_name: 'Palanpur Base Shelter (Start)', 
+      name_hi: 'पालनपुर बेस शेल्टर (प्रारंभ)', 
+      name_gu: 'પાલનપુર બેઝ શેલ્ટર (શરૂઆત)', 
+      sequence_order: 1, 
+      avg_walk_minutes_to_next: 45, 
+      latitude: 24.17, 
+      longitude: 72.43 
+    },
+    { 
+      id: 'cp_2', 
+      checkpoint_name: 'Danta Ghati Water Station', 
+      name_hi: 'दांता घाटी जल सेवा स्टेशन', 
+      name_gu: 'દાંતા ઘાટી જળ સેવા સ્ટેશન', 
+      sequence_order: 2, 
+      avg_walk_minutes_to_next: 60, 
+      latitude: 24.18, 
+      longitude: 72.77 
+    },
+    { 
+      id: 'cp_3', 
+      checkpoint_name: 'Trishulia Ghat Rest Shelter', 
+      name_hi: 'त्रिशूलिया घाट विश्राम शिविर', 
+      name_gu: 'ત્રિશૂલિયા ઘાટ વિશ્રામ કેમ્પ', 
+      sequence_order: 3, 
+      avg_walk_minutes_to_next: 90, 
+      latitude: 24.23, 
+      longitude: 72.82 
+    },
+    { 
+      id: 'cp_4', 
+      checkpoint_name: 'Chhatariya Gate Checkpoint', 
+      name_hi: 'छतरिया गेट सुरक्षा चेकपॉइंट', 
+      name_gu: 'છતરિયા ગેટ સુરક્ષા ચેકપોઇન્ટ', 
+      sequence_order: 4, 
+      avg_walk_minutes_to_next: 30, 
+      latitude: 24.31, 
+      longitude: 72.84 
+    },
+    { 
+      id: 'cp_5', 
+      checkpoint_name: 'Ambaji Temple Entry (Sanctum)', 
+      name_hi: 'अंबाजी मंदिर मुख्य प्रवेश (गर्भगृह)', 
+      name_gu: 'અંબાજી મંદિર મુખ્ય પ્રવેશ (ગર્ભગૃહ)', 
+      sequence_order: 5, 
+      avg_walk_minutes_to_next: 0, 
+      latitude: 24.33, 
+      longitude: 72.85 
+    }
   ],
 
   /**

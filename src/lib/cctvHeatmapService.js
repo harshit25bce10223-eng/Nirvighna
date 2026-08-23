@@ -34,10 +34,46 @@ export const cctvHeatmapService = {
 
   // 300km Ambaji Padyatri Highway BLE Corridor Beacons
   BLE_BEACONS: [
-    { beaconId: 'ble_palanpur_01', location: 'Palanpur Base Shelter (KM 0)', activePadyatris: 1420, densityStatus: 'Normal' },
-    { beaconId: 'ble_danta_02', location: 'Danta Ghati Water Station (KM 45)', activePadyatris: 3100, densityStatus: 'High Walking Volume' },
-    { beaconId: 'ble_trishulia_03', location: 'Trishulia Ghat Rest Shelter (KM 85)', activePadyatris: 2850, densityStatus: 'High Walking Volume' },
-    { beaconId: 'ble_chhatariya_04', location: 'Chhatariya Gate Checkpoint (KM 110)', activePadyatris: 1980, densityStatus: 'Normal Entry' }
+    { 
+      beaconId: 'ble_palanpur_01', 
+      location: 'Palanpur Base Shelter (KM 0)', 
+      location_hi: 'पालनपुर बेस शेल्टर (KM 0)', 
+      location_gu: 'પાલનપુર બેઝ શેલ્ટર (KM 0)', 
+      activePadyatris: 1420, 
+      densityStatus: 'Normal',
+      density_hi: 'सामान्य प्रवाह',
+      density_gu: 'સામાન્ય પ્રવાહ'
+    },
+    { 
+      beaconId: 'ble_danta_02', 
+      location: 'Danta Ghati Water Station (KM 45)', 
+      location_hi: 'दांता घाटी जल सेवा (KM 45)', 
+      location_gu: 'દાંતા ઘાટી જળ સેવા (KM 45)', 
+      activePadyatris: 3100, 
+      densityStatus: 'High Walking Volume',
+      density_hi: 'उच्च पदयात्री भीड़',
+      density_gu: 'વધારે પદયાત્રી ભીડ'
+    },
+    { 
+      beaconId: 'ble_trishulia_03', 
+      location: 'Trishulia Ghat Rest Shelter (KM 85)', 
+      location_hi: 'त्रिशूलिया घाट विश्राम शिविर (KM 85)', 
+      location_gu: 'ત્રિશૂલિયા ઘાટ વિશ્રામ કેમ્પ (KM 85)', 
+      activePadyatris: 2850, 
+      densityStatus: 'High Walking Volume',
+      density_hi: 'उच्च पदयात्री भीड़',
+      density_gu: 'વધારે પદયાત્રી ભીડ'
+    },
+    { 
+      beaconId: 'ble_chhatariya_04', 
+      location: 'Chhatariya Gate Checkpoint (KM 110)', 
+      location_hi: 'छतरिया गेट चेकपॉइंट (KM 110)', 
+      location_gu: 'છતરિયા ગેટ ચેકપોઇન્ટ (KM 110)', 
+      activePadyatris: 1980, 
+      densityStatus: 'Normal Entry',
+      density_hi: 'सामान्य प्रवेश',
+      density_gu: 'સામાન્ય પ્રવેશ'
+    }
   ],
 
   /**

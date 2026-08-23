@@ -1,5 +1,6 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { Bell, X, CheckCircle, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { Signup } from './pages/Signup';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
@@ -45,16 +46,98 @@ const CommandCentre = React.lazy(() => import('./components/CommandCentre').then
 // Layout wrapper for Pilgrim Portal
 const Layout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isLoggedIn, loading } = useAuth();
+  const [pilgrimToast, setPilgrimToast] = React.useState(null);
   
   const isVolunteerRoute = location.pathname.startsWith('/v');
   const publicRoutes = ['/signup', '/login'];
   const showNav = !isVolunteerRoute && isLoggedIn && !publicRoutes.includes(location.pathname) && !loading;
 
+  React.useEffect(() => {
+    const handlePilgrimNotif = (e) => {
+      if (e.detail) {
+        setPilgrimToast(e.detail);
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 chime
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.35);
+        } catch (_) {}
+      }
+    };
+
+    window.addEventListener('nirvighna_notification_alert', handlePilgrimNotif);
+    return () => window.removeEventListener('nirvighna_notification_alert', handlePilgrimNotif);
+  }, []);
+
+  React.useEffect(() => {
+    if (pilgrimToast) {
+      const timer = setTimeout(() => setPilgrimToast(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [pilgrimToast]);
+
   return (
     <ErrorBoundary sectionName="Pilgrim Portal">
       <div className="min-h-screen bg-ivory text-gray-900 font-body flex flex-col selection:bg-gold selection:text-indigo-dark">
         <AppUpdateChecker />
+
+        {/* Global In-App Alert Toast Notification */}
+        {pilgrimToast && (
+          <div className="fixed top-3 inset-x-3 sm:max-w-md sm:mx-auto z-[999999] animate-in slide-in-from-top-4 duration-300">
+            <div className="bg-gradient-to-r from-indigo-dark via-slate-900 to-indigo-dark text-white p-3.5 rounded-2xl shadow-2xl border-2 border-gold/40 flex items-start gap-3 backdrop-blur-md">
+              <div className="w-9 h-9 rounded-xl bg-gold/20 border border-gold/40 flex items-center justify-center shrink-0 text-amber-300 mt-0.5">
+                <Bell className="w-5 h-5 text-gold animate-bounce" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <h4 className="text-xs font-black font-heading text-gold truncate">
+                    {pilgrimToast.title}
+                  </h4>
+                  <span className="text-[9px] font-bold text-gray-400 font-mono">Just now</span>
+                </div>
+                <p className="text-[11px] text-gray-200 font-medium leading-snug mt-0.5 line-clamp-2">
+                  {pilgrimToast.message}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      const dest = pilgrimToast.link || '/notifications';
+                      setPilgrimToast(null);
+                      navigate(dest);
+                    }}
+                    className="px-2.5 py-1 bg-gold hover:bg-gold-dark text-indigo-dark text-[10px] font-black rounded-lg flex items-center gap-1 font-heading transition-colors cursor-pointer"
+                  >
+                    <span>View Alert</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setPilgrimToast(null)}
+                    className="text-[10px] text-gray-400 hover:text-white px-2 py-1 cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => setPilgrimToast(null)}
+                className="text-gray-400 hover:text-white p-1 shrink-0 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {showNav && <Navbar />}
         <main className="flex-1 pb-32 sm:pb-36">
           {children || <Outlet />}

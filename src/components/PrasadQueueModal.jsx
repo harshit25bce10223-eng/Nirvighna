@@ -9,6 +9,7 @@ import {
   MapPin, Plus, QrCode as QrIcon, ShieldCheck, ArrowRight, User, Phone
 } from 'lucide-react';
 import { getTempleById } from '../lib/templeRegistry';
+import { sendPilgrimNotification } from '../lib/notificationService';
 
 const translations = {
   en: {
@@ -289,17 +290,13 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
       localStorage.setItem(`nirvighna_prasad_token_${templeId}`, JSON.stringify(enrichedToken));
       await generateQR(enrichedToken.token_id);
 
-      // Notification
-      try {
-        const prasadNotif = {
-          type: 'gate_info',
-          title: '🍲 Prasad Token Issued!',
-          message: `Your Prasad Queue Token #${token.token_number} for ${headcount} Devotee(s) is issued for ${shrine.name}.`,
-          created_at: new Date().toISOString()
-        };
-        await supabase.from('notifications').insert(prasadNotif);
-        window.dispatchEvent(new CustomEvent('nirvighna_notification_alert', { detail: prasadNotif }));
-      } catch (_) {}
+      // Universal Notification (System Status Bar & In-App Alert)
+      await sendPilgrimNotification({
+        type: 'gate_info',
+        title: '🍲 Mahaprasad Token Issued!',
+        message: `Your Prasad Queue Token #${token.token_number} for ${headcount} Devotee(s) is issued for ${shrine.name}.`,
+        templeId: templeId
+      });
 
       setActiveTab('tokens');
       setSuccessToast('🎉 Mahaprasad token issued successfully!');

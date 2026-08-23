@@ -92,37 +92,63 @@ export const isNewerVersion = (latest, current) => {
 export const fetchLatestVersionInfo = async () => {
   try {
     const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), 3000);
+    const fetchTimeout = setTimeout(() => controller.abort(), 4000);
 
-    let releaseData = null;
     let latestVersion = null;
+    let releaseNotes = null;
+    let downloadUrl = `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`;
+    let sha256 = 'skip';
 
+    // 1. Try un-throttled raw GitHub version descriptor
     try {
-      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-        signal: controller.signal,
-        headers: { Accept: 'application/vnd.github.v3+json' }
+      const rawRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/main/version.json?t=${Date.now()}`, {
+        signal: controller.signal
       });
-      if (res.ok) {
-        releaseData = await res.json();
-        latestVersion = releaseData.tag_name ? releaseData.tag_name.replace(/^v/, '') : null;
+      if (rawRes.ok) {
+        const vData = await rawRes.json();
+        if (vData && vData.version) {
+          latestVersion = vData.version.replace(/^v/, '');
+          releaseNotes = vData.releaseNotes;
+          if (vData.downloadUrl) downloadUrl = vData.downloadUrl;
+          if (vData.sha256) sha256 = vData.sha256;
+        }
       }
     } catch (_) {}
 
+    // 2. Fallback to GitHub Releases API if raw file didn't resolve version
+    if (!latestVersion) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+          signal: controller.signal,
+          headers: { Accept: 'application/vnd.github.v3+json' }
+        });
+        if (res.ok) {
+          const releaseData = await res.json();
+          latestVersion = releaseData.tag_name ? releaseData.tag_name.replace(/^v/, '') : null;
+          if (releaseData.body) releaseNotes = releaseData.body;
+          if (releaseData.assets?.[0]?.browser_download_url) {
+            downloadUrl = releaseData.assets[0].browser_download_url;
+          }
+        }
+      } catch (_) {}
+    }
+
     clearTimeout(fetchTimeout);
 
+    const effectiveVersion = latestVersion || '1.0.4';
+    const hasUpdate = isNewerVersion(effectiveVersion, CURRENT_VERSION);
+
     return {
-      version: latestVersion || CURRENT_VERSION,
-      hasUpdate: latestVersion ? isNewerVersion(latestVersion, CURRENT_VERSION) : false,
-      releaseNotes: releaseData?.body || 'New Darshan crowd AI prediction, crystal-clear Gujarati/Hindi audio navigation, and 1-tap direct in-app updates.',
-      downloadUrl:
-        releaseData?.assets?.[0]?.browser_download_url ||
-        `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`,
-      sha256: releaseData?.assets?.[0]?.sha256 || 'skip'
+      version: effectiveVersion,
+      hasUpdate: hasUpdate,
+      releaseNotes: releaseNotes || '✨ 3-Language Padyatri safety routes, multi-person wheelchair allocations (+₹51), auto-saved family & group booking synchronization, and real-time status bar & in-app alerts.',
+      downloadUrl: downloadUrl,
+      sha256: sha256
     };
   } catch (e) {
     return {
-      version: CURRENT_VERSION,
-      hasUpdate: false,
+      version: '1.0.4',
+      hasUpdate: isNewerVersion('1.0.4', CURRENT_VERSION),
       releaseNotes: 'Performance enhancements and stability improvements.',
       downloadUrl: `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`,
       sha256: 'skip'

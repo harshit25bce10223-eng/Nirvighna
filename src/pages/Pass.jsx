@@ -505,6 +505,11 @@ export const Pass = () => {
                     {currentPass?.priority_category ? `${t.priorityBadge} (${currentPass.priority_category})` : t.priorityBadge}
                   </span>
                 )}
+                {currentPass?.is_wheelchair && (
+                  <span className="text-[10px] font-bold text-indigo-900 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full font-heading flex items-center gap-1">
+                    ♿ {currentLanguage === 'gu' ? 'વ્હીલચેેર એસ્કોર્ટ આરક્ષિત' : currentLanguage === 'hi' ? 'व्हीलचेयर सेवा आरक्षित' : 'Wheelchair Escort Reserved'}
+                  </span>
+                )}
               </div>
 
               {(currentPass?.is_priority ?? booking.is_priority) && (

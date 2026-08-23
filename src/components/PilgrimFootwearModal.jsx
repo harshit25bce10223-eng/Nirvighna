@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getTempleById } from '../lib/templeRegistry';
 import { broadcastBookingToVolunteers } from '../lib/volunteerEngine';
+import { sendPilgrimNotification } from '../lib/notificationService';
 
 const translations = {
   en: {
@@ -225,21 +226,13 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
       localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updatedList));
       setTokenList(updatedList);
 
-      // Create notification
-      const footwearNotif = {
-        id: `notif_fw_${Date.now()}`,
-        user_id: currentUser?.id || '00000000-0000-4000-a000-000000000077',
+      // Universal Notification (System Status Bar & In-App Alert)
+      await sendPilgrimNotification({
+        type: 'gate_info',
         title: '👟 Footwear Locker Token Issued',
         message: `Locker Token #${tokenObj.token_id} issued for ${tokenObj.pair_count} pair(s) at ${tokenObj.rack_no} (${shrine.name}).`,
-        type: 'footwear',
-        is_read: false,
-        created_at: new Date().toISOString()
-      };
-
-      const localNotifs = JSON.parse(localStorage.getItem('nirvighna_notifications') || '[]');
-      localNotifs.unshift(footwearNotif);
-      localStorage.setItem('nirvighna_notifications', JSON.stringify(localNotifs));
-      window.dispatchEvent(new CustomEvent('nirvighna_notification_alert', { detail: footwearNotif }));
+        templeId: templeId
+      });
 
       // Broadcast to volunteers
       broadcastBookingToVolunteers({

@@ -7,6 +7,7 @@ import { panchangCalendarEngine } from '../lib/panchangCalendarEngine';
 import { cctvHeatmapService } from '../lib/cctvHeatmapService';
 import { broadcastBookingToVolunteers } from '../lib/volunteerEngine';
 import { issueSignedToken } from '../lib/signedTokenEngine';
+import { sendPilgrimNotification } from '../lib/notificationService';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
@@ -447,9 +448,38 @@ export const Booking = () => {
   const [enableAudioNav, setEnableAudioNav] = useState(false); // Audio navigation
 
   const [needsWheelchair, setNeedsWheelchair] = useState(false);
-  const [wheelchairName, setWheelchairName] = useState('');
-  const [wheelchairAge, setWheelchairAge] = useState('');
-  const [wheelchairCategory, setWheelchairCategory] = useState('senior'); // 'senior' | 'injury' | 'disabled'
+  const [wheelchairAllocations, setWheelchairAllocations] = useState({});
+
+  const togglePilgrimWheelchair = (pilgrimId) => {
+    setWheelchairAllocations((prev) => {
+      const current = prev[pilgrimId];
+      if (current?.enabled) {
+        const next = { ...prev };
+        delete next[pilgrimId];
+        return next;
+      }
+      return {
+        ...prev,
+        [pilgrimId]: {
+          enabled: true,
+          category: 'senior'
+        }
+      };
+    });
+  };
+
+  const setPilgrimWheelchairCategory = (pilgrimId, category) => {
+    setWheelchairAllocations((prev) => ({
+      ...prev,
+      [pilgrimId]: {
+        ...(prev[pilgrimId] || { enabled: true }),
+        category
+      }
+    }));
+  };
+
+  const totalWheelchairs = Object.values(wheelchairAllocations).filter(w => w?.enabled).length;
+  const wheelchairFee = totalWheelchairs * 51;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -593,6 +623,53 @@ export const Booking = () => {
           email: ''
         }
       ]);
+    }
+  };
+
+  const syncBookingMembersToFamily = (membersList, phone, bId) => {
+    try {
+      const existingFamily = JSON.parse(localStorage.getItem('nirvighna_local_family_members') || localStorage.getItem('nirvighna_saved_family_members') || '[]');
+      const updatedFamilyMap = new Map();
+
+      existingFamily.forEach(m => {
+        if (m && m.name) updatedFamilyMap.set(m.name.trim().toLowerCase(), m);
+      });
+
+      membersList.forEach((bm, i) => {
+        if (bm && bm.name && bm.name.trim()) {
+          const cleanName = bm.name.trim();
+          const key = cleanName.toLowerCase();
+          const existing = updatedFamilyMap.get(key);
+          const memberObj = {
+            id: existing?.id || `gm_${Date.now()}_${i + 1}`,
+            name: cleanName,
+            age: bm.age ? parseInt(bm.age) : (existing?.age || null),
+            phone: bm.phone?.trim() || phone || (existing?.phone || null),
+            email: bm.email?.trim() || (existing?.email || null),
+            blood_group: bm.blood_group || (existing?.blood_group || null),
+            medical_details: bm.medical_details || (existing?.medical_details || null),
+            created_at: existing?.created_at || new Date().toISOString()
+          };
+          updatedFamilyMap.set(key, memberObj);
+
+          try {
+            supabase.from('group_members').upsert({
+              id: memberObj.id,
+              name: memberObj.name,
+              age: memberObj.age,
+              phone: memberObj.phone,
+              booking_id: bId || null
+            }).catch?.(() => {});
+          } catch (_) {}
+        }
+      });
+
+      const syncedFamilyList = Array.from(updatedFamilyMap.values());
+      localStorage.setItem('nirvighna_local_family_members', JSON.stringify(syncedFamilyList));
+      localStorage.setItem('nirvighna_saved_family_members', JSON.stringify(syncedFamilyList));
+      setSavedFamilyMembers(syncedFamilyList);
+    } catch (famErr) {
+      console.warn('Could not auto-sync family members from booking:', famErr);
     }
   };
 
@@ -810,6 +887,8 @@ export const Booking = () => {
         const memberCat = isMemberPri ? priorityAllocations[member.id]?.category : null;
         const attendantId = isMemberPri ? priorityAllocations[member.id]?.attendantId : null;
         const attendantObj = attendantId ? allMembers.find(m => m.id === attendantId) : null;
+        const isWheelchair = wheelchairAllocations[member.id]?.enabled || false;
+        const wheelchairCat = isWheelchair ? wheelchairAllocations[member.id]?.category : null;
 
         const { signed_value } = await issueSignedToken({
           token_type: 'gate_entry',
@@ -828,7 +907,9 @@ export const Booking = () => {
           is_priority: isMemberPri,
           priority_category: memberCat,
           attendant_name: attendantObj?.name || null,
-          gate_number: allottedGate?.name || (isMemberPri ? 'Gate 2 Priority Ramp' : 'Gate 1 Main Gate'),
+          is_wheelchair: isWheelchair,
+          wheelchair_category: wheelchairCat,
+          gate_number: allottedGate?.name || (isMemberPri || isWheelchair ? 'Gate 2 Priority Ramp' : 'Gate 1 Main Gate'),
           scan_status: 'not_scanned',
           is_valid: true
         };
@@ -840,17 +921,17 @@ export const Booking = () => {
         } catch (e) {}
       }
 
-      // Notifications
-      try {
-        await supabase.from('notifications').insert([
-          {
-            type: 'gate_info',
-            title: '⛩️ Darshan Booking Confirmed!',
-            message: `Your Darshan Pass (${sharedCode}) for ${currentTemple.name} is confirmed for ${selectedSlot.slot_date} at ${selectedSlot.start_time}.`,
-            created_at: new Date().toISOString()
-          }
-        ]);
-      } catch (notifErr) {}
+      // Universal Notification (System Status Bar & In-App Alert)
+      await sendPilgrimNotification({
+        type: 'booking_confirmed',
+        title: '⛩️ Darshan Booking Confirmed!',
+        message: `Your Darshan Pass (${sharedCode}) for ${currentTemple.name} is confirmed for ${selectedSlot.slot_date} at ${selectedSlot.start_time}.${totalWheelchairs > 0 ? ` Includes ${totalWheelchairs}x Wheelchair Escorts.` : ''}`,
+        templeId: currentTempleId,
+        link: '/pass'
+      });
+
+      // Automatically sync all newly added booking members into Family & Group storage
+      syncBookingMembersToFamily(bookingMembers, userPhone, bookingIdentifier);
 
       // Save local backup with exact permanent qr_passes
       const localBookingObj = {
@@ -866,6 +947,9 @@ export const Booking = () => {
         end_time: selectedSlot.end_time,
         is_priority: isPriority && activePriorityList.length > 0,
         priority_allocations: activePriorityList,
+        total_wheelchairs: totalWheelchairs,
+        wheelchair_fee: wheelchairFee,
+        wheelchair_allocations: wheelchairAllocations,
         shared_booking_code: sharedCode,
         status: 'confirmed',
         created_at: new Date().toISOString(),
@@ -898,6 +982,7 @@ export const Booking = () => {
 
     } catch (err) {
       console.warn('Booking database call failed/timed out, using optimistic fallback:', err);
+
       const fallbackBookingId = 'bk_' + Math.floor(100000 + Math.random() * 900000);
       const bookedDate = selectedSlot?.slot_date || new Date().toISOString().split('T')[0];
       const validFromDate = `${bookedDate}T00:00:00.000Z`;
@@ -910,6 +995,8 @@ export const Booking = () => {
         const memberCat = isMemberPri ? priorityAllocations[member.id]?.category : null;
         const attendantId = isMemberPri ? priorityAllocations[member.id]?.attendantId : null;
         const attendantObj = attendantId ? allMembers.find(m => m.id === attendantId) : null;
+        const isWheelchair = wheelchairAllocations[member.id]?.enabled || false;
+        const wheelchairCat = isWheelchair ? wheelchairAllocations[member.id]?.category : null;
 
         const { signed_value } = await issueSignedToken({
           token_type: 'gate_entry',
@@ -928,11 +1015,16 @@ export const Booking = () => {
           is_priority: isMemberPri,
           priority_category: memberCat,
           attendant_name: attendantObj?.name || null,
-          gate_number: allottedGate?.name || (isMemberPri ? 'Gate 2 Priority Ramp' : 'Gate 1 Main Gate'),
+          is_wheelchair: isWheelchair,
+          wheelchair_category: wheelchairCat,
+          gate_number: allottedGate?.name || (isMemberPri || isWheelchair ? 'Gate 2 Priority Ramp' : 'Gate 1 Main Gate'),
           scan_status: 'not_scanned',
           is_valid: true
         };
       }));
+
+      // Automatically sync all newly added booking members into Family & Group storage
+      syncBookingMembersToFamily(bookingMembers, userPhone, fallbackBookingId);
 
       const localBookingObj = {
         id: fallbackBookingId,
@@ -947,6 +1039,9 @@ export const Booking = () => {
         end_time: selectedSlot?.end_time || '10:00 AM',
         is_priority: isPriority && activePriorityList.length > 0,
         priority_allocations: activePriorityList,
+        total_wheelchairs: totalWheelchairs,
+        wheelchair_fee: wheelchairFee,
+        wheelchair_allocations: wheelchairAllocations,
         shared_booking_code: sharedCode,
         status: 'confirmed',
         created_at: new Date().toISOString(),
@@ -973,6 +1068,15 @@ export const Booking = () => {
       const existingLocalBookings = JSON.parse(localStorage.getItem('nirvighna_my_local_bookings') || '[]');
       existingLocalBookings.unshift(localBookingObj);
       localStorage.setItem('nirvighna_my_local_bookings', JSON.stringify(existingLocalBookings));
+
+      // Universal Notification (System Status Bar & In-App Alert)
+      sendPilgrimNotification({
+        type: 'booking_confirmed',
+        title: '⛩️ Darshan Booking Confirmed (Offline)',
+        message: `Your Darshan Pass (${sharedCode}) for ${currentTemple.name} is confirmed for ${selectedSlot?.slot_date || bookedDate} at ${selectedSlot?.start_time || '08:00 AM'}.${totalWheelchairs > 0 ? ` Includes ${totalWheelchairs}x Wheelchair Escorts.` : ''}`,
+        templeId: currentTempleId,
+        link: '/pass'
+      });
 
       broadcastBookingToVolunteers(localBookingObj);
       navigate('/pass', { state: { bookingId: fallbackBookingId } });
@@ -1450,297 +1554,6 @@ export const Booking = () => {
           )}
         </div>
 
-        {/* Priority Access Section (Multi-Beneficiary + Accompanying Attendant Pairing) */}
-        <div className="bg-white p-4 rounded-xl border border-gold/30 shadow-warm space-y-3">
-          <label className="flex items-center justify-between cursor-pointer">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isPriority}
-                onChange={(e) => {
-                  setIsPriority(e.target.checked);
-                  if (!e.target.checked) {
-                    setPriorityAllocations({});
-                    setNeedsWheelchair(false);
-                  } else {
-                    // Default to Primary Pilgrim
-                    setPriorityAllocations({
-                      self: { enabled: true, category: 'senior', attendantId: null }
-                    });
-                  }
-                }}
-                className="w-5 h-5 rounded border-gray-300 text-maroon focus:ring-maroon"
-              />
-              <div>
-                <span className="text-xs font-bold text-maroon flex items-center gap-1 font-heading">
-                  <Shield className="w-4 h-4 text-gold-dark" /> {t.priorityAssist}
-                </span>
-                <p className="text-[10px] text-gray-500">{t.priorityAssistDesc}</p>
-              </div>
-            </div>
-          </label>
-
-          {/* Audio Navigation Option */}
-          <label className="flex items-center justify-between cursor-pointer">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={enableAudioNav}
-                onChange={(e) => setEnableAudioNav(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-maroon focus:ring-maroon"
-              />
-              <div>
-                <span className="text-xs font-bold text-maroon flex items-center gap-1 font-heading">
-                  🎧 {t.audioNavigation}
-                </span>
-                <p className="text-[10px] text-gray-500">{t.audioNavigationDesc}</p>
-              </div>
-            </div>
-          </label>
-
-          {isPriority && (
-            <div className="pt-2 border-t border-gray-100 space-y-3.5 animate-in fade-in">
-              <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-[11px] text-amber-800 font-medium">
-                ⚠️ <strong>{t.priorityRule}</strong>
-              </div>
-
-              {/* Multi-Member Priority Selection */}
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700">
-                    {t.whoNeedsPriority}
-                  </label>
-                  <p className="text-[10px] text-gray-500">{t.whoNeedsPriorityDesc}</p>
-                </div>
-
-                <div className="space-y-3">
-                  {combinedPilgrims.map((person) => {
-                    const alloc = priorityAllocations[person.id];
-                    const isBeneficiary = !!alloc?.enabled;
-
-                    return (
-                      <div
-                        key={person.id}
-                        className={`p-3 rounded-2xl border transition-all space-y-2.5 ${
-                          isBeneficiary
-                            ? 'bg-gold/15 border-gold shadow-xs'
-                            : 'bg-white border-gray-200 text-gray-700'
-                        }`}
-                      >
-                        {/* Checkbox Header for Pilgrim */}
-                        <div
-                          onClick={() => togglePilgrimPriority(person.id)}
-                          className="flex items-center justify-between cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isBeneficiary}
-                              onChange={() => {}}
-                              className="w-4 h-4 text-maroon focus:ring-maroon rounded"
-                            />
-                            <div>
-                              <span className="text-xs font-bold text-gray-900">{person.name}</span>
-                              {person.age && <span className="text-[10px] text-gray-500 ml-1.5">({person.age} yrs)</span>}
-                            </div>
-                          </div>
-                          {isBeneficiary && (
-                            <span className="text-[10px] bg-maroon text-white px-2 py-0.5 rounded-full font-bold">
-                              {t.priorityPassHolderBadge}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* If this person has opted for Priority */}
-                        {isBeneficiary && (
-                          <div className="pl-6 pt-1 space-y-2.5 border-t border-gold/30 animate-in fade-in">
-                            {/* 1. Category Selection */}
-                            <div>
-                              <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase">
-                                {t.priorityCategoryLabel}
-                              </label>
-                              <div className="grid grid-cols-3 gap-1.5">
-                                {[
-                                  { id: 'senior', label: t.seniorCitizen, icon: '👴' },
-                                  { id: 'pregnant', label: t.pregnantWoman, icon: '🤰' },
-                                  { id: 'disabled', label: t.differentlyAbled, icon: '♿' }
-                                ].map((cat) => (
-                                  <button
-                                    key={cat.id}
-                                    type="button"
-                                    onClick={() => setPilgrimCategory(person.id, cat.id)}
-                                    className={`py-1.5 px-2 rounded-xl border text-center transition-all ${
-                                      alloc.category === cat.id
-                                        ? 'bg-gold/30 border-gold text-indigo-dark font-bold'
-                                        : 'bg-white border-gray-200 text-gray-600'
-                                    }`}
-                                  >
-                                    <div className="text-sm">{cat.icon}</div>
-                                    <div className="text-[9px] font-semibold leading-tight mt-0.5">{cat.label}</div>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* 2. Accompanying Attendant Selection (Max 1) */}
-                            {combinedPilgrims.length > 1 ? (
-                              <div>
-                                <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase">
-                                  {t.accompanyingQuestion.replace('{name}', person.name)}
-                                </label>
-                                <p className="text-[9px] text-gray-500 mb-1.5">{t.accompanyingDesc.replace('{name}', person.name)}</p>
-
-                                <div className="space-y-1.5">
-                                  {/* Solo option */}
-                                  <div
-                                    onClick={() => setPilgrimAttendant(person.id, null)}
-                                    className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
-                                      alloc.attendantId === null
-                                        ? 'bg-white border-gold text-indigo-dark font-bold shadow-2xs'
-                                        : 'bg-ivory border-gray-200 text-gray-600'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="radio"
-                                        name={`attendant_${person.id}`}
-                                        checked={alloc.attendantId === null}
-                                        onChange={() => {}}
-                                        className="w-3.5 h-3.5 text-maroon"
-                                      />
-                                      <span>{t.soloOption}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Candidate other members */}
-                                  {combinedPilgrims
-                                    .filter((other) => other.id !== person.id && !priorityAllocations[other.id]?.enabled)
-                                    .map((other) => {
-                                      const isSelectedAttendant = alloc.attendantId === other.id;
-                                      return (
-                                        <div
-                                          key={other.id}
-                                          onClick={() => setPilgrimAttendant(person.id, other.id)}
-                                          className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
-                                            isSelectedAttendant
-                                              ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold shadow-2xs'
-                                              : 'bg-white border-gray-200 text-gray-700'
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <input
-                                              type="radio"
-                                              name={`attendant_${person.id}`}
-                                              checked={isSelectedAttendant}
-                                              onChange={() => {}}
-                                              className="w-3.5 h-3.5 text-emerald-600"
-                                            />
-                                            <span>{other.name}</span>
-                                            {other.age && <span className="text-[10px] text-gray-400">({other.age} yrs)</span>}
-                                          </div>
-                                          {isSelectedAttendant && (
-                                            <span className="text-[9px] bg-emerald-700 text-white px-2 py-0.5 rounded-full font-bold">
-                                              🤝 {t.attendantForBadge.replace('{name}', person.name.split(' ')[0])}
-                                            </span>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-800 font-medium">
-                                ✓ Solo Pilgrim: Accessing directly via Priority Gate.
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <p className="text-[10px] text-gray-500 italic px-1">
-                  ℹ️ {t.generalLaneNote}
-                </p>
-              </div>
-
-              {/* Wheelchair Assistance Toggle */}
-              <div className="space-y-2 pt-2 border-t border-gray-100">
-                <label className="flex items-center justify-between p-2.5 bg-ivory rounded-xl border border-gray-200 cursor-pointer hover:border-gold transition-colors">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={needsWheelchair}
-                      onChange={(e) => {
-                        setNeedsWheelchair(e.target.checked);
-                        if (e.target.checked && !wheelchairName) {
-                          const firstBene = activePriorityBeneficiaries[0];
-                          if (firstBene) {
-                            setWheelchairName(firstBene.name);
-                            if (firstBene.age) setWheelchairAge(firstBene.age);
-                          }
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-gray-300 text-maroon focus:ring-maroon"
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-gray-800">{t.wheelchairAssist}</p>
-                      <p className="text-[10px] text-gray-500">{t.wheelchairAssistDesc}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-extrabold text-maroon bg-maroon/10 px-2 py-0.5 rounded-md">
-                    +₹51
-                  </span>
-                </label>
-
-                {needsWheelchair && (
-                  <div className="p-3 bg-ivory/50 border border-gold/30 rounded-xl space-y-2.5 animate-in slide-in-from-top-2">
-                    <p className="text-[10px] font-bold uppercase text-gray-500">{t.wheelchairDetails}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-gray-600 mb-0.5">{t.recipientName}</label>
-                        <input
-                          type="text"
-                          required
-                          value={wheelchairName}
-                          onChange={(e) => setWheelchairName(e.target.value)}
-                          placeholder="E.g. Devjibhai Patel"
-                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-600 mb-0.5">{t.age}</label>
-                        <input
-                          type="number"
-                          required
-                          value={wheelchairAge}
-                          onChange={(e) => setWheelchairAge(e.target.value)}
-                          placeholder="Age (e.g. 72)"
-                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-600 mb-0.5">{t.assistanceReason}</label>
-                      <select
-                        value={wheelchairCategory}
-                        onChange={(e) => setWheelchairCategory(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-none"
-                      >
-                        <option value="senior">{t.reasonSenior}</option>
-                        <option value="disabled">{t.reasonDisabled}</option>
-                        <option value="injury">{t.reasonInjury}</option>
-                        <option value="pregnant">{t.reasonPregnant}</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Your Details Section */}
         <div className="bg-white p-4 rounded-xl border border-gray-200">
           <h3 className="text-xs font-bold text-gray-700 mb-3 flex items-center gap-2">
@@ -1806,7 +1619,7 @@ export const Booking = () => {
           <button
             type="button"
             onClick={() => setShowEmergency(!showEmergency)}
-            className="w-full px-4 py-3 flex items-center justify-between bg-ivory/50 hover:bg-ivory transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between bg-ivory/50 hover:bg-ivory transition-colors cursor-pointer"
           >
             <span className="text-xs font-bold text-gray-700 flex items-center gap-2">
               <Shield className="w-4 h-4 text-alertRed" />
@@ -1842,14 +1655,14 @@ export const Booking = () => {
           )}
         </div>
 
-        {/* Add Family Members Section with 1-Click Saved Selection */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Add Family & Group Members Section with 1-Click Saved Selection */}
+        <div className="bg-white rounded-xl border border-gold/30 overflow-hidden shadow-warm">
           <button
             type="button"
             onClick={() => setShowMembers(!showMembers)}
-            className="w-full px-4 py-3 flex items-center justify-between bg-ivory/50 hover:bg-ivory transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between bg-ivory/60 hover:bg-ivory transition-colors cursor-pointer"
           >
-            <span className="text-xs font-bold text-gray-700 flex items-center gap-2 font-heading">
+            <span className="text-xs font-extrabold text-indigo-dark flex items-center gap-2 font-heading">
               <Users className="w-4 h-4 text-maroon" />
               {t.familyGroupTitle}
             </span>
@@ -1914,7 +1727,7 @@ export const Booking = () => {
                   <button
                     type="button"
                     onClick={() => removeBookingMember(index)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1964,13 +1777,312 @@ export const Booking = () => {
                     toggleSavedMemberSelect(newSavedObj);
                   }
                 }}
-                className="w-full py-2.5 border-2 border-dashed border-gold/40 rounded-xl text-xs font-black text-indigo-dark hover:bg-gold/10 transition-colors flex items-center justify-center gap-1 font-heading"
+                className="w-full py-2.5 border-2 border-dashed border-gold/40 rounded-xl text-xs font-black text-indigo-dark hover:bg-gold/10 transition-colors flex items-center justify-center gap-1 font-heading cursor-pointer"
               >
                 <Plus className="w-4 h-4 text-maroon" />
                 {t.addNewMemberBtn}
               </button>
             </div>
           )}
+        </div>
+
+        {/* Priority Access & Dedicated Accessibility Services */}
+        <div className="bg-white p-4 rounded-xl border border-gold/30 shadow-warm space-y-4">
+          
+          {/* Priority Line Toggle */}
+          <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={isPriority}
+                onChange={(e) => {
+                  setIsPriority(e.target.checked);
+                  if (!e.target.checked) {
+                    setPriorityAllocations({});
+                  } else {
+                    setPriorityAllocations({
+                      self: { enabled: true, category: 'senior', attendantId: null }
+                    });
+                  }
+                }}
+                className="w-5 h-5 rounded border-gray-300 text-maroon focus:ring-maroon cursor-pointer"
+              />
+              <div>
+                <span className="text-xs font-bold text-maroon flex items-center gap-1 font-heading">
+                  <Shield className="w-4 h-4 text-gold-dark" /> {t.priorityAssist}
+                </span>
+                <p className="text-[10px] text-gray-500">{t.priorityAssistDesc}</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-mono">
+              {t.free}
+            </span>
+          </label>
+
+          {/* Audio Navigation Toggle */}
+          <label className="flex items-center justify-between cursor-pointer pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={enableAudioNav}
+                onChange={(e) => setEnableAudioNav(e.target.checked)}
+                className="w-5 h-5 rounded border-gray-300 text-maroon focus:ring-maroon cursor-pointer"
+              />
+              <div>
+                <span className="text-xs font-bold text-maroon flex items-center gap-1 font-heading">
+                  🎧 {t.audioNavigation}
+                </span>
+                <p className="text-[10px] text-gray-500">{t.audioNavigationDesc}</p>
+              </div>
+            </div>
+          </label>
+
+          {/* Multi-Person Priority Allocation Breakdown */}
+          {isPriority && (
+            <div className="pt-2 border-t border-gray-100 space-y-3 animate-in fade-in">
+              <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-[11px] text-amber-800 font-medium">
+                ⚠️ <strong>{t.priorityRule}</strong>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700">
+                  {t.whoNeedsPriority}
+                </label>
+                <p className="text-[10px] text-gray-500">{t.whoNeedsPriorityDesc}</p>
+              </div>
+
+              <div className="space-y-3">
+                {combinedPilgrims.map((person) => {
+                  const alloc = priorityAllocations[person.id];
+                  const isBeneficiary = !!alloc?.enabled;
+
+                  return (
+                    <div
+                      key={person.id}
+                      className={`p-3 rounded-2xl border transition-all space-y-2.5 ${
+                        isBeneficiary
+                          ? 'bg-gold/15 border-gold shadow-xs'
+                          : 'bg-white border-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {/* Checkbox Header for Pilgrim */}
+                      <div
+                        onClick={() => togglePilgrimPriority(person.id)}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isBeneficiary}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-maroon focus:ring-maroon rounded"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-gray-900">{person.name}</span>
+                            {person.age && <span className="text-[10px] text-gray-500 ml-1.5">({person.age} yrs)</span>}
+                          </div>
+                        </div>
+                        {isBeneficiary && (
+                          <span className="text-[10px] bg-maroon text-white px-2 py-0.5 rounded-full font-bold">
+                            {t.priorityPassHolderBadge}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* If this person has opted for Priority */}
+                      {isBeneficiary && (
+                        <div className="pl-6 pt-1 space-y-2.5 border-t border-gold/30 animate-in fade-in">
+                          {/* 1. Category Selection */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase">
+                              {t.priorityCategoryLabel}
+                            </label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {[
+                                { id: 'senior', label: t.seniorCitizen, icon: '👴' },
+                                { id: 'pregnant', label: t.pregnantWoman, icon: '🤰' },
+                                { id: 'disabled', label: t.differentlyAbled, icon: '♿' }
+                              ].map((cat) => (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  onClick={() => setPilgrimCategory(person.id, cat.id)}
+                                  className={`py-1.5 px-2 rounded-xl border text-center transition-all cursor-pointer ${
+                                    alloc.category === cat.id
+                                      ? 'bg-gold/30 border-gold text-indigo-dark font-bold'
+                                      : 'bg-white border-gray-200 text-gray-600'
+                                  }`}
+                                >
+                                  <div className="text-sm">{cat.icon}</div>
+                                  <div className="text-[9px] font-semibold leading-tight mt-0.5">{cat.label}</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* 2. Accompanying Attendant Selection */}
+                          {combinedPilgrims.length > 1 ? (
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase">
+                                {t.accompanyingQuestion.replace('{name}', person.name)}
+                              </label>
+                              <p className="text-[9px] text-gray-500 mb-1.5">{t.accompanyingDesc.replace('{name}', person.name)}</p>
+
+                              <div className="space-y-1.5">
+                                <div
+                                  onClick={() => setPilgrimAttendant(person.id, null)}
+                                  className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
+                                    alloc.attendantId === null
+                                      ? 'bg-white border-gold text-indigo-dark font-bold shadow-2xs'
+                                      : 'bg-ivory border-gray-200 text-gray-600'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="radio"
+                                      name={`attendant_${person.id}`}
+                                      checked={alloc.attendantId === null}
+                                      onChange={() => {}}
+                                      className="w-3.5 h-3.5 text-maroon"
+                                    />
+                                    <span>{t.soloOption}</span>
+                                  </div>
+                                </div>
+
+                                {combinedPilgrims
+                                  .filter((other) => other.id !== person.id && !priorityAllocations[other.id]?.enabled)
+                                  .map((other) => {
+                                    const isSelectedAttendant = alloc.attendantId === other.id;
+                                    return (
+                                      <div
+                                        key={other.id}
+                                        onClick={() => setPilgrimAttendant(person.id, other.id)}
+                                        className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
+                                          isSelectedAttendant
+                                            ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold shadow-2xs'
+                                            : 'bg-white border-gray-200 text-gray-700'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="radio"
+                                            name={`attendant_${person.id}`}
+                                            checked={isSelectedAttendant}
+                                            onChange={() => {}}
+                                            className="w-3.5 h-3.5 text-emerald-600"
+                                          />
+                                          <span>{other.name}</span>
+                                          {other.age && <span className="text-[10px] text-gray-400">({other.age} yrs)</span>}
+                                        </div>
+                                        {isSelectedAttendant && (
+                                          <span className="text-[9px] bg-emerald-700 text-white px-2 py-0.5 rounded-full font-bold">
+                                            🤝 {t.attendantForBadge.replace('{name}', person.name.split(' ')[0])}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-800 font-medium">
+                              ✓ Solo Pilgrim: Accessing directly via Priority Gate.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-[10px] text-gray-500 italic px-1">
+                ℹ️ {t.generalLaneNote}
+              </p>
+            </div>
+          )}
+
+          {/* Multi-Person Dedicated Wheelchair Assistance */}
+          <div className="space-y-2.5 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-gray-900 flex items-center gap-1.5 font-heading">
+                  <span className="text-base">♿</span>
+                  <span>{t.wheelchairAssist}</span>
+                </p>
+                <p className="text-[10px] text-gray-500">{t.wheelchairAssistDesc}</p>
+              </div>
+              <span className="text-xs font-extrabold text-maroon bg-maroon/10 px-2.5 py-0.5 rounded-full border border-maroon/20 font-mono">
+                +₹51 {currentLanguage === 'gu' ? 'પ્રતિ વ્હીલચેેર' : currentLanguage === 'hi' ? 'प्रति व्हीलचेयर' : 'each'}
+              </span>
+            </div>
+
+            <p className="text-[11px] font-semibold text-gray-600">
+              {currentLanguage === 'gu'
+                ? 'કોને વ્હીલચેેર સહાયની જરૂર છે તે સભ્યો પસંદ કરો:'
+                : currentLanguage === 'hi'
+                ? 'चुनें किन्हें समर्पित व्हीलचेयर सेवा की आवश्यकता है:'
+                : 'Select pilgrims who need dedicated wheelchair assist:'}
+            </p>
+
+            <div className="space-y-2">
+              {combinedPilgrims.map((person) => {
+                const isWheelchair = !!wheelchairAllocations[person.id]?.enabled;
+                const allocCat = wheelchairAllocations[person.id]?.category || 'senior';
+
+                return (
+                  <div
+                    key={`wc_${person.id}`}
+                    className={`p-3 rounded-2xl border transition-all space-y-2 ${
+                      isWheelchair
+                        ? 'bg-amber-50/70 border-gold shadow-2xs'
+                        : 'bg-white border-gray-200 text-gray-700 hover:border-gold/40'
+                    }`}
+                  >
+                    <div
+                      onClick={() => togglePilgrimWheelchair(person.id)}
+                      className="flex items-center justify-between cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isWheelchair}
+                          onChange={() => {}}
+                          className="w-4 h-4 text-maroon focus:ring-maroon rounded"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-gray-900">{person.name}</span>
+                          {person.age && <span className="text-[10px] text-gray-500 ml-1.5">({person.age} yrs)</span>}
+                        </div>
+                      </div>
+                      {isWheelchair && (
+                        <span className="text-[10px] font-black text-maroon bg-gold/20 border border-gold/40 px-2 py-0.5 rounded-full font-mono">
+                          ♿ +₹51 Reserved
+                        </span>
+                      )}
+                    </div>
+
+                    {isWheelchair && (
+                      <div className="pl-6 pt-1 border-t border-gold/30 flex items-center gap-2">
+                        <span className="text-[10px] text-gray-600 font-bold uppercase">{t.assistanceReason}:</span>
+                        <select
+                          value={allocCat}
+                          onChange={(e) => setPilgrimWheelchairCategory(person.id, e.target.value)}
+                          className="px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs font-semibold focus:outline-none focus:border-maroon cursor-pointer"
+                        >
+                          <option value="senior">{t.reasonSenior}</option>
+                          <option value="disabled">{t.reasonDisabled}</option>
+                          <option value="injury">{t.reasonInjury}</option>
+                          <option value="pregnant">{t.reasonPregnant}</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
         </div>
 
         {/* Optional Prasad Booking Section */}
@@ -2033,7 +2145,7 @@ export const Booking = () => {
           const totalPilgrims = 1 + bookingMembers.length;
           const basePrice = slotType === 'vip' ? 501 : 21;
           const priorityFee = 0; // Priority Line is 100% Free
-          const wheelchairFee = needsWheelchair ? 51 : 0;
+          const wheelchairFee = totalWheelchairs * 51;
           const prasadFee = (includePrasad && prasadType === 'laddu_box') ? 51 : 0;
           const totalAmount = (basePrice * totalPilgrims) + priorityFee + wheelchairFee + prasadFee;
 
@@ -2080,10 +2192,10 @@ export const Booking = () => {
                 </div>
               )}
 
-              {needsWheelchair && (
-                <div className="flex justify-between text-xs text-amber-300">
-                  <span>{t.dedicatedWheelchairEscort}</span>
-                  <span className="font-mono">+₹51</span>
+              {totalWheelchairs > 0 && (
+                <div className="flex justify-between text-xs text-amber-300 font-semibold">
+                  <span>♿ {t.dedicatedWheelchairEscort} ({totalWheelchairs}x)</span>
+                  <span className="font-mono font-bold text-gold">+₹{wheelchairFee}</span>
                 </div>
               )}
 
@@ -2116,7 +2228,7 @@ export const Booking = () => {
           const totalPilgrims = 1 + bookingMembers.length;
           const basePrice = slotType === 'vip' ? 501 : 21;
           const priorityFee = 0; // Priority Line is Free
-          const wheelchairFee = needsWheelchair ? 51 : 0;
+          const wheelchairFee = totalWheelchairs * 51;
           const prasadFee = (includePrasad && prasadType === 'laddu_box') ? 51 : 0;
           const totalAmount = (basePrice * totalPilgrims) + priorityFee + wheelchairFee + prasadFee;
 
@@ -2124,7 +2236,7 @@ export const Booking = () => {
             <button
               onClick={handleConfirmBooking}
               disabled={!selectedSlot || submitting}
-              className={`w-full py-3.5 rounded-xl font-bold font-heading text-sm transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-xl font-bold font-heading text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 !selectedSlot || submitting
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-gold hover:bg-gold-dark text-indigo-dark shadow-goldGlow'

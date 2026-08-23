@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -61,6 +62,13 @@ public class MainActivity extends BridgeActivity {
 
         // Initialize Android System Notification Channel
         createNotificationChannel();
+
+        // Request POST_NOTIFICATIONS on Android 13+
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
 
         // Initialize Native Android Text-To-Speech Engine for Crystal Clear Voice
         initNativeTTS();
@@ -203,17 +211,6 @@ public class MainActivity extends BridgeActivity {
                 public void startInAppUpdate(final String apkUrl, final String expectedSha256) {
                     if (isUpdateDownloading) {
                         return; // Prevent duplicate concurrent downloads
-                    }
-
-                    // Pre-check unknown app install permission on Android 8.0+
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('nirvighna_update_permission_required'));", null);
-                            }
-                        });
-                        return;
                     }
 
                     isUpdateDownloading = true;
@@ -478,7 +475,9 @@ public class MainActivity extends BridgeActivity {
                 .setContentTitle(title != null ? title : "Nirvighna Pilgrim Portal")
                 .setContentText(message != null ? message : "New Darshan safety update available.")
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(message != null ? message : ""))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setVibrate(new long[]{0, 250, 100, 250})
                 .setAutoCancel(true)
                 .setColor(Color.parseColor("#800020"))
                 .setContentIntent(pendingIntent);

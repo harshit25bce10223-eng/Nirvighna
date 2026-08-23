@@ -102,17 +102,34 @@ export const Family = () => {
     try {
       setLoading(true);
       
-      // 1. Check local storage first
+      // 1. Check local storages
       const localGroup = JSON.parse(localStorage.getItem('nirvighna_local_family_members') || '[]');
+      const savedGroup = JSON.parse(localStorage.getItem('nirvighna_saved_family_members') || '[]');
 
       // 2. Fetch from Supabase
-      const { data, error } = await supabase
-        .from('group_members')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let remoteGroup = [];
+      try {
+        const { data, error } = await supabase
+          .from('group_members')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data) remoteGroup = data;
+      } catch (_) {}
 
-      const loaded = (data && data.length > 0) ? data : localGroup;
-      setMembers(loaded || []);
+      // 3. Deduplicate by name
+      const mergedMap = new Map();
+      [...remoteGroup, ...localGroup, ...savedGroup].forEach(m => {
+        if (m && m.name && m.name.trim()) {
+          const key = m.name.trim().toLowerCase();
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, m);
+          }
+        }
+      });
+
+      const loaded = Array.from(mergedMap.values());
+      setMembers(loaded);
+      localStorage.setItem('nirvighna_local_family_members', JSON.stringify(loaded));
       
       // Initialize locations from checkins or mock for each member
       const initialLocations = {};
@@ -124,7 +141,7 @@ export const Family = () => {
         { id: 'cp_5', checkpoint_name: 'Ambaji Temple Entry (Sanctum)' }
       ];
 
-      (loaded || []).forEach(member => {
+      loaded.forEach(member => {
         const checkins = JSON.parse(localStorage.getItem(`nirvighna_padyatri_checkins_${member.id}`) || '[]');
         if (checkins.length > 0) {
           const last = checkins[checkins.length - 1];

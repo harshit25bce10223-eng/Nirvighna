@@ -10,6 +10,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { stripExifMetadata } from '../lib/exifStripper';
 import { getUniqueTemples } from '../lib/templeRegistry';
+import { sendPilgrimNotification } from '../lib/notificationService';
 
 const translations = {
 
@@ -198,16 +199,13 @@ export const LostReport = () => {
       } catch (_) {}
 
 
-      // Trigger native notification for the user
-      try {
-        if (window.NirvighnaNativeBridge && typeof window.NirvighnaNativeBridge.showSystemNotification === 'function') {
-          window.NirvighnaNativeBridge.showSystemNotification(
-            '🚨 Safety Alert Dispatched!',
-            `Lost person report for ${cleanName} broadcast to on-duty volunteers.`,
-            'safety'
-          );
-        }
-      } catch (_) {}
+      // Universal Notification (System Status Bar & In-App Alert)
+      await sendPilgrimNotification({
+        type: 'lost_report',
+        title: '🚨 Safety Alert Dispatched!',
+        message: `Lost person report for ${cleanName} broadcast to on-duty volunteers.`,
+        link: '/notifications'
+      });
 
       // Navigate to notifications after 2 seconds
       setTimeout(() => {
