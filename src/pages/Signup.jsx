@@ -488,7 +488,7 @@ export const Signup = () => {
                     type="tel" value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    placeholder={t.phone}
+                    placeholder="Mobile Number (Mandatory *)" required
                     className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
@@ -499,19 +499,17 @@ export const Signup = () => {
                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-900 font-heading flex items-center gap-1.5">
                   <span>🛡️</span> Emergency Contact
                 </p>
-                <input
-                  type="text" value={emergencyName}
+                <input type="text" required value={emergencyName}
                   onChange={(e) => setEmergencyName(e.target.value)}
                   onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                  placeholder="Contact Name"
+                  placeholder="Emergency Contact Name *"
                   className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                 />
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="tel" value={emergencyPhone}
+                  <input type="tel" required value={emergencyPhone}
                     onChange={(e) => setEmergencyPhone(e.target.value)}
                     onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    placeholder="Phone"
+                    placeholder="Emergency Phone *"
                     className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                   />
                   <input
