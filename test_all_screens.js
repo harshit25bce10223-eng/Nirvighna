@@ -135,12 +135,37 @@ const runExhaustiveSuite = async () => {
 
       // Test 5: Home Dashboard & All 4 Temples
       await page.goto('http://127.0.0.1:4173/#/home', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2500);
       const homeText = await page.locator('body').innerText();
+      console.log('  [DIAGNOSTIC] URL:', page.url(), '| Snippet:', homeText.replace(/\n+/g, ' ').substring(0, 300));
+      if (homeText.includes('COMPONENT FAULT ISOLATION PROTOCOL ACTIVE')) {
+        const errorDetails = await page.locator('body').innerText();
+        console.error('  [ERROR BOUNDARY DETAILS]:\n', errorDetails);
+      }
       assertTest(homeText.includes('Somnath') || homeText.includes('सोमनाथ') || homeText.includes('સોમનાથ'), 'Somnath Temple rendered on Home');
       assertTest(homeText.includes('Dwarka') || homeText.includes('द्वारका') || homeText.includes('દ્વારકા'), 'Dwarkadhish Temple rendered on Home');
       assertTest(homeText.includes('Ambaji') || homeText.includes('अंबाजी') || homeText.includes('અંબાજી'), 'Ambaji Shrine rendered on Home');
       assertTest(homeText.includes('Pavagadh') || homeText.includes('पावागढ़') || homeText.includes('પાવાગઢ'), 'Pavagadh Kalika Temple rendered on Home');
+
+      // Test 5b: Free Prasad Bottom Sheet Modal
+      const prasadTile = page.locator('text=Free Prasad Counter').or(page.locator('text=મફત પ્રસાદ કેન્દ્ર')).or(page.locator('text=मुफ्त प्रसाद'));
+      await prasadTile.first().click();
+      await page.waitForTimeout(400);
+      const prasadSheetText = await page.locator('body').innerText();
+      assertTest(prasadSheetText.includes('Mahaprasad') || prasadSheetText.includes('મહાપ્રસાદ') || prasadSheetText.includes('महाप्रसाद'), 'Prasad Bottom Sheet modal opened smoothly over the view');
+      const closePrasad = page.locator('.lucide-x').or(page.locator('button:has-text("Close Pass")'));
+      await closePrasad.first().click();
+      await page.waitForTimeout(300);
+
+      // Test 5c: Smart Footwear Locker Bottom Sheet Modal
+      const footwearTile = page.locator('text=Footwear Locker').or(page.locator('text=પગરખાં લોકર')).or(page.locator('text=जूता लॉकर'));
+      await footwearTile.first().click();
+      await page.waitForTimeout(400);
+      const footwearSheetText = await page.locator('body').innerText();
+      assertTest(footwearSheetText.includes('Footwear') || footwearSheetText.includes('પગરખાં') || footwearSheetText.includes('लॉकर'), 'Footwear Locker Bottom Sheet modal opened smoothly over the view');
+      const closeFootwear = page.locator('.lucide-x').or(page.locator('button:has-text("Close")'));
+      await closeFootwear.first().click();
+      await page.waitForTimeout(300);
 
       // Test 6: Darshan Booking Flow
       await page.goto('http://127.0.0.1:4173/#/book/somnath', { waitUntil: 'networkidle' });

@@ -128,11 +128,21 @@ const translations = {
   }
 };
 
+const MASTER_TEMPLES = [
+  { id: 'tmp_somnath', icon: '🔱', name: { en: 'Somnath', hi: 'सोमनाथ', gu: 'સોમનાથ' }, full: { en: 'Shri Somnath Jyotirlinga', hi: 'श्री सोमनाथ ज्योतिर्लिंग', gu: 'શ્રી સોમનાથ જ્યોતિર્લિંગ' } },
+  { id: 'tmp_dwarka', icon: '🦚', name: { en: 'Dwarka', hi: 'द्वारका', gu: 'દ્વારકા' }, full: { en: 'Shri Dwarkadhish Mandir', hi: 'श्री द्वारकाधीश मंदिर', gu: 'શ્રી દ્વારકાધીશ મંદિર' } },
+  { id: 'tmp_ambaji', icon: '🌸', name: { en: 'Ambaji', hi: 'अंबाजी', gu: 'અંબાજી' }, full: { en: 'Shri Arasuri Ambaji Temple', hi: 'श्री अंबाजी माता मंदिर', gu: 'શ્રી આરાસુરી અંબાજી મંદિર' } },
+  { id: 'tmp_pavagadh', icon: '🚩', name: { en: 'Pavagadh', hi: 'पावागढ़', gu: 'પાવાગઢ' }, full: { en: 'Shri Kalika Mata Temple, Pavagadh', hi: 'श्री कालिका माता मंदिर, पावागढ़', gu: 'શ્રી કાલિકા माता मंदिर, પાવાગઢ' } },
+];
+
 export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath' }) => {
   const { currentUser, issueFootwearToken } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, setLanguage } = useLanguage();
   const t = translations[currentLanguage] || translations.en;
-  const shrine = getTempleById(templeId) || { name: 'Somnath Temple' };
+  
+  const [activeTempleId, setActiveTempleId] = useState(templeId || 'tmp_somnath');
+  const currentTempleObj = MASTER_TEMPLES.find(t => t.id === activeTempleId) || MASTER_TEMPLES[0];
+  const shrineDisplayName = currentTempleObj.full[currentLanguage] || currentTempleObj.full.en;
 
   const [activeTab, setActiveTab] = useState('deposit'); // 'deposit' | 'tokens'
   const [pairCount, setPairCount] = useState(2);
@@ -166,13 +176,13 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
     }
 
     loadTokens();
-  }, [isOpen, currentUser]);
+  }, [isOpen, activeTempleId, currentUser]);
 
   const loadTokens = () => {
     try {
       const existing = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
       setTokenList(existing);
-      const latestActive = existing.find(tok => tok.status === 'checked_in');
+      const latestActive = existing.find(tok => tok.status === 'checked_in' && (!tok.temple_id || tok.temple_id === activeTempleId));
       if (latestActive) {
         setActiveToken(latestActive);
         generateQR(latestActive.token_id || latestActive.id);
@@ -199,7 +209,7 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
     if (e) e.preventDefault();
     setLoading(true);
     try {
-      const shrinePrefix = templeId === 'tmp_dwarka' ? 'DWA' : templeId === 'tmp_ambaji' ? 'AMB' : templeId === 'tmp_pavagadh' ? 'PAV' : 'SOM';
+      const shrinePrefix = activeTempleId === 'tmp_dwarka' ? 'DWA' : activeTempleId === 'tmp_ambaji' ? 'AMB' : activeTempleId === 'tmp_pavagadh' ? 'PAV' : 'SOM';
       const randomNum = Math.floor(1000 + Math.random() * 9000);
       const rackLetter = String.fromCharCode(65 + Math.floor(Math.random() * 4));
       const rackNum = Math.floor(1 + Math.random() * 40);
@@ -216,8 +226,8 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
         pilgrim_name: pilgrimName.trim() || currentUser?.full_name || 'Pilgrim Devotee',
         pilgrim_phone: pilgrimPhone.trim() || currentUser?.phone || '',
         rack_no: `Rack ${rackLetter}-${rackNum}`,
-        temple_id: templeId,
-        temple_name: shrine.name,
+        temple_id: activeTempleId,
+        temple_name: shrineDisplayName,
         counter_station: stationNames[selectedStation] || t.counterGate1,
         pair_count: pairCount,
         status: 'checked_in',
@@ -239,15 +249,15 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
       await sendPilgrimNotification({
         type: 'gate_info',
         title: '👟 Footwear Locker Token Issued',
-        message: `Locker Token #${tokenObj.token_id} issued for ${tokenObj.pair_count} pair(s) at ${tokenObj.rack_no} (${shrine.name}).`,
-        templeId: templeId
+        message: `Locker Token #${tokenObj.token_id} issued for ${tokenObj.pair_count} pair(s) at ${tokenObj.rack_no} (${shrineDisplayName}).`,
+        templeId: activeTempleId
       });
 
       // Broadcast to volunteers
       broadcastBookingToVolunteers({
         id: tokenObj.token_id,
-        temple_id: templeId,
-        temples: { name: shrine.name },
+        temple_id: activeTempleId,
+        temples: { name: shrineDisplayName },
         total_pilgrims: tokenObj.pair_count,
         is_priority: selectedStation === 'gate2',
         gate_number: tokenObj.rack_no,
@@ -304,37 +314,86 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-4 select-none font-body animate-in fade-in">
-      <div className="bg-white border-2 border-gold/50 rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col animate-in zoom-in-95 duration-200">
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 bg-black/70 backdrop-blur-xs flex flex-col justify-end sm:items-center sm:justify-center z-[999999] p-0 sm:p-4 select-none font-body animate-in fade-in duration-200"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white border-t-2 sm:border-2 border-gold/50 rounded-t-[28px] sm:rounded-3xl max-w-md w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col max-h-[85vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300"
+      >
+        {/* Mobile Grab Handle */}
+        <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-2 sm:hidden shrink-0" />
         
-        {/* Top Header */}
-        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white p-3.5 flex items-center justify-between border-b border-gold/40">
-          <div className="flex items-center gap-2.5">
+        {/* Top Header with Tri-Language Selector */}
+        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white p-3 sm:p-3.5 flex items-center justify-between border-b border-gold/40 shrink-0">
+          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gold/20 border border-gold/40 flex items-center justify-center text-gold shadow-sm shrink-0">
               <Footprints className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-white font-heading uppercase tracking-wide flex items-center gap-1.5">
+              <h3 className="font-extrabold text-xs sm:text-sm text-white font-heading uppercase tracking-wide flex items-center gap-1.5">
                 <span>{t.title}</span>
                 <span className="text-[9px] bg-gold/30 text-amber-200 font-mono font-bold px-1.5 py-0.5 rounded-full">
                   FREE
                 </span>
               </h3>
-              <p className="text-[10px] text-amber-200/90 font-medium truncate">
-                {shrine.name}
+              <p className="text-[10px] text-amber-200/90 font-medium truncate max-w-[150px] sm:max-w-[200px]">
+                {shrineDisplayName}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-200 hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Tri-Language Quick Toggle */}
+            <div className="flex items-center gap-0.5 bg-white/10 rounded-xl p-0.5 border border-white/20">
+              {[{ id: 'hi', label: 'हि' }, { id: 'gu', label: 'ગુ' }, { id: 'en', label: 'EN' }].map(l => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => setLanguage(l.id)}
+                  className={`px-1.5 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    currentLanguage === l.id ? 'bg-gold text-indigo-dark font-black shadow-xs' : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-200 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Temple Selector Strip */}
+        <div className="bg-amber-50/80 px-3 py-2 border-b border-gold/30 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+          <span className="text-[10px] font-black uppercase tracking-wider text-maroon font-heading shrink-0 mr-1">
+            📍 {currentLanguage === 'gu' ? 'મંદિર:' : currentLanguage === 'hi' ? 'मंदिर:' : 'Temple:'}
+          </span>
+          {MASTER_TEMPLES.map(tmp => (
+            <button
+              key={tmp.id}
+              type="button"
+              onClick={() => setActiveTempleId(tmp.id)}
+              className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all flex items-center gap-1 shrink-0 cursor-pointer font-heading ${
+                activeTempleId === tmp.id
+                  ? 'bg-maroon text-white shadow-xs border border-maroon'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:border-gold'
+              }`}
+            >
+              <span>{tmp.icon}</span>
+              <span>{tmp.name[currentLanguage] || tmp.name.en}</span>
+            </button>
+          ))}
         </div>
 
         {/* Tab Switcher */}
-        <div className="bg-[#FAF7F2] p-1.5 border-b border-gold/20 flex gap-1.5">
+        <div className="bg-[#FAF7F2] p-1.5 border-b border-gold/20 flex gap-1.5 shrink-0">
           <button
             onClick={() => setActiveTab('deposit')}
             className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -364,14 +423,14 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
 
         {/* Toast Notification */}
         {successToast && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-3 py-1.5 text-[11px] font-extrabold text-emerald-800 flex items-center gap-1.5 animate-in slide-in-from-top">
+          <div className="bg-emerald-50 border-b border-emerald-200 px-3 py-1.5 text-[11px] font-extrabold text-emerald-800 flex items-center gap-1.5 animate-in slide-in-from-top shrink-0">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>{successToast}</span>
           </div>
         )}
 
-        {/* Content Body */}
-        <div ref={scrollContainerRef} className="p-3 sm:p-4 space-y-2.5">
+        {/* Content Body with Internal Scroll */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3.5 pb-6">
           
           {/* TAB 1: DEPOSIT FOOTWEAR FORM */}
           {activeTab === 'deposit' && (

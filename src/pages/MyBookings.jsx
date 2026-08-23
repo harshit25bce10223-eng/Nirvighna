@@ -253,11 +253,19 @@ export const MyBookings = () => {
         temples: { name: 'Bet Dwarka Ferry Crossing', location: 'Okha Jetty Pier #2, Dwarka' }
       }));
 
-      const localFootwear = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]').map(f => ({
-        ...f,
-        type: 'footwear',
-        temples: { name: f.temple_name || 'Shri Somnath Temple', location: 'Main Entrance Footwear Counter' }
-      }));
+      const localFootwear = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]').map(f => {
+        const tId = f.temple_id || 'tmp_somnath';
+        return {
+          ...f,
+          id: f.token_id || f.id,
+          type: 'footwear',
+          temple_id: tId,
+          temples: { 
+            name: f.temple_name || (tId === 'tmp_dwarka' ? 'Shri Dwarkadhish Mandir' : tId === 'tmp_ambaji' ? 'Shri Arasuri Ambaji Temple' : tId === 'tmp_pavagadh' ? 'Shri Kalika Mata Temple, Pavagadh' : 'Shri Somnath Jyotirlinga'), 
+            location: f.counter_station || 'Main Entrance Footwear Counter' 
+          }
+        };
+      });
 
       const localPrasad = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -266,21 +274,24 @@ export const MyBookings = () => {
           try {
             const token = JSON.parse(localStorage.getItem(key));
             if (token) {
-              const templeId = token.temple_id || 'tmp_somnath';
+              const templeId = token.temple_id || key.replace('nirvighna_prasad_token_', '') || 'tmp_somnath';
               localPrasad.push({
-                id: token.id || `local_prasad_${token.token_number}`,
+                id: token.token_id || token.id || `local_prasad_${token.token_number}`,
                 type: 'prasad',
                 temple_id: templeId,
                 token_number: token.token_number,
-                signed_value: token.signed_value,
+                signed_value: token.signed_value || `PRASAD-${templeId}-${token.token_number}`,
                 status: token.status || 'waiting',
-                created_at: token.issued_at || new Date().toISOString(),
-                issued_at: token.issued_at || new Date().toISOString(),
+                created_at: token.issued_at || token.created_at || new Date().toISOString(),
+                issued_at: token.issued_at || token.created_at || new Date().toISOString(),
+                headcount: token.headcount || 1,
+                prasad_type: token.prasad_type || 'free_thali',
+                dining_hall: token.dining_hall || 'Main Annakshetra Hall #1',
                 temples: {
-                  name: templeId === 'tmp_somnath' ? 'Shri Somnath Jyotirlinga' : 
+                  name: token.temple_name || (templeId === 'tmp_somnath' ? 'Shri Somnath Jyotirlinga' : 
                         templeId === 'tmp_dwarka' ? 'Shri Dwarkadhish Mandir' :
-                        templeId === 'tmp_ambaji' ? 'Shri Arasuri Ambaji Temple' : 'Shri Mahakalika Temple, Pavagadh',
-                  location: 'Annakshetra Hall #1'
+                        templeId === 'tmp_ambaji' ? 'Shri Arasuri Ambaji Temple' : 'Shri Mahakalika Temple, Pavagadh'),
+                  location: token.dining_hall || 'Annakshetra Hall #1'
                 }
               });
             }
