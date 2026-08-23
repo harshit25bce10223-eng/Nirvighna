@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { isDemoMode } from '../lib/runtimeMode';
+import { App as CapApp } from '@capacitor/app';
 
 const AuthContext = createContext();
 
@@ -9,71 +10,123 @@ export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Universal handler for incoming deep links / email verification redirects
+  const handleIncomingAuthUrl = useCallback(async (rawUrl) => {
+    if (!rawUrl || typeof rawUrl !== 'string') return false;
+    try {
+      console.log('🔗 [Nirvighna DeepLink] Received URL:', rawUrl);
+
+      // Parse hash fragment and search query params
+      const params = new URLSearchParams();
+      if (rawUrl.includes('#')) {
+        const hashPart = rawUrl.substring(rawUrl.indexOf('#') + 1);
+        const cleanHash = hashPart.replace(/^\/?/, '');
+        new URLSearchParams(cleanHash).forEach((val, key) => params.set(key, val));
+      }
+      if (rawUrl.includes('?')) {
+        const queryPart = rawUrl.substring(rawUrl.indexOf('?') + 1).split('#')[0];
+        new URLSearchParams(queryPart).forEach((val, key) => {
+          if (!params.has(key)) params.set(key, val);
+        });
+      }
+
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const code = params.get('code');
+      const tokenHash = params.get('token_hash');
+      const type = params.get('type') || 'signup';
+
+      let authUser = null;
+
+      // 1. Implicit / Token redirect (access_token + refresh_token)
+      if (accessToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || ''
+        });
+        if (data?.session?.user) {
+          authUser = data.session.user;
+        }
+      } 
+      // 2. PKCE authorization code exchange
+      else if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (data?.session?.user) {
+          authUser = data.session.user;
+        }
+      } 
+      // 3. Token hash verification (OTP / email verification token)
+      else if (tokenHash) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type
+        });
+        if (data?.session?.user) {
+          authUser = data.session.user;
+        }
+      }
+
+      if (authUser) {
+        await fetchUserProfile(authUser.id, authUser);
+        window.location.hash = '#/home';
+        return true;
+      }
+    } catch (e) {
+      console.warn('⚠️ [Nirvighna DeepLink] Verification processing error:', e);
+    }
+    return false;
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
+    // 1. Register global and Capacitor deep link handlers
+    window.handleNirvighnaDeepLink = (url) => {
+      handleIncomingAuthUrl(url);
+    };
+
+    const handleCustomDeepLink = (e) => {
+      if (e.detail?.url) {
+        handleIncomingAuthUrl(e.detail.url);
+      }
+    };
+    window.addEventListener('nirvighna_deep_link', handleCustomDeepLink);
+
+    let appUrlListener = null;
+    try {
+      appUrlListener = CapApp.addListener('appUrlOpen', (event) => {
+        if (event?.url) {
+          handleIncomingAuthUrl(event.url);
+        }
+      });
+    } catch (e) {
+      console.warn('Capacitor App listener not available in web context:', e);
+    }
+
     const initAuthSession = async () => {
       try {
-        // 1. Check for incoming Supabase Auth redirect tokens in URL hash or search
-        const hash = window.location.hash || '';
-        const search = window.location.search || '';
-        let accessToken = null;
-        let refreshToken = null;
-
-        if (hash.includes('access_token=') || search.includes('access_token=')) {
-          const rawParams = hash.includes('access_token=')
-            ? hash.replace(/^#\/?/, '')
-            : search.replace(/^\?/, '');
-          const params = new URLSearchParams(rawParams);
-          accessToken = params.get('access_token');
-          refreshToken = params.get('refresh_token');
-        } else {
-          accessToken = sessionStorage.getItem('sb_incoming_access_token');
-          refreshToken = sessionStorage.getItem('sb_incoming_refresh_token');
-          sessionStorage.removeItem('sb_incoming_access_token');
-          sessionStorage.removeItem('sb_incoming_refresh_token');
-        }
-
-        if (accessToken) {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || ''
-          });
-
-          if (data?.session?.user && isMounted) {
-            const u = data.session.user;
-
-            // Save pending profile from signup if it belongs to this user
-            try {
-              const pendingRaw = sessionStorage.getItem('nirvighna_pending_profile');
-              if (pendingRaw) {
-                const pp = JSON.parse(pendingRaw);
-                if (pp && pp.id === u.id) {
-                  const { emergency_name, emergency_phone, emergency_email, ...profileFields } = pp;
-                  await supabase.from('users').upsert(profileFields);
-                  if (emergency_name && emergency_phone) {
-                    await supabase.from('emergency_contacts').upsert({
-                      pilgrim_id: pp.id, name: emergency_name,
-                      phone: emergency_phone || null, email: emergency_email || null,
-                      is_primary: true, relationship: 'Family Contact'
-                    });
-                  }
-                }
-                sessionStorage.removeItem('nirvighna_pending_profile');
-              }
-            } catch (_) {}
-
-            await fetchUserProfile(u.id, u);
-            // Clean redirect to home
-            if (window.location.hash.includes('access_token') || !window.location.hash.includes('#/')) {
-              window.location.hash = '#/home';
-            }
+        // Check incoming stored deep link first
+        const storedDeepLink = sessionStorage.getItem('nirvighna_incoming_deep_link');
+        if (storedDeepLink) {
+          sessionStorage.removeItem('nirvighna_incoming_deep_link');
+          const handled = await handleIncomingAuthUrl(storedDeepLink);
+          if (handled && isMounted) {
             setLoading(false);
             return;
           }
         }
 
-        // 2. Normal getSession check
+        // Check window.location for tokens/codes
+        const fullHref = window.location.href;
+        if (fullHref.includes('access_token=') || fullHref.includes('code=') || fullHref.includes('token_hash=')) {
+          const handled = await handleIncomingAuthUrl(fullHref);
+          if (handled && isMounted) {
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Normal getSession check
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user && isMounted) {
           await fetchUserProfile(session.user.id, session.user);
@@ -117,12 +170,12 @@ export const AuthProvider = ({ children }) => {
 
     initAuthSession();
 
-    // 3. Listen for Supabase auth state changes (e.g. Magic Link click)
+    // Listen for Supabase auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user && isMounted) {
           await fetchUserProfile(session.user.id, session.user);
-          if (window.location.hash.includes('access_token')) {
+          if (window.location.hash.includes('access_token') || window.location.hash.includes('code=')) {
             window.location.hash = '#/home';
           }
         } else if (!session && isMounted) {
@@ -137,9 +190,14 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       isMounted = false;
+      window.removeEventListener('nirvighna_deep_link', handleCustomDeepLink);
+      if (appUrlListener && typeof appUrlListener.remove === 'function') {
+        appUrlListener.remove();
+      }
       subscription.unsubscribe();
     };
-  }, []);
+  }, [handleIncomingAuthUrl]);
+
 
   const fetchUserProfile = async (userId, fallbackUser = null) => {
     try {
@@ -300,9 +358,11 @@ export const AuthProvider = ({ children }) => {
       const { data, error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          shouldCreateUser: false // Strictly disallow OTP login for unregistered users
+          shouldCreateUser: false, // Strictly disallow OTP login for unregistered users
+          emailRedirectTo: 'nirvighna://login'
         }
       });
+
       if (error) {
         const isNotSignedUp = error.message?.toLowerCase().includes('signups not allowed') ||
                               error.message?.toLowerCase().includes('user not found') ||

@@ -215,7 +215,13 @@ export const Signup = () => {
     setResending(true);
     setResentMsg('');
     try {
-      await supabase.auth.resend({ type: 'signup', email: pendingEmail });
+      await supabase.auth.resend({
+        type: 'signup',
+        email: pendingEmail,
+        options: {
+          emailRedirectTo: 'nirvighna://login'
+        }
+      });
       setResentMsg('Verification email sent! Please check your inbox.');
     } catch (_) {
       setResentMsg('Could not resend. Please wait a moment and try again.');
@@ -223,6 +229,7 @@ export const Signup = () => {
       setResending(false);
     }
   };
+
 
 
 

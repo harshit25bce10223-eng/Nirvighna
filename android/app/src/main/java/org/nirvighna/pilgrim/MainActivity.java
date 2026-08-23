@@ -90,8 +90,12 @@ public class MainActivity extends BridgeActivity {
                 }, 800);
             }
 
+            // Handle incoming deep links (e.g. Email verification links)
+            handleDeepLinkIntent(getIntent());
+
             // Comprehensive Native Bridge (TTS, System Notifications & 1-Tap In-App APK Updater)
             webView.addJavascriptInterface(new Object() {
+
 
                 @JavascriptInterface
                 public void speakText(final String text, final String langCode) {
@@ -510,6 +514,41 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleDeepLinkIntent(intent);
+    }
+
+    private void handleDeepLinkIntent(Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+        final Uri uri = intent.getData();
+        final String uriString = uri.toString();
+
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            final WebView webView = this.bridge.getWebView();
+            webView.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        String escapedUrl = uriString.replace("'", "\\'");
+                        webView.evaluateJavascript(
+                            "try { " +
+                            "  window.sessionStorage.setItem('nirvighna_incoming_deep_link', '" + escapedUrl + "'); " +
+                            "  if (window.handleNirvighnaDeepLink) { window.handleNirvighnaDeepLink('" + escapedUrl + "'); } " +
+                            "  window.dispatchEvent(new CustomEvent('nirvighna_deep_link', { detail: { url: '" + escapedUrl + "' } })); " +
+                            "} catch(e){ console.error('Deep link dispatch error:', e); }",
+                            null
+                        );
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }, 600);
+        }
+    }
+
+    @Override
     public void onDestroy() {
         if (textToSpeech != null) {
             textToSpeech.stop();
@@ -518,3 +557,4 @@ public class MainActivity extends BridgeActivity {
         super.onDestroy();
     }
 }
+
