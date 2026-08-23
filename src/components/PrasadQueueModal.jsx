@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { prasadQueueEngine } from '../lib/prasadQueueEngine';
 import { supabase } from '../lib/supabaseClient';
@@ -191,6 +191,14 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [issuing, setIssuing] = useState(false);
   const [successToast, setSuccessToast] = useState('');
+  const scrollContainerRef = useRef(null);
+
+  // Automatically scroll container to top when switching tabs or issuing token
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeTab, activeToken]);
 
   useEffect(() => {
     fetchStatus();
@@ -410,7 +418,7 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
         )}
 
         {/* Scrollable Content Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
+        <div ref={scrollContainerRef} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           
           {/* TAB 1: GET PRASAD TOKEN FORM */}
           {activeTab === 'get_token' && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -144,6 +144,14 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [successToast, setSuccessToast] = useState('');
+  const scrollContainerRef = useRef(null);
+
+  // Automatically scroll container to top when switching tabs or issuing token
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeTab, activeToken]);
 
   // Load existing tokens
   useEffect(() => {
@@ -362,7 +370,7 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
         )}
 
         {/* Scrollable Content Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
+        <div ref={scrollContainerRef} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           
           {/* TAB 1: DEPOSIT FOOTWEAR FORM */}
           {activeTab === 'deposit' && (
