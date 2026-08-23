@@ -27,6 +27,7 @@ const translations = {
     welcomeBack: 'Welcome to your Yatra',
     subtitle: 'Nirvighna — Easy Darshan & Queue Help',
     aiBanner: 'AI Smart Darshan Guide',
+    liveTelemetry: 'LIVE TELEMETRY',
     liveForecast: 'Live Darshan Updates',
     quickActions: 'Quick Actions',
     bookDarshan: 'Book Darshan',
@@ -99,6 +100,7 @@ const translations = {
     welcomeBack: 'निर्विघ्न में आपका स्वागत है',
     subtitle: 'आसान दर्शन और लाइन से राहत',
     aiBanner: 'AI स्मार्ट दर्शन गाइड',
+    liveTelemetry: 'लाइव टेलीमेट्री',
     liveForecast: 'लाइव दर्शन अपडेट',
     quickActions: 'खास सेवाएं',
     bookDarshan: 'दर्शन बुकिंग',
@@ -809,7 +811,7 @@ export const Home = () => {
             </span>
             <span className="text-[10px] font-mono font-bold text-amber-300 bg-white/10 px-2 py-0.5 rounded-full border border-gold/30 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>LIVE TELEMETRY</span>
+              <span>{t.liveTelemetry || 'LIVE TELEMETRY'}</span>
             </span>
           </div>
 

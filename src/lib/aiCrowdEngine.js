@@ -1,6 +1,72 @@
 import { panchangCalendarEngine } from './panchangCalendarEngine';
 import { templeAIConfigEngine } from './templeAIConfigEngine';
 
+const FESTIVAL_TRANSLATIONS = {
+  'Sawan Somvar Mahapuja': {
+    en: 'Sawan Somvar Mahapuja',
+    hi: 'श्रावण सोमवार महापूजा',
+    gu: 'શ્રાવણ સોમવાર મહાપૂજા'
+  },
+  'Sawan Amrit Parv': {
+    en: 'Sawan Amrit Parv',
+    hi: 'पवित्र श्रावण अमृत पर्व',
+    gu: 'પવિત્ર શ્રાવણ અમૃત પર્વ'
+  },
+  'Mahashivratri Jagran': {
+    en: 'Mahashivratri Jagran',
+    hi: 'महाशिवरात्रि जागरण एवं महाआरती',
+    gu: 'મહાશિવરાત્રી જાગરણ અને મહાઆરતી'
+  },
+  'Shree Krishna Janmashtami': {
+    en: 'Shree Krishna Janmashtami',
+    hi: 'श्री कृष्ण जन्मोत्सव महाआरती',
+    gu: 'શ્રી કૃષ્ણ જન્મોત્સવ મહાઆરતી'
+  },
+  'Maha Ekadashi Darshan': {
+    en: 'Maha Ekadashi Darshan',
+    hi: 'पवित्र एकादशी विशेष दर्शन',
+    gu: 'પવિત્ર એકાદશી વિશેષ દર્શન'
+  },
+  'Bhadarvi Poonam Mega Padyatri Mela': {
+    en: 'Bhadarvi Poonam Mega Padyatri Mela',
+    hi: 'भादरवी पूनम महा पदयात्री मेला',
+    gu: 'ભાદરવી પૂનમ મહા પદયાત્રી મેળો'
+  },
+  'Sharad Navratri Garba & Jyot': {
+    en: 'Sharad Navratri Garba & Jyot',
+    hi: 'शारदीय नवरात्रि अखंड ज्योत दर्शन',
+    gu: 'શારદીય નવરાત્રી અખંડ જ્યોત દર્શન'
+  },
+  'Chaitra Navratri Shakti Parv': {
+    en: 'Chaitra Navratri Shakti Parv',
+    hi: 'चैत्र नवरात्रि शक्ति पर्व',
+    gu: 'ચૈત્ર નવરાત્રી શક્તિ પર્વ'
+  }
+};
+
+const TITHI_TRANSLATIONS = {
+  'Shravan Maas Sawan Tithi': {
+    en: 'Shravan Maas Holy Tithi',
+    hi: 'श्रावण मास शुक्ल पक्ष',
+    gu: 'શ્રાવણ માસ શુક્લ પક્ષ'
+  },
+  'Pavitra Sawan Somvar (Holy Monday)': {
+    en: 'Holy Sawan Monday',
+    hi: 'पवित्र सावन सोमवार',
+    gu: 'પવિત્ર શ્રાવણ સોમવાર'
+  },
+  'Pavitra Ekadashi Tithi': {
+    en: 'Holy Ekadashi Tithi',
+    hi: 'पवित्र एकादशी तिथि',
+    gu: 'પવિત્ર એકાદશી તિથિ'
+  },
+  'Bhadrapada Purnima (Maha Poonam)': {
+    en: 'Bhadrapada Full Moon (Maha Poonam)',
+    hi: 'भाद्रपद पूर्णिमा (महा पूनम)',
+    gu: 'ભાદ્રપદ પૂર્ણિમા (મહા પૂનમ)'
+  }
+};
+
 export class NirvighnaAIEngine {
   static predictCrowdDensity(temple, date = new Date(), lang = 'en') {
     if (!temple) return null;
@@ -12,8 +78,11 @@ export class NirvighnaAIEngine {
     // panchang tithi + festival multiplier
     const panchang = panchangCalendarEngine.getTithiMultipliers(templeId, date);
     const festivalMultiplier = panchang.crowdMultiplier || 1.0;
-    const tithiName = panchang.tithiName || 'Shukla Paksha Tithi';
-    const activeFestival = panchang.festivalEvent;
+    const rawTithiName = panchang.tithiName || 'Shukla Paksha Tithi';
+    const rawFestival = panchang.festivalEvent;
+
+    const tithiName = TITHI_TRANSLATIONS[rawTithiName]?.[lang] || rawTithiName;
+    const activeFestival = rawFestival ? (FESTIVAL_TRANSLATIONS[rawFestival]?.[lang] || rawFestival) : null;
 
     // surge during aarti times
     const hour = date.getHours();
@@ -38,7 +107,11 @@ export class NirvighnaAIEngine {
         : 'text-emerald-700 bg-emerald-50 border-emerald-300';
 
     const localizedName = lang === 'hi' ? (temple.name_hi || temple.name) : lang === 'gu' ? (temple.name_gu || temple.name) : temple.name;
-    const gateName = lang === 'hi' ? (temple.gates?.[0]?.name_hi || temple.gates?.[0]?.name || 'मुख्य महाप्रवेश द्वार') : lang === 'gu' ? (temple.gates?.[0]?.name_gu || temple.gates?.[0]?.name || 'મુખ્ય મહાપ્રવેશ દ્વાર') : (temple.gates?.[0]?.name || 'Main Entrance Gate');
+    const gateName = lang === 'hi' 
+      ? (temple.gates?.[0]?.name_hi || temple.gates?.[0]?.name || 'मुख्य महाप्रवेश द्वार (गेट #1)') 
+      : lang === 'gu' 
+      ? (temple.gates?.[0]?.name_gu || temple.gates?.[0]?.name || 'મુખ્ય મહાપ્રવેશ દ્વાર (ગેટ #1)') 
+      : (temple.gates?.[0]?.name || 'Main Mahapravesh Gate #1');
     const waitMins = Math.round((densityPct / 100) * 40 + (isAartiPeak ? 15 : 5));
 
     let recommendation = '';
@@ -50,7 +123,7 @@ export class NirvighnaAIEngine {
         recommendation += `📅 तिथि: ${tithiName}।\n`;
       }
       recommendation += `🚪 सुगम प्रवेश द्वार: ${gateName}।\n`;
-      recommendation += `⏱ अनुमानित प्रतीक्षा: ~${waitMins} मिनट · सर्वश्रेष्ठ सुगम समय: 02:30 PM - 04:15 PM।`;
+      recommendation += `⏱ अनुमानित प्रतीक्षा: ~${waitMins} मिनट · सर्वश्रेष्ठ सुगम समय: दोपहर 02:30 बजे से 04:15 बजे।`;
     } else if (lang === 'gu') {
       recommendation = `✨ રીઅલ-ટાઇમ AI દર્શન માર્ગદર્શિકા — ${localizedName}:\n`;
       if (activeFestival) {
@@ -59,15 +132,15 @@ export class NirvighnaAIEngine {
         recommendation += `📅 તિથિ: ${tithiName}.\n`;
       }
       recommendation += `🚪 સુગમ પ્રવેશ દ્વાર: ${gateName}.\n`;
-      recommendation += `⏱ અંદાજિત પ્રતીક્ષા: ~${waitMins} મિનિટ · શ્રેષ્ઠ સુગમ સમય: 02:30 PM - 04:15 PM.`;
+      recommendation += `⏱ અંદાજિત પ્રતીક્ષા: ~${waitMins} મિનિટ · શ્રેષ્ઠ સુગમ સમય: બપોરે 02:30 થી 04:15.`;
     } else {
       recommendation = `✨ REAL-TIME AI DARSHAN GUIDE FOR ${localizedName.toUpperCase()}:\n`;
       if (activeFestival) {
-        recommendation += `🚩 ${activeFestival} (${tithiName}) · Surge Active.\n`;
+        recommendation += `🚩 ${activeFestival} (${tithiName}) · Active Surge.\n`;
       } else {
         recommendation += `📅 Tithi: ${tithiName}.\n`;
       }
-      recommendation += `🚪 Preferred Entry: ${gateName}.\n`;
+      recommendation += `🚪 Preferred Entry Gate: ${gateName}.\n`;
       recommendation += `⏱ Expected wait: ~${waitMins} mins · Best Fast-Track Window: 02:30 PM - 04:15 PM.`;
     }
 
@@ -82,7 +155,6 @@ export class NirvighnaAIEngine {
     };
   }
 
-  // Predict parking availability from raw occupancy data
   static predictParkingDensity(parkingLots = []) {
     return parkingLots.map((lot) => {
       const total = lot.capacity || lot.total || 100;
@@ -98,20 +170,31 @@ export class NirvighnaAIEngine {
         statusBadge = 'bg-red-100 text-red-800 border-red-300';
         predictedFillTime = 'Filling fast — alternate lot recommended';
       } else if (occupancyRate >= 65) {
-        status = 'Filling Fast';
+        status = 'Moderate';
         statusBadge = 'bg-amber-100 text-amber-800 border-amber-300';
         predictedFillTime = 'Expected full in ~45 mins';
       }
 
       return {
         ...lot,
-        total,
         occupancyRate,
         status,
         statusBadge,
         predictedFillTime,
-        availableSpaces: total - currentOccupied,
       };
     });
+  }
+
+  static suggestAlternativeTemple(currentTempleId, allTemples = []) {
+    if (!allTemples.length) return null;
+    const others = allTemples.filter(t => t.id !== currentTempleId);
+    if (!others.length) return null;
+    const sorted = [...others].sort((a, b) => (a.current_crowd || 0) - (b.current_crowd || 0));
+    const best = sorted[0];
+    return {
+      alternativeTemple: best,
+      reason: `${best.name} has lower crowd density right now.`,
+      crowdDifference: '40% less waiting time',
+    };
   }
 }
