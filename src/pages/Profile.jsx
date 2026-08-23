@@ -816,7 +816,7 @@ export const Profile = () => {
             </div>
             <div>
               <p className="text-xs font-black text-indigo-dark font-heading">Nirvighna Pilgrim</p>
-              <p className="text-[10px] font-bold text-gray-500">Version 1.0.3 (Build 4)</p>
+              <p className="text-[10px] font-bold text-gray-500">Version 1.0.4 (Build 5)</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

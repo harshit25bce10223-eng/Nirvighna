@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Sparkles, X, RefreshCw, CheckCircle2, ShieldCheck, AlertCircle, ArrowRight, Loader2, Lock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
-export const CURRENT_VERSION = '1.0.3';
+export const CURRENT_VERSION = '1.0.4';
 export const GITHUB_REPO = 'harshit25bce10223-eng/Nirvighna';
 
 const translations = {

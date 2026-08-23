@@ -340,11 +340,16 @@ public class MainActivity extends BridgeActivity {
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
                 public void startInAppUpdate(final String apkUrl, final String expectedSha256) {
-                    // Forward to main handler
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            webView.evaluateJavascript("if(window.NirvighnaNativeBridge && window.NirvighnaNativeBridge.startInAppUpdate){ window.NirvighnaNativeBridge.startInAppUpdate('" + apkUrl + "', '" + expectedSha256 + "'); }", null);
+                        }
+                    });
                 }
                 @JavascriptInterface
                 public void downloadAndInstallApk(final String apkUrl) {
-                    // Forward
+                    startInAppUpdate(apkUrl, "skip");
                 }
                 @JavascriptInterface
                 public boolean isNativeUpdater() {
