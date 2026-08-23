@@ -268,12 +268,29 @@ export const MyBookings = () => {
       });
 
       const localPrasad = [];
+      const savedPrasadList = JSON.parse(localStorage.getItem('nirvighna_prasad_tokens_list') || '[]');
+      savedPrasadList.forEach(t => {
+        const tId = t.temple_id || 'tmp_somnath';
+        localPrasad.push({
+          ...t,
+          id: t.token_id || t.id,
+          type: 'prasad',
+          temple_id: tId,
+          temples: {
+            name: t.temple_name || (tId === 'tmp_somnath' ? 'Shri Somnath Jyotirlinga' : 
+                  tId === 'tmp_dwarka' ? 'Shri Dwarkadhish Mandir' :
+                  tId === 'tmp_ambaji' ? 'Shri Arasuri Ambaji Temple' : 'Shri Mahakalika Temple, Pavagadh'),
+            location: t.dining_hall || 'Annakshetra Hall #1'
+          }
+        });
+      });
+
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key.startsWith('nirvighna_prasad_token_')) {
           try {
             const token = JSON.parse(localStorage.getItem(key));
-            if (token) {
+            if (token && !localPrasad.some(p => p.token_id === (token.token_id || token.id) || p.id === (token.token_id || token.id))) {
               const templeId = token.temple_id || key.replace('nirvighna_prasad_token_', '') || 'tmp_somnath';
               localPrasad.push({
                 id: token.token_id || token.id || `local_prasad_${token.token_number}`,
@@ -284,7 +301,7 @@ export const MyBookings = () => {
                 status: token.status || 'waiting',
                 created_at: token.issued_at || token.created_at || new Date().toISOString(),
                 issued_at: token.issued_at || token.created_at || new Date().toISOString(),
-                headcount: token.headcount || 1,
+                headcount: token.headcount || token.quantity || 1,
                 prasad_type: token.prasad_type || 'free_thali',
                 dining_hall: token.dining_hall || 'Main Annakshetra Hall #1',
                 temples: {

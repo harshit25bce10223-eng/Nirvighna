@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { 
   Footprints, Clock, CheckCircle, AlertCircle, X, Loader2, Sparkles, 
-  MapPin, Plus, QrCode as QrIcon, ShieldCheck, ArrowRight, User, Phone,
+  MapPin, Plus, ShieldCheck, ArrowRight, User, Phone,
   Shield, Check, ChevronRight, RefreshCw, KeyRound
 } from 'lucide-react';
 import { getTempleById } from '../lib/templeRegistry';
@@ -15,8 +15,6 @@ const translations = {
   en: {
     title: 'Smart Footwear Locker',
     subtitle: 'Free & Secure Electronic Shoe Depositing Facility',
-    tabDeposit: 'Deposit Shoes',
-    tabMyTokens: 'My Locker Pass',
     devoteeName: 'Devotee / Family Head Name',
     namePlaceholder: 'Enter your full name',
     phoneLabel: 'Mobile Phone Number',
@@ -31,25 +29,16 @@ const translations = {
     freeSeva: '100% Free Seva by Mandir Trust',
     issuePassBtn: '👟 Generate Free Footwear Pass (₹0)',
     generatingBtn: 'Allocating Secure Rack...',
-    digitalPassTitle: 'DIGITAL FOOTWEAR PASS',
-    tokenNumber: 'Assigned Locker Rack',
-    pairsCount: 'Total Footwear Pairs',
-    depositStation: 'Locker Counter Station',
-    retrieveBtn: '✅ Retrieve Footwear & Clear Locker',
-    retrievingConfirm: 'Confirm you are collecting your shoes from the locker attendant?',
-    getAnotherBtn: '+ Deposit Another Pair',
-    closeBtn: 'Close Pass',
-    noTokens: 'No active footwear tokens currently deposited.',
-    showQrNotice: 'Show this QR code at the locker counter when retrieving your shoes.',
-    statusInLocker: 'Secured in Locker',
-    statusRetrieved: 'Retrieved & Cleared',
+    bookedSuccessTitle: '🎉 Footwear Locker Pass Issued!',
+    bookedSuccessDesc: 'Your shoes are securely allocated. You can view your locker pass & QR code anytime in My Bookings.',
+    viewInMyBookings: '🎫 View in My Bookings →',
+    depositAnotherBtn: '+ Deposit Another Pair',
+    closeBtn: 'Close',
     freeBadge: '100% FREE SEVA'
   },
   hi: {
     title: 'डिजिटल जूता लॉकर',
     subtitle: 'निःशुल्क एवं सुरक्षित इलेक्ट्रॉनिक जूता जमा केंद्र',
-    tabDeposit: 'जूते जमा करें',
-    tabMyTokens: 'मेरा लॉकर पास',
     devoteeName: 'श्रद्धालु / परिवार प्रमुख का नाम',
     namePlaceholder: 'अपना पूरा नाम दर्ज करें',
     phoneLabel: 'मोबाइल नंबर',
@@ -64,25 +53,16 @@ const translations = {
     freeSeva: 'श्री मंदिर ट्रस्ट द्वारा 100% निःशुल्क सेवा',
     issuePassBtn: '👟 निःशुल्क लॉकर पास प्राप्त करें (₹0)',
     generatingBtn: 'सुरक्षित रैक आवंटित हो रहा है...',
-    digitalPassTitle: 'डिजिटल जूता लॉकर पास',
-    tokenNumber: 'आवंटित रैक नंबर',
-    pairsCount: 'कुल जूते की जोड़ियां',
-    depositStation: 'जमा काउंटर गेट',
-    retrieveBtn: '✅ जूते प्राप्त करें एवं लॉकर खाली करें',
-    retrievingConfirm: 'क्या आप काउंटर से अपने जूते वापस ले रहे हैं?',
-    getAnotherBtn: '+ नए जूते जमा करें',
-    closeBtn: 'पास बंद करें',
-    noTokens: 'वर्तमान में कोई जूते लॉकर में जमा नहीं हैं।',
-    showQrNotice: 'जूते वापस लेते समय यह QR कोड काउंटर पर सेवादार को दिखाएं।',
-    statusInLocker: 'लॉकर में सुरक्षित',
-    statusRetrieved: 'वापस प्राप्त कर लिया',
+    bookedSuccessTitle: '🎉 जूता लॉकर पास जारी हो गया!',
+    bookedSuccessDesc: 'आपके जूते सुरक्षित लॉकर में दर्ज हैं। आप "मेरी बुकिंग" में अपना डिजिटल QR पास देख सकते हैं।',
+    viewInMyBookings: '🎫 मेरी बुकिंग में पास देखें →',
+    depositAnotherBtn: '+ नए जूते जमा करें',
+    closeBtn: 'बंद करें',
     freeBadge: '100% निःशुल्क सेवा'
   },
   gu: {
     title: 'ડિજિટલ પગરખાં લોકર',
     subtitle: 'મફત અને સુરક્ષિત ઈલેક્ટ્રોનિક પગરખાં જમા કેન્દ્ર',
-    tabDeposit: 'પગરખાં જમા કરો',
-    tabMyTokens: 'મારો લોકર પાસ',
     devoteeName: 'યાત્રાળુ / મુખીનું નામ',
     namePlaceholder: 'તમારું પૂરું નામ દાખલ કરો',
     phoneLabel: 'મોબાઇલ નંબર',
@@ -97,18 +77,11 @@ const translations = {
     freeSeva: 'શ્રી મંદિર ટ્રસ્ટ તરફથી 100% મફત સેવા',
     issuePassBtn: '👟 મફત લોકર પાસ મેળવો (₹0)',
     generatingBtn: 'સુરક્ષિત રૅક ફાળવાઈ રહી છે...',
-    digitalPassTitle: 'ડિજિટલ પગરખાં લોકર પાસ',
-    tokenNumber: 'ફાળવેલ રૅક નંબર',
-    pairsCount: 'કુલ પગરખાંની જોડી',
-    depositStation: 'જમા કાઉન્ટર ગેટ',
-    retrieveBtn: '✅ પગરખાં મેળવો અને લોકર ખાલી કરો',
-    retrievingConfirm: 'શું તમે કાઉન્ટર પરથી તમારા પગરખાં પાછા મેળવી રહ્યા છો?',
-    getAnotherBtn: '+ નવા પગરખાં જમા કરો',
-    closeBtn: 'પાસ બંધ કરો',
-    noTokens: 'હાલમાં કોઈ પગરખાં લોકરમાં જમા નથી.',
-    showQrNotice: 'પગરખાં પરત લેતી વખતે આ QR કોડ કાઉન્ટર પર સ્વયંસેવકને બતાવો.',
-    statusInLocker: 'લોકરમાં સુરક્ષિત',
-    statusRetrieved: 'પરત મેળવી લીધેલ',
+    bookedSuccessTitle: '🎉 પગરખાં લોકર પાસ બની ગયો!',
+    bookedSuccessDesc: 'તમારા પગરખાં સુરક્ષિત લોકરમાં ફાળવાયા છે. તમે "મારી બુકિંગ" પેજ પર તમારો QR પાસ જોઈ શકો છો.',
+    viewInMyBookings: '🎫 મારી બુકિંગમાં પાસ જુઓ →',
+    depositAnotherBtn: '+ નવા પગરખાં જમા કરો',
+    closeBtn: 'બંધ કરો',
     freeBadge: '100% મફત સેવા'
   }
 };
@@ -117,10 +90,11 @@ const MASTER_TEMPLES = [
   { id: 'tmp_somnath', icon: '🔱', name: { en: 'Somnath', hi: 'सोमनाथ', gu: 'સોમનાથ' }, full: { en: 'Shri Somnath Jyotirlinga', hi: 'श्री सोमनाथ ज्योतिर्लिंग', gu: 'શ્રી સોમનાથ જ્યોતિર્લિંગ' } },
   { id: 'tmp_dwarka', icon: '🦚', name: { en: 'Dwarka', hi: 'द्वारका', gu: 'દ્વારકા' }, full: { en: 'Shri Dwarkadhish Mandir', hi: 'श्री द्वारकाधीश मंदिर', gu: 'શ્રી દ્વારકાધીશ મંદિર' } },
   { id: 'tmp_ambaji', icon: '🌸', name: { en: 'Ambaji', hi: 'अंबाजी', gu: 'અંબાજી' }, full: { en: 'Shri Arasuri Ambaji Temple', hi: 'श्री अंबाजी माता मंदिर', gu: 'શ્રી આરાસુરી અંબાજી મંદિર' } },
-  { id: 'tmp_pavagadh', icon: '🚩', name: { en: 'Pavagadh', hi: 'पावागढ़', gu: 'પાવાગઢ' }, full: { en: 'Shri Kalika Mata Temple, Pavagadh', hi: 'श्री कालिका माता मंदिर, पावागढ़', gu: 'શ્રી કાલિકા માતા મંદિર, પાવાગઢ' } },
+  { id: 'tmp_pavagadh', icon: '🚩', name: { en: 'Pavagadh', hi: 'पावागढ़', gu: 'પાવાગઢ' }, full: { en: 'Shri Kalika Mata Temple, Pavagadh', hi: 'श्री कालिका माता मंदिर, पावागढ़', gu: 'શ્રી કાલિકા माता मंदिर, પાવાગઢ' } },
 ];
 
 export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_somnath' }) => {
+  const navigate = useNavigate();
   const { currentUser, issueFootwearToken } = useAuth();
   const { currentLanguage, setLanguage } = useLanguage();
   const t = translations[currentLanguage] || translations.en;
@@ -129,26 +103,14 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
   const currentTempleObj = MASTER_TEMPLES.find(t => t.id === activeTempleId) || MASTER_TEMPLES[0];
   const shrineDisplayName = currentTempleObj.full[currentLanguage] || currentTempleObj.full.en;
 
-  const [activeTab, setActiveTab] = useState('deposit'); // 'deposit' | 'tokens'
   const [pairCount, setPairCount] = useState(2);
   const [pilgrimName, setPilgrimName] = useState(currentUser?.full_name || 'Pilgrim Devotee');
   const [pilgrimPhone, setPilgrimPhone] = useState(currentUser?.phone || '');
   const [selectedStation, setSelectedStation] = useState('gate1');
-  const [activeToken, setActiveToken] = useState(null);
-  const [tokenList, setTokenList] = useState([]);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [lastIssuedToken, setLastIssuedToken] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [successToast, setSuccessToast] = useState('');
   const scrollContainerRef = useRef(null);
 
-  // Automatically scroll container to top when switching tabs or issuing token
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [activeTab, activeToken]);
-
-  // Load existing tokens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -158,36 +120,7 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
     if (currentUser?.phone && !pilgrimPhone) {
       setPilgrimPhone(currentUser.phone);
     }
-
-    loadTokens();
   }, [isOpen, activeTempleId, currentUser]);
-
-  const loadTokens = () => {
-    try {
-      const existing = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
-      setTokenList(existing);
-      const latestActive = existing.find(tok => tok.status === 'checked_in' && (!tok.temple_id || tok.temple_id === activeTempleId));
-      if (latestActive) {
-        setActiveToken(latestActive);
-        generateQR(latestActive.token_id || latestActive.id);
-        setActiveTab('tokens');
-      } else {
-        setActiveToken(null);
-        setActiveTab('deposit');
-      }
-    } catch (_) {}
-  };
-
-  const generateQR = async (val) => {
-    try {
-      const url = await QRCode.toDataURL(val, { 
-        margin: 1, 
-        width: 260, 
-        color: { dark: '#4A151C', light: '#FFFFFF' } 
-      });
-      setQrCodeUrl(url);
-    } catch (_) {}
-  };
 
   const handleIssueToken = async (e) => {
     if (e) e.preventDefault();
@@ -209,16 +142,22 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
       const tokenObj = {
         token_id: `FW-${shrinePrefix}-${randomNum}`,
         id: `FW-${shrinePrefix}-${randomNum}`,
+        type: 'footwear',
         pilgrim_name: pilgrimName.trim() || currentUser?.full_name || 'Pilgrim Devotee',
         pilgrim_phone: pilgrimPhone.trim() || currentUser?.phone || '',
         rack_no: `Rack ${rackLetter}-${rackNum}`,
         locker_bin: `${rackLetter}-${rackNum}`,
         temple_id: activeTempleId,
         temple_name: shrineDisplayName,
+        temples: {
+          name: shrineDisplayName,
+          location: stationNames[selectedStation] || t.counterGate1
+        },
         counter_station: stationNames[selectedStation] || t.counterGate1,
         pair_count: pairCount,
         status: 'checked_in',
         created_at: new Date().toISOString(),
+        issued_at: new Date().toISOString(),
         time_formatted: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       };
 
@@ -227,15 +166,14 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
       }
 
       const existingLocal = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
-      const updatedList = [tokenObj, ...existingLocal];
+      const updatedList = [tokenObj, ...existingLocal.filter(tok => tok.token_id !== tokenObj.token_id)];
       localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updatedList));
-      setTokenList(updatedList);
 
       // Universal Notification
       await sendPilgrimNotification({
         type: 'gate_info',
         title: '👟 Footwear Locker Pass Issued',
-        message: `Locker Token #${tokenObj.token_id} issued for ${tokenObj.pair_count} pair(s) at ${tokenObj.rack_no} (${shrineDisplayName}).`,
+        message: `Locker Pass #${tokenObj.token_id} issued for ${tokenObj.pair_count} pair(s) at ${tokenObj.rack_no} (${shrineDisplayName}). Ready in My Bookings.`,
         templeId: activeTempleId
       });
 
@@ -250,11 +188,7 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
         pilgrim_phone: tokenObj.pilgrim_phone
       });
 
-      setActiveToken(tokenObj);
-      await generateQR(tokenObj.token_id);
-      setActiveTab('tokens');
-      setSuccessToast('🎉 Footwear Locker Pass Generated Successfully!');
-      setTimeout(() => setSuccessToast(''), 3500);
+      setLastIssuedToken(tokenObj);
     } catch (e) {
       console.error('Error generating footwear token:', e);
     } finally {
@@ -262,39 +196,9 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
     }
   };
 
-  const handleRetrieveToken = (tokenToRetrieve) => {
-    if (!tokenToRetrieve) return;
-    if (!window.confirm(t.retrievingConfirm)) return;
-
-    try {
-      const existing = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
-      const updated = existing.map(tok => {
-        if (tok.token_id === tokenToRetrieve.token_id || tok.id === tokenToRetrieve.id) {
-          return {
-            ...tok,
-            status: 'retrieved',
-            retrieved_at: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-          };
-        }
-        return tok;
-      });
-
-      localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updated));
-      setTokenList(updated);
-
-      const nextActive = updated.find(tok => tok.status === 'checked_in' && (!tok.temple_id || tok.temple_id === activeTempleId));
-      if (nextActive) {
-        setActiveToken(nextActive);
-        generateQR(nextActive.token_id || nextActive.id);
-      } else {
-        setActiveToken(null);
-      }
-
-      setSuccessToast('✅ Footwear collected & locker cleared!');
-      setTimeout(() => setSuccessToast(''), 3500);
-    } catch (e) {
-      console.error('Error retrieving footwear:', e);
-    }
+  const handleGoToMyBookings = () => {
+    onClose?.();
+    navigate('/my-bookings');
   };
 
   if (!isOpen) return null;
@@ -365,7 +269,10 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
             <button
               key={tmp.id}
               type="button"
-              onClick={() => setActiveTempleId(tmp.id)}
+              onClick={() => {
+                setActiveTempleId(tmp.id);
+                setLastIssuedToken(null);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer font-heading ${
                 activeTempleId === tmp.id
                   ? 'bg-maroon text-white shadow-xs border border-maroon scale-102'
@@ -378,48 +285,72 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
           ))}
         </div>
 
-        {/* Main Segmented Switcher */}
-        <div className="bg-white p-2.5 border-b border-gray-100 flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setActiveTab('deposit')}
-            className={`flex-1 py-2 px-3 rounded-2xl text-xs font-extrabold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              activeTab === 'deposit'
-                ? 'bg-gradient-to-r from-gold via-amber-400 to-gold text-indigo-dark shadow-xs'
-                : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-amber-50/50'
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{t.tabDeposit}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('tokens')}
-            className={`flex-1 py-2 px-3 rounded-2xl text-xs font-extrabold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${
-              activeTab === 'tokens'
-                ? 'bg-gradient-to-r from-gold via-amber-400 to-gold text-indigo-dark shadow-xs'
-                : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-amber-50/50'
-            }`}
-          >
-            <QrIcon className="w-3.5 h-3.5" />
-            <span>{t.tabMyTokens}</span>
-            {tokenList.filter(tok => tok.status === 'checked_in' && (!tok.temple_id || tok.temple_id === activeTempleId)).length > 0 && (
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping absolute top-2 right-3" />
-            )}
-          </button>
-        </div>
-
-        {/* Toast Message */}
-        {successToast && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2 text-xs font-extrabold text-emerald-800 flex items-center gap-2 animate-in slide-in-from-top">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{successToast}</span>
-          </div>
-        )}
-
         {/* Scrollable Form Body */}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-5 pb-8">
           
-          {/* TAB 1: DEPOSIT FOOTWEAR FORM */}
-          {activeTab === 'deposit' && (
+          {/* SUCCESS CONFIRMATION OVERLAY IF JUST ISSUED */}
+          {lastIssuedToken ? (
+            <div className="bg-gradient-to-b from-[#FAF7F2] via-white to-amber-50/40 p-6 rounded-3xl border-2 border-gold shadow-warm text-center space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-3xl bg-emerald-100 border-2 border-emerald-400 text-emerald-700 flex items-center justify-center mx-auto text-3xl shadow-sm">
+                🎉
+              </div>
+
+              <div>
+                <h4 className="text-base font-black text-gray-900 font-heading">
+                  {t.bookedSuccessTitle}
+                </h4>
+                <p className="text-xs text-gray-600 mt-1 max-w-sm mx-auto leading-relaxed">
+                  {t.bookedSuccessDesc}
+                </p>
+              </div>
+
+              {/* Pass Specs Card */}
+              <div className="bg-white p-4 rounded-2xl border-2 border-gold/40 text-left space-y-2.5 shadow-xs">
+                <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                  <span className="text-xs text-gray-500 font-medium">{t.tokenNumber}:</span>
+                  <span className="font-mono text-base font-black text-maroon">{lastIssuedToken.rack_no}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-medium">Devotee:</span>
+                  <span className="font-bold text-gray-900">{lastIssuedToken.pilgrim_name}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-medium">Footwear Pairs:</span>
+                  <span className="font-bold text-gray-900">{lastIssuedToken.pair_count} Pair(s)</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-medium">Counter Station:</span>
+                  <span className="font-bold text-indigo-dark">{lastIssuedToken.counter_station}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={handleGoToMyBookings}
+                  className="w-full py-3.5 bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-amber-400 hover:to-gold text-indigo-dark font-black text-xs uppercase tracking-wider rounded-2xl shadow-goldGlow transition-all flex items-center justify-center gap-2 cursor-pointer font-heading"
+                >
+                  <span>{t.viewInMyBookings}</span>
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setLastIssuedToken(null)}
+                    className="flex-1 py-2.5 bg-[#FAF7F2] hover:bg-gray-100 text-maroon font-bold text-xs rounded-xl border border-maroon/30 transition-colors cursor-pointer font-heading"
+                  >
+                    {t.depositAnotherBtn}
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="flex-1 py-2.5 bg-gray-900 hover:bg-black text-white font-bold text-xs rounded-xl transition-colors cursor-pointer font-heading"
+                  >
+                    {t.closeBtn}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* DEPOSIT FORM */
             <form onSubmit={handleIssueToken} className="space-y-4">
               
               {/* Devotee Info Card */}
@@ -558,132 +489,6 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
                 )}
               </button>
             </form>
-          )}
-
-          {/* TAB 2: ACTIVE FOOTWEAR PASS CARD */}
-          {activeTab === 'tokens' && (
-            <div className="space-y-4">
-              {activeToken ? (
-                <div className="bg-gradient-to-b from-[#FAF7F2] via-white to-[#FAF7F2] p-5 rounded-3xl border-2 border-gold shadow-warm text-center space-y-4 relative overflow-hidden">
-                  
-                  {/* Status Pill & Token ID */}
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-black uppercase px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs ${
-                      activeToken.status === 'retrieved'
-                        ? 'bg-gray-100 text-gray-700 border border-gray-300'
-                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${activeToken.status === 'retrieved' ? 'bg-gray-400' : 'bg-emerald-500 animate-ping'}`} />
-                      {activeToken.status === 'retrieved' ? t.statusRetrieved : t.statusInLocker}
-                    </span>
-                    
-                    <span className="font-mono text-xs font-black text-maroon bg-maroon/10 px-2.5 py-1 rounded-xl border border-maroon/20">
-                      {activeToken.token_id || activeToken.id}
-                    </span>
-                  </div>
-
-                  {/* Allocated Rack Number Banner */}
-                  <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white p-4 rounded-2xl shadow-md border border-gold/40 flex items-center justify-between">
-                    <div className="text-left">
-                      <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-300 font-heading">
-                        {t.tokenNumber}
-                      </p>
-                      <p className="text-3xl sm:text-4xl font-black font-mono tracking-widest text-gold drop-shadow-sm leading-tight">
-                        {activeToken.rack_no || 'Rack A-12'}
-                      </p>
-                    </div>
-                    <div className="text-right space-y-1">
-                      <p className="text-xs font-bold text-amber-200">
-                        {activeToken.pair_count || 2} Pairs Deposited
-                      </p>
-                      <p className="text-xs font-black text-white">
-                        {activeToken.status === 'retrieved' ? '✅ Cleared' : '🔒 Secure Locked'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Scannable QR Code Plinth */}
-                  <div className="bg-white p-3 rounded-3xl inline-block shadow-md border-2 border-gold mx-auto">
-                    {qrCodeUrl ? (
-                      <img src={qrCodeUrl} alt="Footwear Locker QR" className="w-36 h-36 sm:w-44 sm:h-44 mx-auto object-contain" />
-                    ) : (
-                      <div className="w-36 h-36 sm:w-44 sm:h-44 mx-auto bg-gray-100 rounded-2xl flex items-center justify-center">
-                        <QrIcon className="w-12 h-12 text-maroon animate-pulse" />
-                      </div>
-                    )}
-                    <p className="text-[10px] font-mono font-black text-maroon mt-1 tracking-wider">
-                      SHOW AT LOCKER COUNTER TO RETRIEVE
-                    </p>
-                  </div>
-
-                  {/* Detailed Specs Card */}
-                  <div className="bg-white p-3.5 rounded-2xl border border-gold/30 text-xs text-gray-800 text-left space-y-2 shadow-2xs">
-                    <div className="flex justify-between py-0.5 border-b border-gray-100">
-                      <span className="text-gray-500 font-medium">Devotee:</span>
-                      <span className="font-bold text-gray-900">{activeToken.pilgrim_name}</span>
-                    </div>
-                    <div className="flex justify-between py-0.5 border-b border-gray-100">
-                      <span className="text-gray-500 font-medium">Locker Counter:</span>
-                      <span className="font-bold text-maroon">{activeToken.counter_station || t.counterGate1}</span>
-                    </div>
-                    <div className="flex justify-between py-0.5">
-                      <span className="text-gray-500 font-medium">Deposited At:</span>
-                      <span className="font-bold text-indigo-dark">{activeToken.time_formatted || 'Just Now'}</span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="space-y-2 pt-1">
-                    {activeToken.status === 'checked_in' && (
-                      <button
-                        onClick={() => handleRetrieveToken(activeToken)}
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer font-heading"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        <span>{t.retrieveBtn}</span>
-                      </button>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setActiveTab('deposit')}
-                        className="flex-1 py-2.5 bg-[#FAF7F2] hover:bg-gray-100 text-maroon font-bold text-xs rounded-xl border border-maroon/30 transition-colors cursor-pointer font-heading flex items-center justify-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{t.getAnotherBtn}</span>
-                      </button>
-                      <button
-                        onClick={onClose}
-                        className="flex-1 py-2.5 bg-gray-900 hover:bg-black text-white font-bold text-xs rounded-xl transition-colors cursor-pointer font-heading"
-                      >
-                        {t.closeBtn}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 space-y-4 bg-[#FAF7F2] p-6 rounded-3xl border border-gray-200">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-100 text-maroon flex items-center justify-center mx-auto text-2xl shadow-xs">
-                    👟
-                  </div>
-                  <div>
-                    <p className="text-sm font-extrabold text-gray-800 font-heading">
-                      {t.noTokens}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Deposit your shoes safely at any temple gate locker.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('deposit')}
-                    className="px-5 py-2.5 bg-gradient-to-r from-gold via-amber-400 to-gold text-indigo-dark font-black text-xs rounded-2xl shadow-goldGlow hover:opacity-95 transition-all cursor-pointer font-heading inline-flex items-center gap-2 uppercase tracking-wider"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{t.tabDeposit}</span>
-                  </button>
-                </div>
-              )}
-            </div>
           )}
         </div>
       </div>
