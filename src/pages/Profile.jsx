@@ -6,9 +6,8 @@ import { supabase } from '../lib/supabaseClient';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { AppUpdateChecker } from '../components/AppUpdateChecker';
 import { 
-
   User, ChevronLeft, LogOut, Globe, Shield, ChevronRight, 
-  Loader2, Edit2, X, Check, Phone, Camera, Upload, Trash, Mail, AlertTriangle, Users, Sparkles
+  Loader2, Edit2, X, Check, Phone, Camera, Upload, Trash, Mail, AlertTriangle, Users, Sparkles, Download
 } from 'lucide-react';
 
 const translations = {
