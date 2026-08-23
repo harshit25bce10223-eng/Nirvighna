@@ -963,7 +963,7 @@ export const PriorityAudioNav = () => {
         </div>
 
         {/* Dedicated Spoken Audio Navigation Bar */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-gold/50 shadow-sm space-y-3">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-gold/50 shadow-sm space-y-3 overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
               <button
@@ -989,17 +989,17 @@ export const PriorityAudioNav = () => {
                   <Volume2 className="w-6 h-6" />
                 )}
               </button>
-              <div>
-                <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 font-heading">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 font-heading truncate">
                   {ui.voiceBox.title}
                 </h3>
-                <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">
                   {speaking ? ui.voiceBox.speaking : ui.voiceBox.ready}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center">
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
               {/* Quick Language Toggle */}
               <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200">
                 {[
@@ -1021,19 +1021,11 @@ export const PriorityAudioNav = () => {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={handleTestSound}
-                className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-gold text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <span>🔔</span>
-                <span>{isGujarati ? 'અવાજ ટેસ્ટ' : isHindi ? 'ध्वनि टेस्ट' : 'Test Sound'}</span>
-              </button>
 
               <button
                 type="button"
                 onClick={() => speakVoicePrompt(activePromptText)}
-                className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-maroon border border-gold/40 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-maroon border border-gold/40 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>{ui.voiceBox.replay}</span>
@@ -1063,12 +1055,12 @@ export const PriorityAudioNav = () => {
           </div>
 
           {/* Current Step Spoken Text Quote */}
-          <div className="bg-[#FFFDF8] p-4 rounded-xl border border-amber-200/60 flex items-start gap-3.5 shadow-xs">
+          <div className="bg-[#FFFDF8] p-3.5 sm:p-4 rounded-xl border border-amber-200/60 flex items-start gap-3 shadow-xs overflow-hidden w-full">
             <div className="w-7 h-7 rounded-full bg-maroon text-white flex items-center justify-center font-black text-xs shrink-0 mt-0.5 shadow-xs">
               {activeStep}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-medium text-gray-900 leading-relaxed">
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="text-xs sm:text-sm font-medium text-gray-900 leading-relaxed break-words">
                 "{activePromptText}"
               </p>
             </div>
@@ -1099,6 +1091,7 @@ export const PriorityAudioNav = () => {
             </button>
           </div>
         </div>
+
 
         {/* Step-by-Step Wayfinding Roadmap with Stationed Volunteers & Live Crowd */}
         <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
