@@ -233,160 +233,115 @@ export const Signup = () => {
 
 
 
-  const [otpCode, setOtpCode] = useState('');
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [otpError, setOtpError] = useState('');
-
-  const handleVerifyOtp = async (e) => {
-    if (e) e.preventDefault();
-    if (!otpCode.trim()) {
-      setOtpError('Please enter the 6-digit verification code from your email.');
-      return;
-    }
-
-    setVerifyingOtp(true);
-    setOtpError('');
-
+  // ── Open Email App Helper ──
+  const handleOpenEmailApp = () => {
     try {
-      let cleanToken = otpCode.trim();
-      if (cleanToken.includes('token=') || cleanToken.includes('code=')) {
-        const urlParams = new URLSearchParams(cleanToken.split('?')[1] || cleanToken.split('#')[1] || cleanToken);
-        cleanToken = urlParams.get('token') || urlParams.get('code') || cleanToken;
+      const clean = (pendingEmail || '').toLowerCase();
+      if (clean.includes('@gmail.com')) {
+        window.open('https://mail.google.com/mail/u/0/#inbox', '_system');
+      } else if (clean.includes('@yahoo.')) {
+        window.open('https://mail.yahoo.com/', '_system');
+      } else if (clean.includes('@outlook.') || clean.includes('@hotmail.')) {
+        window.open('https://outlook.live.com/', '_system');
+      } else {
+        window.location.href = 'mailto:';
       }
-
-      const { data, error: verifyErr } = await supabase.auth.verifyOtp({
-        email: pendingEmail,
-        token: cleanToken,
-        type: 'signup'
-      });
-
-      if (verifyErr) {
-        const { error: verifyErr2 } = await supabase.auth.verifyOtp({
-          email: pendingEmail,
-          token: cleanToken,
-          type: 'email'
-        });
-        if (verifyErr2) throw verifyErr2;
-      }
-
-      // Sync pending profile data immediately
-      try {
-        const pendingRaw = localStorage.getItem('nirvighna_pending_profile') || sessionStorage.getItem('nirvighna_pending_profile');
-        if (pendingRaw) {
-          const pp = JSON.parse(pendingRaw);
-          if (pp) {
-            const { emergency_name, emergency_phone, emergency_email, ...profileFields } = pp;
-            await supabase.from('users').upsert(profileFields);
-            if (emergency_name && emergency_phone) {
-              await supabase.from('emergency_contacts').upsert({
-                pilgrim_id: pp.id, name: emergency_name,
-                phone: emergency_phone || null, email: emergency_email || null,
-                is_primary: true, relationship: 'Family Contact'
-              });
-            }
-          }
-        }
-      } catch (_) {}
-
-      navigate('/home');
-    } catch (err) {
-      console.error('OTP verification error:', err);
-      setOtpError(err.message || 'Invalid or expired code. Please check your email or tap Resend.');
-    } finally {
-      setVerifyingOtp(false);
+    } catch (_) {
+      window.location.href = 'mailto:';
     }
   };
 
-  // ── Verification Pending Screen ──
+  // ── Verification Pending Screen (Clean Email Link Flow — Zero OTP) ──
   if (verificationPending) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/30 to-[#FAF7F2] flex flex-col items-center justify-center px-5 py-8 select-none font-body animate-page-in">
-        <div className="max-w-sm w-full space-y-4 text-center">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/25 border-4 border-white">
-            <MailOpen className="w-10 h-10 text-white" />
+        <div className="max-w-sm w-full space-y-5 text-center">
+          
+          {/* Glowing Mail Icon */}
+          <div className="w-22 h-22 mx-auto rounded-full bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 flex items-center justify-center shadow-xl shadow-emerald-500/25 border-4 border-white p-4">
+            <MailOpen className="w-12 h-12 text-white" />
           </div>
           
-          <div className="space-y-1">
-            <h1 className="text-xl font-black font-heading text-indigo-dark">Check Your Email ✉️</h1>
-            <p className="text-xs text-gray-600 font-semibold">We sent a 6-digit code and link to:</p>
-            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-1.5 text-xs font-extrabold text-emerald-800 mt-1">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-black font-heading text-indigo-dark tracking-wide">
+              {currentLanguage === 'gu' ? 'ઈમેલ તપાસો ✉️' : currentLanguage === 'hi' ? 'अपना ईमेल जांचें ✉️' : 'Check Your Email ✉️'}
+            </h1>
+            <p className="text-xs text-gray-600 font-semibold">
+              {currentLanguage === 'gu' ? 'અમે વેરિફિકેશન લિંક મોકલી છે:' : currentLanguage === 'hi' ? 'हमने वेरिफिकेशन लिंक भेजा है:' : 'Verification link sent to:'}
+            </p>
+            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-1.5 text-xs font-extrabold text-emerald-800 mt-1 shadow-2xs">
               <Mail className="w-3.5 h-3.5" />
               <span>{pendingEmail}</span>
             </div>
           </div>
 
-          {/* In-App 6-Digit OTP Verification Box */}
-          <div className="bg-white rounded-3xl border-2 border-gold/40 shadow-warm p-5 space-y-3.5 text-left">
-            <div className="flex items-center justify-between">
+          {/* Verification Notice Box */}
+          <div className="bg-white rounded-3xl border-2 border-gold/40 shadow-warm p-5 space-y-3 text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📬</span>
               <span className="text-xs font-black font-heading text-maroon uppercase tracking-wide">
-                ⚡ Instant In-App Verification
-              </span>
-              <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full">
-                No Browser Needed
+                {currentLanguage === 'gu' ? 'વેરિફિકેશન સૂચના' : currentLanguage === 'hi' ? 'वेरिफिकेशन सूचना' : 'Verification Notice'}
               </span>
             </div>
 
-            <p className="text-xs text-gray-600 font-medium">
-              Enter the <strong>6-digit verification code</strong> from the email to verify instantly:
+            <p className="text-xs text-gray-700 font-medium leading-relaxed">
+              {currentLanguage === 'gu'
+                ? 'તમારા ઈમેલ સરનામાં પર વેરિફિકેશન લિંક મોકલી દેવામાં આવી છે. કૃપા કરીને તમારું એકાઉન્ટ સક્રિય કરવા માટે ઈમેલમાં આવેલ "Confirm your email" લિંક પર ક્લિક કરો.'
+                : currentLanguage === 'hi'
+                ? 'आपके ईमेल पते पर वेरिफिकेशन लिंक भेज दिया गया है। कृपया अपना खाता सक्रिय करने के लिए ईमेल में दिए गए "Confirm your email" लिंक पर क्लिक करें।'
+                : 'A verification link has been sent to your email address. Please open your mail and click the "Confirm your email" link to activate your account.'}
             </p>
-
-            <form onSubmit={handleVerifyOtp} className="space-y-3">
-              <input
-                type="text"
-                maxLength={8}
-                value={otpCode}
-                onChange={(e) => {
-                  setOtpCode(e.target.value);
-                  setOtpError('');
-                }}
-                placeholder="1 2 3 4 5 6"
-                className="w-full text-center text-2xl font-black font-mono tracking-widest py-3 bg-[#FAF7F2] border-2 border-amber-300 focus:border-maroon focus:bg-white rounded-2xl text-indigo-dark focus:outline-none transition-all shadow-inner"
-              />
-
-              {otpError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{otpError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={verifyingOtp || !otpCode.trim()}
-                className="w-full py-3.5 bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-gold-dark hover:to-gold text-indigo-dark font-black text-xs rounded-xl shadow-goldGlow uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer font-heading disabled:opacity-50"
-              >
-                {verifyingOtp ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Verifying Code...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Verify & Enter App</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
           </div>
 
           {resentMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-700 font-semibold flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" /><span>{resentMsg}</span>
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-700 font-semibold flex items-center gap-2 text-left">
+              <CheckCircle className="w-4 h-4 shrink-0" />
+              <span>{resentMsg}</span>
             </div>
           )}
 
-          <div className="space-y-2 pt-1">
-            <button onClick={() => navigate('/login')} className="w-full py-3 bg-[#FAF7F2] hover:bg-gray-100 border border-gray-300 text-gray-800 font-extrabold text-xs rounded-2xl transition-all cursor-pointer font-heading flex items-center justify-center gap-1.5">
-              <span>Already verified in browser? Go to Login</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+          {/* Action CTA Buttons */}
+          <div className="space-y-2.5 pt-1">
+            
+            {/* Open Email / Gmail App Button */}
+            <button
+              type="button"
+              onClick={handleOpenEmailApp}
+              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-2xl shadow-lg uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer font-heading active:scale-98"
+            >
+              <Mail className="w-4 h-4" />
+              <span>
+                {currentLanguage === 'gu' ? 'ઈમેલ / Gmail ઍપ ખોલો' : currentLanguage === 'hi' ? 'ईमेल / Gmail ऐप खोलें' : 'Open Email / Gmail App'}
+              </span>
+              <ArrowRight className="w-4 h-4" />
             </button>
-            <button onClick={handleResend} disabled={resending}
-              className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-extrabold text-maroon hover:text-gold border-2 border-maroon/20 hover:border-gold rounded-2xl transition-all cursor-pointer disabled:opacity-50">
+
+            {/* Already Verified? Go to Login Button */}
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="w-full py-3.5 bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-gold-dark hover:to-gold text-indigo-dark font-black text-xs rounded-xl shadow-goldGlow uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer font-heading active:scale-98"
+            >
+              <span>
+                {currentLanguage === 'gu' ? 'વેરિફાય થઈ ગયું? લૉગિન કરો' : currentLanguage === 'hi' ? 'सत्यापित हो गया? लॉगिन करें' : 'Already Verified? Go to Login'}
+              </span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            {/* Resend Link Button */}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-extrabold text-maroon hover:text-gold border-2 border-maroon/20 hover:border-gold rounded-2xl transition-all cursor-pointer disabled:opacity-50"
+            >
               {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {resending ? 'Resending...' : 'Resend Verification Email'}
+              {resending 
+                ? (currentLanguage === 'gu' ? 'મોકલી રહ્યા છીએ...' : currentLanguage === 'hi' ? 'भेजा जा रहा है...' : 'Resending...') 
+                : (currentLanguage === 'gu' ? 'વેરિફિકેશન ઈમેલ ફરીથી મોકલો' : currentLanguage === 'hi' ? 'वेरिफिकेशन ईमेल दोबारा भेजें' : 'Resend Verification Email')}
             </button>
           </div>
+
         </div>
       </div>
     );
