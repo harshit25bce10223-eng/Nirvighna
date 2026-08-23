@@ -803,8 +803,13 @@ export const Home = () => {
         <div className="bg-gradient-to-br from-indigo-dark via-[#13112A] to-indigo-dark text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl border border-gold/30 relative overflow-hidden space-y-3.5">
           {/* Header */}
           <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-gold font-extrabold tracking-wider text-xs font-heading">
-              {circuitSuggestion ? t.yatraDharmaTitle : t.aiBanner}
+            <span className="text-gold font-extrabold tracking-wider text-xs font-heading flex items-center gap-1.5">
+              <span>🤖</span>
+              <span>{t.aiBanner}</span>
+            </span>
+            <span className="text-[10px] font-mono font-bold text-amber-300 bg-white/10 px-2 py-0.5 rounded-full border border-gold/30 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>LIVE TELEMETRY</span>
             </span>
           </div>
 
@@ -843,7 +848,7 @@ export const Home = () => {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
             {MASTER_TEMPLES.map((tItem) => {
               const isSelected = (guideTempleId || selectedTempleId) === tItem.id;
-              const icons = { tmp_somnath: '🔱', tmp_dwarka: '🛕', tmp_ambaji: '🚩', tmp_pavagadh: '🔱' };
+              const icons = { tmp_somnath: '🔱', tmp_dwarka: '🛕', tmp_ambaji: '🌸', tmp_pavagadh: '🚩' };
               const microName = getMicroTempleName(tItem.id, currentLanguage);
               const shortName = getShortTempleName(tItem.id, currentLanguage);
               return (
@@ -868,21 +873,45 @@ export const Home = () => {
             })}
           </div>
 
-          {/* Computed Prediction Output */}
+          {/* Pure Temple AI Real-Time Prediction Output */}
           {(() => {
             const activeGuideTemple = MASTER_TEMPLES.find(t => t.id === (guideTempleId || selectedTempleId)) || MASTER_TEMPLES[0];
-            const predictionText = getPredictionForSlot(activeGuideTemple, currentLanguage);
+            const liveAi = NirvighnaAIEngine.predictCrowdDensity(activeGuideTemple, currentTime, currentLanguage);
             const localizedFullName = getLocalizedTempleName(activeGuideTemple, currentLanguage);
             const shortName = getShortTempleName(activeGuideTemple.id, currentLanguage);
+            const shrineIcons = { tmp_somnath: '🔱', tmp_dwarka: '🛕', tmp_ambaji: '🌸', tmp_pavagadh: '🚩' };
+
+            const densityLevel = liveAi?.crowdLevel || 'medium';
+            const densityPct = liveAi?.densityPercentage || 50;
+            const waitTime = liveAi?.estimatedWaitTimeMins || 20;
+
+            const badgeColor = densityLevel === 'critical' || densityPct >= 80
+              ? 'bg-red-500/20 text-red-300 border-red-500/40'
+              : densityLevel === 'medium' || densityPct >= 50
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+
+            const statusText = densityLevel === 'critical' || densityPct >= 80
+              ? (currentLanguage === 'gu' ? '🔴 ભારે ભીડ' : currentLanguage === 'hi' ? '🔴 अत्यधिक भीड़' : '🔴 High Surge')
+              : densityLevel === 'medium' || densityPct >= 50
+              ? (currentLanguage === 'gu' ? '🟡 મધ્યમ ભીડ' : currentLanguage === 'hi' ? '🟡 सामान्य भीड़' : '🟡 Moderate')
+              : (currentLanguage === 'gu' ? '🟢 સરળ દર્શન' : currentLanguage === 'hi' ? '🟢 सुगम दर्शन' : '🟢 Smooth Flow');
+
             return (
               <div className="space-y-3">
-                <div className="p-3.5 sm:p-4 rounded-xl bg-black/40 border border-white/10 space-y-2">
-                  <p className="font-extrabold text-amber-300 font-heading text-sm sm:text-base flex items-center gap-1.5">
-                    <span>{activeGuideTemple.id === 'tmp_somnath' ? '🔱' : activeGuideTemple.id === 'tmp_dwarka' ? '🛕' : activeGuideTemple.id === 'tmp_ambaji' ? '🚩' : '🔱'}</span>
-                    <span>{localizedFullName}</span>
-                  </p>
+                <div className="p-3.5 sm:p-4 rounded-xl bg-black/40 border border-white/10 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="font-extrabold text-amber-300 font-heading text-sm sm:text-base flex items-center gap-1.5">
+                      <span>{shrineIcons[activeGuideTemple.id] || '🛕'}</span>
+                      <span>{localizedFullName}</span>
+                    </p>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black border ${badgeColor}`}>
+                      {statusText} • {densityPct}% (~{waitTime}m)
+                    </span>
+                  </div>
+
                   <p className="text-xs sm:text-sm font-medium text-slate-200 leading-relaxed whitespace-pre-line">
-                    {circuitSuggestion ? circuitSuggestion.message : predictionText}
+                    {liveAi?.recommendation || getPredictionForSlot(activeGuideTemple, currentLanguage)}
                   </p>
                 </div>
 
