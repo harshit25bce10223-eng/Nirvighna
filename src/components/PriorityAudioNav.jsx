@@ -60,17 +60,18 @@ const UI_TEXT = {
       tmp_pavagadh: 'Pavagadh Hill, Panchmahal'
     },
     voiceBox: {
-      title: 'Natural Indian Spoken Wayfinding',
-      speaking: 'Speaking guidance in clear Indian voice...',
-      ready: 'Tap Play or any step to hear voice navigation',
+      title: '🎙️ AI Voice Assistant',
+      speaking: 'Voice Assistant speaking guidance...',
+      ready: 'Tap Play or any step to hear Voice Assistant guide',
       replay: 'Replay Voice',
-      play: 'Play Spoken Guide',
+      play: 'Start Voice Assistant',
       next: 'Next Waypoint',
       prev: 'Previous Waypoint',
       soundOn: 'Voice Active',
       soundMuted: 'Muted',
       stepCount: 'Waypoint',
-      activeVoiceLabel: 'AI Voice Engine'
+      activeVoiceLabel: 'AI Voice Assistant',
+      tapToReplay: 'Tap to listen with Voice Assistant'
     },
     timeline: {
       heading: 'Step-by-Step Route Roadmap & Stationed Sevaks',
@@ -112,17 +113,18 @@ const UI_TEXT = {
       tmp_pavagadh: 'पावागढ़ पर्वत, पंचमहाल'
     },
     voiceBox: {
-      title: 'मधुर भारतीय आवाज मार्गदर्शन',
-      speaking: 'आवाज निर्देश चल रहा है...',
-      ready: 'आवाज सुनने के लिए प्ले या किसी भी चरण पर टैप करें',
+      title: '🎙️ एआई वॉयस असिस्टेंट',
+      speaking: 'वॉयस असिस्टेंट निर्देश दे रहा है...',
+      ready: 'वॉयस असिस्टेंट सुनने के लिए प्ले या किसी चरण पर टैप करें',
       replay: 'पुनः सुनें',
-      play: 'आवाज शुरू करें',
+      play: 'वॉयस असिस्टेंट शुरू करें',
       next: 'अगला पड़ाव',
       prev: 'पिछला पड़ाव',
       soundOn: 'आवाज चालू',
       soundMuted: 'मौन (Muted)',
       stepCount: 'पड़ाव',
-      activeVoiceLabel: 'एआई वॉयस इंजन'
+      activeVoiceLabel: 'एआई वॉयस असिस्टेंट',
+      tapToReplay: 'वॉयस असिस्टेंट से सुनने के लिए टैप करें'
     },
     timeline: {
       heading: 'चरण-दर-चरण तीर्थ मार्ग एवं तैनात स्वयंसेवक',
@@ -164,17 +166,18 @@ const UI_TEXT = {
       tmp_pavagadh: 'પાવાગઢ ડુંગર, પંચમહાલ'
     },
     voiceBox: {
-      title: 'મધુર ભારતીય અવાજ માર્ગદર્શન',
-      speaking: 'અવાજ નિર્દેશ ચાલી રહ્યો છે...',
-      ready: 'અવાજ સાંભળવા માટે પ્લે અથવા કોઈપણ પગલા પર ટેપ કરો',
+      title: '🎙️ એઆઈ વૉઇસ આસિસ્ટન્ટ',
+      speaking: 'વૉઇસ આસિસ્ટન્ટ નિર્દેશ આપી રહ્યું છે...',
+      ready: 'વૉઇસ આસિસ્ટન્ટ સાંભળવા માટે પ્લે અથવા કોઈપણ પગલા પર ટેપ કરો',
       replay: 'ફરી સાંભળો',
-      play: 'અવાજ શરૂ કરો',
+      play: 'વૉઇસ આસિસ્ટન્ટ શરૂ કરો',
       next: 'આગળનો સ્ટોપ',
       prev: 'પાછળનો સ્ટોપ',
       soundOn: 'અવાજ ચાલુ',
       soundMuted: 'મૌન (Muted)',
       stepCount: 'પગલું',
-      activeVoiceLabel: 'એઆઈ વોઇસ એન્જિન'
+      activeVoiceLabel: 'એઆઈ વૉઇસ આસિસ્ટન્ટ',
+      tapToReplay: 'વૉઇસ આસિસ્ટન્ટ દ્વારા સાંભળવા ટૅપ કરો'
     },
     timeline: {
       heading: 'પગલે-પગલે યાત્રા માર્ગ અને હાજર સ્વયંસેવકો',
@@ -977,7 +980,7 @@ export const PriorityAudioNav = () => {
                     ? 'bg-gold text-indigo-dark shadow-md ring-4 ring-gold/30 animate-pulse' 
                     : 'bg-maroon text-white hover:bg-[#5F242C]'
                 }`}
-                title="Play Spoken Direction in Indian Female Voice"
+                title={ui.voiceBox.title}
               >
                 {speaking ? (
                   <div className="flex items-center gap-0.5 h-5">
@@ -1204,7 +1207,7 @@ export const PriorityAudioNav = () => {
                       <div className="pt-2 border-t border-amber-200/40 flex items-center justify-between text-xs text-maroon font-bold">
                         <span className="flex items-center gap-1.5">
                           <Volume2 className="w-3.5 h-3.5" />
-                          <span>Tap to replay guidance in Indian female voice</span>
+                          <span>{ui.voiceBox.tapToReplay || 'Tap to listen with Voice Assistant'}</span>
                         </span>
                         <ChevronRight className="w-4 h-4 text-maroon" />
                       </div>
