@@ -245,16 +245,16 @@ public class MainActivity extends BridgeActivity {
                                     conn.connect();
 
                                     int responseCode = conn.getResponseCode();
-                                    if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP 
-                                            || responseCode == HttpURLConnection.HTTP_MOVED_PERM 
-                                            || responseCode == 307 
-                                            || responseCode == 308) {
+                                    if (responseCode >= 300 && responseCode < 400) {
                                         String redirectUrl = conn.getHeaderField("Location");
+                                        if (redirectUrl == null) break;
                                         conn.disconnect();
-                                        url = new URL(redirectUrl);
+                                        url = new URL(url, redirectUrl);
                                         redirects++;
-                                    } else {
+                                    } else if (responseCode == HttpURLConnection.HTTP_OK) {
                                         break;
+                                    } else {
+                                        throw new Exception("Server returned HTTP " + responseCode + " while fetching update.");
                                     }
                                 }
 
