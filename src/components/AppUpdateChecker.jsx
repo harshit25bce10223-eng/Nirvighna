@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Sparkles, X, RefreshCw, CheckCircle2, ShieldCheck, AlertCircle, ArrowRight, Loader2, Lock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
-export const CURRENT_VERSION = '1.0.4';
+export const CURRENT_VERSION = '1.0.5';
 export const GITHUB_REPO = 'harshit25bce10223-eng/Nirvighna';
 
 const translations = {
@@ -147,8 +147,8 @@ export const fetchLatestVersionInfo = async () => {
     };
   } catch (e) {
     return {
-      version: '1.0.4',
-      hasUpdate: isNewerVersion('1.0.4', CURRENT_VERSION),
+      version: '1.0.5',
+      hasUpdate: isNewerVersion('1.0.5', CURRENT_VERSION),
       releaseNotes: 'Performance enhancements and stability improvements.',
       downloadUrl: `https://github.com/${GITHUB_REPO}/releases/download/latest/Nirvighna-Pilgrim.apk`,
       sha256: 'skip'
