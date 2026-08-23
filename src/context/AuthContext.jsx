@@ -92,13 +92,15 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener('nirvighna_deep_link', handleCustomDeepLink);
 
-    let appUrlListener = null;
+    let appUrlListenerPromise = null;
     try {
-      appUrlListener = CapApp.addListener('appUrlOpen', (event) => {
-        if (event?.url) {
-          handleIncomingAuthUrl(event.url);
-        }
-      });
+      if (CapApp && typeof CapApp.addListener === 'function') {
+        appUrlListenerPromise = CapApp.addListener('appUrlOpen', (event) => {
+          if (event?.url) {
+            handleIncomingAuthUrl(event.url);
+          }
+        });
+      }
     } catch (e) {
       console.warn('Capacitor App listener not available in web context:', e);
     }
@@ -191,10 +193,14 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
       window.removeEventListener('nirvighna_deep_link', handleCustomDeepLink);
-      if (appUrlListener && typeof appUrlListener.remove === 'function') {
-        appUrlListener.remove();
+      if (appUrlListenerPromise) {
+        Promise.resolve(appUrlListenerPromise).then(l => {
+          if (l && typeof l.remove === 'function') {
+            l.remove();
+          }
+        }).catch(() => {});
       }
-      subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, [handleIncomingAuthUrl]);
 

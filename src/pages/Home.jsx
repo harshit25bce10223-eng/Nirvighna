@@ -11,6 +11,7 @@ import { PilgrimFootwearModal } from '../components/PilgrimFootwearModal';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { supabase } from '../lib/supabaseClient';
 import QRCode from 'qrcode';
 import { sendPilgrimNotification } from '../lib/notificationService';
 import { 
@@ -1220,62 +1221,34 @@ export const Home = () => {
 
             <div 
               onClick={() => setShowPrasadModal(true)}
-              className={`p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group ${
-                activePrasadToken
-                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15 ring-2 ring-emerald-400/30'
-                  : 'bg-gradient-to-br from-gold/15 via-amber-500/10 to-amber-100/20 border-gold/50 hover:border-gold'
-              }`}
+              className="p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group bg-gradient-to-br from-gold/15 via-amber-500/10 to-amber-100/20 border-gold/50 hover:border-gold"
             >
               <div className="flex items-center justify-between">
                 <div className="w-8 h-8 rounded-xl bg-gold/20 text-maroon flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
                   🍲
                 </div>
-                {activePrasadToken ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                ) : (
-                  <span className="text-[10px] font-black text-maroon/80 font-mono">→</span>
-                )}
+                <span className="text-[10px] font-black text-maroon/80 font-mono">→</span>
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{t.prasadCounter}</p>
-              {activePrasadToken ? (
-                <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1 font-mono">
-                  <span>🟢 #{activePrasadToken.token_number} Active</span> →
-                </p>
-              ) : (
-                <p className="text-[10px] text-maroon font-extrabold flex items-center gap-1">
-                  <span>✨ {t.getFreeToken}</span> →
-                </p>
-              )}
+              <p className="text-[10px] text-maroon font-extrabold flex items-center gap-1">
+                <span>✨ {t.getFreeToken}</span> →
+              </p>
             </div>
 
             <div 
               onClick={() => setShowFootwearModal(true)}
-              className={`p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group ${
-                activeFootwearToken
-                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15 ring-2 ring-emerald-400/30'
-                  : 'bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-500/40 hover:border-amber-500'
-              }`}
+              className="p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-500/40 hover:border-amber-500"
             >
               <div className="flex items-center justify-between">
                 <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
                   👟
                 </div>
-                {activeFootwearToken ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                ) : (
-                  <span className="text-[10px] font-black text-amber-900/80 font-mono">→</span>
-                )}
+                <span className="text-[10px] font-black text-amber-900/80 font-mono">→</span>
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{t.footwearLocker}</p>
-              {activeFootwearToken ? (
-                <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1 font-mono">
-                  <span>🟢 #{activeFootwearToken.rack_no}</span> →
-                </p>
-              ) : (
-                <p className="text-[10px] text-amber-800 font-extrabold flex items-center gap-1">
-                  <span>🔑 {t.freeLocker}</span> →
-                </p>
-              )}
+              <p className="text-[10px] text-amber-800 font-extrabold flex items-center gap-1">
+                <span>🔑 {t.freeLocker}</span> →
+              </p>
             </div>
 
             <div 
@@ -1310,20 +1283,24 @@ export const Home = () => {
           </a>
         </div>
 
-        {/* Free Mahaprasad Token Bottom Sheet Modal */}
-        <PrasadQueueModal
-          isOpen={showPrasadModal}
-          templeId={selectedTempleId}
-          templeName={temples.find(tmp => tmp.id === selectedTempleId)?.name || 'Somnath Temple'}
-          onClose={() => setShowPrasadModal(false)}
-        />
+        {/* Free Mahaprasad Token Modal */}
+        {showPrasadModal && (
+          <PrasadQueueModal
+            isOpen={showPrasadModal}
+            templeId={selectedTempleId}
+            templeName={temples.find(tmp => tmp.id === selectedTempleId)?.name || 'Somnath Temple'}
+            onClose={() => setShowPrasadModal(false)}
+          />
+        )}
 
-        {/* Smart Footwear Locker Bottom Sheet Modal */}
-        <PilgrimFootwearModal
-          isOpen={showFootwearModal}
-          onClose={() => setShowFootwearModal(false)}
-          templeId={selectedTempleId}
-        />
+        {/* Smart Footwear Locker Modal */}
+        {showFootwearModal && (
+          <PilgrimFootwearModal
+            isOpen={showFootwearModal}
+            onClose={() => setShowFootwearModal(false)}
+            templeId={selectedTempleId}
+          />
+        )}
       </div>
     </div>
   );
