@@ -339,220 +339,209 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
   const isNearingTurn = activeToken && (activeToken.token_number - counterStatus.current_serving_token <= 3) && (activeToken.token_number > counterStatus.current_serving_token);
   const isMyTurnServed = activeToken && counterStatus.current_serving_token >= activeToken.token_number;
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[999] p-0 sm:p-4 animate-in fade-in select-none font-body">
-      <div className="bg-white border-t-2 sm:border-2 border-gold/40 rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col max-h-[88vh] sm:max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[999999] p-3 sm:p-4 select-none font-body animate-in fade-in">
+      <div className="bg-white border-2 border-gold/50 rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col animate-in zoom-in-95 duration-200">
         
         {/* Top Header */}
-        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white px-4 pt-3 pb-4 sm:p-5 flex flex-col gap-2 border-b border-gold/40 relative">
-          <div className="w-12 h-1 bg-white/40 rounded-full mx-auto sm:hidden" />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gold/20 border border-gold/40 flex items-center justify-center text-gold shadow-sm shrink-0 font-bold text-xl">
-                🍲
-              </div>
-              <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-white font-heading uppercase tracking-wide flex items-center gap-2">
-                  <span>{t.title}</span>
-                  <span className="text-[10px] bg-gold/30 text-amber-200 font-mono font-bold px-2 py-0.5 rounded-full border border-gold/40">
-                    FREE
-                  </span>
-                </h3>
-                <p className="text-[11px] text-amber-200/90 font-medium">
-                  {shrine.name} • {t.subtitle}
-                </p>
-              </div>
+        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white p-3.5 flex items-center justify-between border-b border-gold/40">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gold/20 border border-gold/40 flex items-center justify-center text-gold shadow-sm shrink-0 font-bold text-lg">
+              🍲
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-200 hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div>
+              <h3 className="font-extrabold text-sm text-white font-heading uppercase tracking-wide flex items-center gap-1.5">
+                <span>{t.title}</span>
+                <span className="text-[9px] bg-gold/30 text-amber-200 font-mono font-bold px-1.5 py-0.5 rounded-full">
+                  FREE
+                </span>
+              </h3>
+              <p className="text-[10px] text-amber-200/90 font-medium truncate">
+                {shrine.name}
+              </p>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-200 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="bg-[#FAF7F2] p-2 border-b border-gold/20 flex gap-2">
+        {/* Tab Switcher & Serving Pill */}
+        <div className="bg-[#FAF7F2] p-1.5 border-b border-gold/20 flex items-center gap-1.5">
           <button
             onClick={() => setActiveTab('get_token')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'get_token'
-                ? 'bg-maroon text-white shadow-md'
+                ? 'bg-maroon text-white shadow-xs'
                 : 'bg-white text-gray-600 border border-gray-200 hover:border-gold/50'
             }`}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>{t.tabGetToken}</span>
           </button>
           <button
             onClick={() => setActiveTab('tokens')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${
+            className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold font-heading transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${
               activeTab === 'tokens'
-                ? 'bg-maroon text-white shadow-md'
+                ? 'bg-maroon text-white shadow-xs'
                 : 'bg-white text-gray-600 border border-gray-200 hover:border-gold/50'
             }`}
           >
-            <QrIcon className="w-4 h-4" />
+            <QrIcon className="w-3.5 h-3.5" />
             <span>{t.tabMyTokens}</span>
             {activeToken && activeToken.status !== 'served' && (
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute top-1.5 right-2" />
             )}
           </button>
-        </div>
-
-        {/* Live Serving Banner */}
-        <div className="bg-gradient-to-r from-amber-500/15 via-gold/20 to-amber-500/15 px-4 py-2.5 border-b border-gold/30 flex items-center justify-between text-xs font-bold text-indigo-dark shadow-2xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-            <span>{t.servingNow}</span>
-          </div>
-          <span className="text-sm font-black font-mono text-maroon bg-white px-3 py-0.5 rounded-xl border border-gold/50 shadow-2xs">
-            Token #{counterStatus.current_serving_token}
+          <span className="text-[10px] font-mono font-black text-maroon bg-amber-100/90 px-2 py-1 rounded-xl border border-gold/40 shrink-0">
+            Now: #{counterStatus.current_serving_token}
           </span>
         </div>
 
         {/* Toast Notification */}
         {successToast && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2 text-xs font-extrabold text-emerald-800 flex items-center gap-2 animate-in slide-in-from-top">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="bg-emerald-50 border-b border-emerald-200 px-3 py-1.5 text-[11px] font-extrabold text-emerald-800 flex items-center gap-1.5 animate-in slide-in-from-top">
+            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>{successToast}</span>
           </div>
         )}
 
-        {/* Scrollable Content Body */}
-        <div ref={scrollContainerRef} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+        {/* Content Body */}
+        <div ref={scrollContainerRef} className="p-3 sm:p-4 space-y-2.5">
           
           {/* TAB 1: GET PRASAD TOKEN FORM */}
           {activeTab === 'get_token' && (
-            <form onSubmit={handleGetMyToken} className="space-y-4">
+            <form onSubmit={handleGetMyToken} className="space-y-2.5">
               
-              {/* Trust Badge Banner */}
-              <div className="bg-gradient-to-r from-amber-500/10 via-gold/15 to-amber-500/10 p-3 rounded-2xl border border-gold/40 flex items-center gap-2.5">
-                <ShieldCheck className="w-5 h-5 text-maroon shrink-0" />
-                <p className="text-xs font-bold text-maroon">
-                  {t.freeSeva}
-                </p>
-              </div>
-
-              {/* Devotee Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block font-heading">
-                  {t.devoteeName} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={pilgrimName}
-                  onChange={(e) => setPilgrimName(e.target.value)}
-                  placeholder={t.namePlaceholder}
-                  className="w-full px-3.5 py-2.5 bg-[#FAF7F2] border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:border-maroon focus:bg-white transition-all shadow-2xs"
-                />
-              </div>
-
-              {/* Contact Phone */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block font-heading">
-                  {t.phoneLabel}
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+              {/* Row 1: Devotee Name + Phone 2-Column Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-600 block uppercase tracking-wider font-heading">
+                    {t.devoteeName} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={pilgrimName}
+                    onChange={(e) => setPilgrimName(e.target.value)}
+                    placeholder="Your Name"
+                    className="w-full px-2.5 py-2 bg-[#FAF7F2] border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:border-maroon focus:bg-white transition-all shadow-2xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-600 block uppercase tracking-wider font-heading">
+                    {t.phoneLabel}
+                  </label>
                   <input
                     type="tel"
                     value={pilgrimPhone}
                     onChange={(e) => setPilgrimPhone(e.target.value)}
-                    placeholder={t.phonePlaceholder}
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-[#FAF7F2] border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:border-maroon focus:bg-white transition-all shadow-2xs"
+                    placeholder="Mobile Number"
+                    className="w-full px-2.5 py-2 bg-[#FAF7F2] border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:border-maroon focus:bg-white transition-all shadow-2xs"
                   />
                 </div>
               </div>
 
-              {/* Prasad Type Selector */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block font-heading">
-                  {t.prasadTypeLabel}
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPrasadType('free_thali')}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                      prasadType === 'free_thali'
-                        ? 'bg-amber-50 border-maroon text-maroon font-bold shadow-xs'
-                        : 'bg-white border-gray-200 text-gray-700 hover:border-gold'
-                    }`}
-                  >
-                    <p className="text-xs font-black">{t.freeThali}</p>
-                    <p className="text-[10px] text-emerald-600 font-extrabold mt-0.5">100% FREE</p>
-                  </button>
+              {/* Row 2: Prasad Type + Dining Hall 2-Column Selector */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-600 block uppercase tracking-wider font-heading">
+                    {t.prasadTypeLabel}
+                  </label>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { id: 'free_thali', label: 'Thali (Free)' },
+                      { id: 'laddu_box', label: 'Laddu Box' },
+                    ].map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => setPrasadType(type.id)}
+                        className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all border text-center cursor-pointer ${
+                          prasadType === type.id
+                            ? 'bg-amber-100/90 border-maroon text-maroon shadow-2xs font-extrabold'
+                            : 'bg-[#FAF7F2] border-gray-200 text-gray-600 hover:border-gold'
+                        }`}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setPrasadType('laddu_box')}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                      prasadType === 'laddu_box'
-                        ? 'bg-amber-50 border-maroon text-maroon font-bold shadow-xs'
-                        : 'bg-white border-gray-200 text-gray-700 hover:border-gold'
-                    }`}
-                  >
-                    <p className="text-xs font-black">{t.ladduBox}</p>
-                    <p className="text-[10px] text-amber-800 font-extrabold mt-0.5">Special Box</p>
-                  </button>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-600 block uppercase tracking-wider font-heading">
+                    Dining Location
+                  </label>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { id: 'hall1', label: 'Main Hall' },
+                      { id: 'hall2', label: 'Family/VIP' },
+                    ].map((hall) => (
+                      <button
+                        key={hall.id}
+                        type="button"
+                        onClick={() => setSelectedHall(hall.id)}
+                        className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all border text-center cursor-pointer ${
+                          selectedHall === hall.id
+                            ? 'bg-amber-100/90 border-maroon text-maroon shadow-2xs font-extrabold'
+                            : 'bg-[#FAF7F2] border-gray-200 text-gray-600 hover:border-gold'
+                        }`}
+                      >
+                        {hall.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Number of Devotees Stepper */}
-              <div className="space-y-2 bg-[#FAF7F2] p-3.5 rounded-2xl border border-gold/30">
+              {/* Row 3: Devotees Stepper + Presets */}
+              <div className="bg-amber-50/70 p-2.5 rounded-2xl border border-gold/30 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-extrabold text-gray-800 font-heading">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-amber-900 font-heading">
                     {t.headcountLabel}
                   </label>
-                  <span className="text-xs font-black text-maroon bg-amber-100 px-3 py-0.5 rounded-full border border-gold/40">
-                    {headcount} {headcount === 1 ? t.person : t.people}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setHeadcount(prev => Math.max(1, prev - 1))}
-                    className="w-11 h-11 rounded-xl bg-white border border-gray-300 text-maroon font-black text-xl hover:bg-gray-100 flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-transform"
-                  >
-                    −
-                  </button>
-                  <div className="flex-1 text-center py-2 bg-white border-2 border-gold rounded-xl shadow-xs">
-                    <span className="text-xl font-black font-mono text-indigo-dark">
-                      {headcount}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setHeadcount(prev => Math.max(1, prev - 1))}
+                      className="w-7 h-7 rounded-lg bg-white border border-gray-300 text-maroon font-black text-sm flex items-center justify-center shadow-2xs cursor-pointer active:scale-95"
+                    >
+                      −
+                    </button>
+                    <span className="font-mono text-xs font-black text-maroon min-w-[50px] text-center">
+                      {headcount} {headcount === 1 ? t.person : t.people}
                     </span>
-                    <span className="text-[10px] font-bold text-gray-500 block uppercase tracking-wider">
-                      {headcount === 1 ? t.person : t.people}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHeadcount(prev => Math.min(50, prev + 1))}
+                      className="w-7 h-7 rounded-lg bg-white border border-gray-300 text-maroon font-black text-sm flex items-center justify-center shadow-2xs cursor-pointer active:scale-95"
+                    >
+                      +
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setHeadcount(prev => Math.min(50, prev + 1))}
-                    className="w-11 h-11 rounded-xl bg-white border border-gray-300 text-maroon font-black text-xl hover:bg-gray-100 flex items-center justify-center shrink-0 shadow-xs cursor-pointer active:scale-95 transition-transform"
-                  >
-                    +
-                  </button>
                 </div>
 
-                {/* Quick Presets */}
-                <div className="grid grid-cols-5 gap-1.5 pt-1">
+                <div className="grid grid-cols-5 gap-1 pt-0.5">
                   {[
-                    { count: 1, label: t.solo },
-                    { count: 2, label: t.duo },
-                    { count: 4, label: t.family },
-                    { count: 6, label: t.group },
-                    { count: 10, label: t.bus },
+                    { count: 1, label: '1 Solo' },
+                    { count: 2, label: '2 Duo' },
+                    { count: 4, label: '4 Fam' },
+                    { count: 6, label: '6 Grp' },
+                    { count: 10, label: '10+ All' },
                   ].map((preset) => (
                     <button
                       key={preset.count}
                       type="button"
                       onClick={() => setHeadcount(preset.count)}
-                      className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all border text-center cursor-pointer ${
+                      className={`py-1 rounded-lg text-[10px] font-bold transition-all border text-center cursor-pointer ${
                         headcount === preset.count
-                          ? 'bg-maroon text-white border-maroon shadow-xs'
+                          ? 'bg-maroon text-white border-maroon shadow-2xs'
                           : 'bg-white text-gray-700 border-gray-200 hover:border-gold'
                       }`}
                     >
@@ -562,53 +551,21 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
                 </div>
               </div>
 
-              {/* Hall Selector */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 block font-heading">
-                  {t.selectHall}
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'hall1', label: t.hallMain },
-                    { id: 'hall2', label: t.hallFamily },
-                    { id: 'hall3', label: t.hallTakeaway },
-                  ].map((hall) => (
-                    <button
-                      key={hall.id}
-                      type="button"
-                      onClick={() => setSelectedHall(hall.id)}
-                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
-                        selectedHall === hall.id
-                          ? 'bg-amber-50 border-maroon text-maroon font-bold shadow-xs'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-gold'
-                      }`}
-                    >
-                      <span className="text-xs">{hall.label}</span>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        selectedHall === hall.id ? 'border-maroon bg-maroon' : 'border-gray-300'
-                      }`}>
-                        {selectedHall === hall.id && <CheckCircle className="w-3.5 h-3.5 text-white" />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit Button */}
+              {/* Row 4: Submit Button */}
               <button
                 type="submit"
                 disabled={issuing || !pilgrimName.trim()}
-                className="w-full py-3.5 bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-gold-dark hover:to-gold text-indigo-dark font-black text-xs sm:text-sm rounded-2xl shadow-goldGlow uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer font-heading active:scale-[0.99]"
+                className="w-full py-3 bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-gold-dark hover:to-gold text-indigo-dark font-black text-xs rounded-2xl shadow-goldGlow uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer font-heading active:scale-[0.99]"
               >
                 {issuing ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                     <span>{t.generatingBtn}</span>
                   </>
                 ) : (
                   <>
+                    <CheckCircle className="w-4 h-4" />
                     <span>{t.getTokenBtn}</span>
-                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
