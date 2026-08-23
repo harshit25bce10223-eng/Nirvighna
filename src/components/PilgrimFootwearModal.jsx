@@ -143,6 +143,7 @@ export const PilgrimFootwearModal = ({ isOpen, onClose, templeId = 'tmp_somnath'
   const [tokenList, setTokenList] = useState([]);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const submitting = loading;
   const [successToast, setSuccessToast] = useState('');
   const scrollContainerRef = useRef(null);
 
