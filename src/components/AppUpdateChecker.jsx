@@ -280,24 +280,22 @@ export const AppUpdateChecker = ({ manualCheck = false, onCheckComplete }) => {
       return;
     }
 
-    // 2. Simulated Web fallback (for browser testing environments)
-    let cur = 0;
-    const interval = setInterval(() => {
-      cur += 15;
-      if (cur >= 100) {
-        cur = 100;
-        clearInterval(interval);
-        setDownloadProgress(100);
-        setUpdateState('verifying');
-        setTimeout(() => {
-          setUpdateState('ready');
-        }, 800);
-      } else {
-        setDownloadProgress(cur);
-        setDownloadedBytes(Math.round((cur / 100) * 20971520));
-        setTotalBytes(20971520);
-      }
-    }, 200);
+    if (window.NirvighnaNativeUpdater && typeof window.NirvighnaNativeUpdater.startInAppUpdate === 'function') {
+      window.NirvighnaNativeUpdater.startInAppUpdate(targetUrl, targetSha);
+      return;
+    }
+
+    // 2. Direct Download Fallback
+    try {
+      window.location.href = targetUrl;
+    } catch (_) {
+      window.open(targetUrl, '_system');
+    }
+    setUpdateState('ready');
+    setTimeout(() => {
+      setShowOverlay(false);
+      setUpdateState('idle');
+    }, 2000);
   };
 
   const handleGrantPermission = () => {

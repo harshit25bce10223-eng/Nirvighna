@@ -19,6 +19,7 @@ import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -86,6 +87,24 @@ public class MainActivity extends BridgeActivity {
             settings.setDomStorageEnabled(true);
             settings.setDatabaseEnabled(true);
             settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+            // Intercept direct file downloads from webview
+            webView.setDownloadListener(new DownloadListener() {
+                @Override
+                public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                    if (url != null && url.toLowerCase().contains(".apk")) {
+                        performInAppUpdate(url, "skip");
+                    } else {
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
 
             // Check if app was just updated and relaunched
             if (getIntent() != null && getIntent().getBooleanExtra("nirvighna_just_updated", false)) {
@@ -523,19 +542,32 @@ public class MainActivity extends BridgeActivity {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             
-            // Grant explicit URI read permission to package installer
-            List<ResolveInfo> resInfoList = getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-            for (ResolveInfo resolveInfo : resInfoList) {
-                String packageName = resolveInfo.activityInfo.packageName;
-                grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivity(intent);
+                pendingApkToInstall = null;
+            } catch (Exception e1) {
+                try {
+                    Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+                    installIntent.setData(apkUri);
+                    installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(installIntent);
+                    pendingApkToInstall = null;
+                } catch (Exception e2) {
+                    throw e2;
+                }
             }
-
-            startActivity(intent);
-            pendingApkToInstall = null;
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "Could not open installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Opening installer...", Toast.LENGTH_SHORT).show();
+            try {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/harshit25bce10223-eng/Nirvighna/releases/download/latest/Nirvighna-Pilgrim.apk"));
+                browserIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(browserIntent);
+            } catch (Exception be) {
+                be.printStackTrace();
+            }
         }
     }
 

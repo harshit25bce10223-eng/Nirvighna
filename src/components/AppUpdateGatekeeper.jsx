@@ -89,35 +89,21 @@ export const AppUpdateGatekeeper = ({ children }) => {
       return;
     }
 
-    // 2. Simulated Web fallback
-    let prog = 0;
-    const interval = setInterval(() => {
-      prog += 20;
-      if (prog >= 100) {
-        prog = 100;
-        clearInterval(interval);
-        setDownloadProgress(100);
-        setUpdateStatusText('Launching installer...');
-        setTimeout(() => {
-          try {
-            const link = document.createElement('a');
-            link.href = dlUrl;
-            link.setAttribute('download', 'Nirvighna-Pilgrim.apk');
-            link.setAttribute('target', '_system');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          } catch (_) {}
-          try {
-            window.open(dlUrl, '_system');
-          } catch (_) {}
-          setDownloading(false);
-          setUpdateRequired(false);
-        }, 600);
-      } else {
-        setDownloadProgress(prog);
-      }
-    }, 150);
+    if (window.NirvighnaNativeUpdater && typeof window.NirvighnaNativeUpdater.startInAppUpdate === 'function') {
+      window.NirvighnaNativeUpdater.startInAppUpdate(dlUrl, 'skip');
+      return;
+    }
+
+    // 2. Direct browser trigger (opens APK in system download manager or browser)
+    try {
+      window.location.href = dlUrl;
+    } catch (_) {
+      window.open(dlUrl, '_system');
+    }
+    setTimeout(() => {
+      setDownloading(false);
+      setUpdateRequired(false);
+    }, 2000);
   };
 
   // 1. Initial Launch Screen — "Nirvighna Awakening" Custom Animated Splash Sequence

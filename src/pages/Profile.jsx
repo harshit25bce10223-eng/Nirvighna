@@ -816,16 +816,30 @@ export const Profile = () => {
             </div>
             <div>
               <p className="text-xs font-black text-indigo-dark font-heading">Nirvighna Pilgrim</p>
-              <p className="text-[10px] font-bold text-gray-500">Version 1.0.4 (Build 5)</p>
+              <p className="text-[10px] font-bold text-gray-500">Version 1.0.5 (Build 6)</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowManualUpdateCheck(prev => !prev)}
-              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-maroon text-xs font-extrabold rounded-xl transition-all cursor-pointer shadow-xs font-heading"
+              onClick={() => {
+                const targetUrl = 'https://github.com/harshit25bce10223-eng/Nirvighna/releases/download/latest/Nirvighna-Pilgrim.apk';
+                if (window.NirvighnaNativeBridge && typeof window.NirvighnaNativeBridge.startInAppUpdate === 'function') {
+                  window.NirvighnaNativeBridge.startInAppUpdate(targetUrl, 'skip');
+                } else if (window.NirvighnaNativeUpdater && typeof window.NirvighnaNativeUpdater.startInAppUpdate === 'function') {
+                  window.NirvighnaNativeUpdater.startInAppUpdate(targetUrl, 'skip');
+                } else {
+                  try {
+                    window.location.href = targetUrl;
+                  } catch (_) {
+                    window.open(targetUrl, '_system');
+                  }
+                }
+              }}
+              className="px-3.5 py-2 bg-gradient-to-r from-gold to-amber-400 hover:from-gold-dark hover:to-gold text-indigo-dark text-xs font-black rounded-xl transition-all cursor-pointer shadow-xs font-heading flex items-center gap-1.5"
             >
-              <span>{currentLanguage === 'gu' ? 'અપડેટ તપાસો' : currentLanguage === 'hi' ? 'अपडेट जांचें' : 'Check for Update'}</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>{currentLanguage === 'gu' ? 'અપડેટ કરો' : currentLanguage === 'hi' ? 'अपडेट करें' : 'Update APK'}</span>
             </button>
           </div>
         </div>
