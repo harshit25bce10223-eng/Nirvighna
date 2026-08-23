@@ -165,8 +165,11 @@ export const Signup = () => {
 
 
       if (signupError) {
-        if (signupError.message?.toLowerCase().includes('already registered')) {
+        const msg = signupError.message?.toLowerCase() || '';
+        if (msg.includes('already registered')) {
           setError('This email is already registered. Please use Login instead.');
+        } else if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
+          setError('⚠️ Email Rate Limit Exceeded: Supabase allows only 3–4 emails/hour on default SMTP. Please wait a few minutes or check your inbox for the previous email.');
         } else {
           throw signupError;
         }
@@ -205,7 +208,12 @@ export const Signup = () => {
 
     } catch (err) {
       console.error('Signup error:', err);
-      setError(err.message || t.signupError || 'Signup failed. Please try again.');
+      const msg = err.message?.toLowerCase() || '';
+      if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
+        setError('⚠️ Email Rate Limit Exceeded: Supabase allows only 3–4 emails/hour on default SMTP. Please wait a few minutes or check your inbox for the previous verification link.');
+      } else {
+        setError(err.message || t.signupError || 'Signup failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -215,16 +223,22 @@ export const Signup = () => {
     setResending(true);
     setResentMsg('');
     try {
-      await supabase.auth.resend({
+      const { error: resendErr } = await supabase.auth.resend({
         type: 'signup',
         email: pendingEmail,
         options: {
           emailRedirectTo: 'nirvighna://login'
         }
       });
+      if (resendErr) throw resendErr;
       setResentMsg('Verification email sent! Please check your inbox.');
-    } catch (_) {
-      setResentMsg('Could not resend. Please wait a moment and try again.');
+    } catch (err) {
+      const msg = err?.message?.toLowerCase() || '';
+      if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
+        setResentMsg('⚠️ Email rate limit reached. Please wait a few minutes before resending, or check your spam/inbox.');
+      } else {
+        setResentMsg('Could not resend. Please wait a moment and try again.');
+      }
     } finally {
       setResending(false);
     }
