@@ -340,13 +340,15 @@ export const PrasadQueueModal = ({ templeId = 'tmp_somnath', templeName = 'Somna
   const isMyTurnServed = activeToken && counterStatus.current_serving_token >= activeToken.token_number;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[999] p-3 sm:p-4 animate-in fade-in select-none font-body">
-      <div className="bg-white border-2 border-gold/40 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[999] p-0 sm:p-4 animate-in fade-in select-none font-body">
+      <div className="bg-white border-t-2 sm:border-2 border-gold/40 rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col max-h-[88vh] sm:max-h-[92vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
         
         {/* Top Header */}
-        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white p-4 sm:p-5 flex items-center justify-between border-b border-gold/40 relative">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gold/20 border border-gold/40 flex items-center justify-center text-gold shadow-sm shrink-0 font-bold text-xl">
+        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-maroon text-white px-4 pt-3 pb-4 sm:p-5 flex flex-col gap-2 border-b border-gold/40 relative">
+          <div className="w-12 h-1 bg-white/40 rounded-full mx-auto sm:hidden" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gold/20 border border-gold/40 flex items-center justify-center text-gold shadow-sm shrink-0 font-bold text-xl">
               🍲
             </div>
             <div>

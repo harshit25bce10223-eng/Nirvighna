@@ -373,7 +373,35 @@ export const Home = () => {
   const [melaActiveName, setMelaActiveName] = useState(null);
   const [showPrasadModal, setShowPrasadModal] = useState(false);
   const [showFootwearModal, setShowFootwearModal] = useState(false);
+  const [activeFootwearToken, setActiveFootwearToken] = useState(null);
+  const [activePrasadToken, setActivePrasadToken] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Check and sync active footwear & prasad tokens for Facilities cards
+  useEffect(() => {
+    const checkActiveTokens = () => {
+      try {
+        const foot = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
+        const latestFoot = foot.find(f => f.status === 'checked_in');
+        setActiveFootwearToken(latestFoot || null);
+
+        const prasad = JSON.parse(localStorage.getItem(`nirvighna_prasad_token_${selectedTempleId}`) || 'null');
+        if (prasad && prasad.status !== 'served') {
+          setActivePrasadToken(prasad);
+        } else {
+          setActivePrasadToken(null);
+        }
+      } catch (_) {}
+    };
+
+    checkActiveTokens();
+    window.addEventListener('storage', checkActiveTokens);
+    window.addEventListener('nirvighna_notification_alert', checkActiveTokens);
+    return () => {
+      window.removeEventListener('storage', checkActiveTokens);
+      window.removeEventListener('nirvighna_notification_alert', checkActiveTokens);
+    };
+  }, [selectedTempleId, showFootwearModal, showPrasadModal]);
 
   // Timer to refresh aarti countdown
   useEffect(() => {
@@ -1075,28 +1103,58 @@ export const Home = () => {
 
             <div 
               onClick={() => setShowPrasadModal(true)}
-              className="p-3.5 rounded-2xl bg-gradient-to-br from-gold/15 via-amber-500/10 to-amber-100/20 border-2 border-gold/50 hover:border-gold cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group"
+              className={`p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group ${
+                activePrasadToken
+                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15'
+                  : 'bg-gradient-to-br from-gold/15 via-amber-500/10 to-amber-100/20 border-gold/50 hover:border-gold'
+              }`}
             >
-              <div className="w-8 h-8 rounded-xl bg-gold/20 text-maroon flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
-                🍲
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-gold/20 text-maroon flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                  🍲
+                </div>
+                {activePrasadToken && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                )}
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{t.prasadCounter}</p>
-              <p className="text-[10px] text-maroon font-extrabold flex items-center gap-1">
-                <span>✨ {t.getFreeToken}</span> →
-              </p>
+              {activePrasadToken ? (
+                <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1 font-mono">
+                  <span>🟢 #{activePrasadToken.token_number} Active</span> →
+                </p>
+              ) : (
+                <p className="text-[10px] text-maroon font-extrabold flex items-center gap-1">
+                  <span>✨ {t.getFreeToken}</span> →
+                </p>
+              )}
             </div>
 
             <div 
               onClick={() => setShowFootwearModal(true)}
-              className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-2 border-amber-500/40 hover:border-amber-500 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group"
+              className={`p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group ${
+                activeFootwearToken
+                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15'
+                  : 'bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-500/40 hover:border-amber-500'
+              }`}
             >
-              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
-                👟
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                  👟
+                </div>
+                {activeFootwearToken && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                )}
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{t.footwearLocker}</p>
-              <p className="text-[10px] text-amber-800 font-extrabold flex items-center gap-1">
-                <span>🔑 {t.freeLocker}</span> →
-              </p>
+              {activeFootwearToken ? (
+                <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1 font-mono">
+                  <span>🟢 Rack #{activeFootwearToken.rack_no}</span> →
+                </p>
+              ) : (
+                <p className="text-[10px] text-amber-800 font-extrabold flex items-center gap-1">
+                  <span>🔑 {t.freeLocker}</span> →
+                </p>
+              )}
             </div>
 
             <div 
