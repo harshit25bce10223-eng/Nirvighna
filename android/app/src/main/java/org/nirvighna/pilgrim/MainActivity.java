@@ -211,120 +211,12 @@ public class MainActivity extends BridgeActivity {
 
                 @JavascriptInterface
                 public void startInAppUpdate(final String apkUrl, final String expectedSha256) {
-                    if (isUpdateDownloading) {
-                        return; // Prevent duplicate concurrent downloads
-                    }
-
-                    isUpdateDownloading = true;
-
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                dispatchUpdateState("downloading", "Starting background update download...");
-
-                                File outputDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-                                if (outputDir == null) {
-                                    outputDir = getCacheDir();
-                                }
-                                final File outputFile = new File(outputDir, "Nirvighna-Pilgrim-Update.apk");
-                                if (outputFile.exists()) {
-                                    outputFile.delete();
-                                }
-
-                                String currentUrlStr = apkUrl;
-                                URL url = new URL(currentUrlStr);
-                                HttpURLConnection conn = null;
-                                int redirects = 0;
-                                while (redirects < 6) {
-                                    conn = (HttpURLConnection) url.openConnection();
-                                    conn.setInstanceFollowRedirects(true);
-                                    conn.setConnectTimeout(15000);
-                                    conn.setReadTimeout(30000);
-                                    conn.setRequestProperty("User-Agent", "Nirvighna-Android-Updater");
-                                    conn.connect();
-
-                                    int responseCode = conn.getResponseCode();
-                                    if (responseCode >= 300 && responseCode < 400) {
-                                        String redirectUrl = conn.getHeaderField("Location");
-                                        if (redirectUrl == null) break;
-                                        conn.disconnect();
-                                        url = new URL(url, redirectUrl);
-                                        redirects++;
-                                    } else if (responseCode == HttpURLConnection.HTTP_OK) {
-                                        break;
-                                    } else {
-                                        throw new Exception("Server returned HTTP " + responseCode + " while fetching update.");
-                                    }
-                                }
-
-                                if (conn == null) throw new Exception("Unable to establish connection to update server.");
-
-                                long contentLength = conn.getContentLength();
-                                InputStream is = conn.getInputStream();
-                                FileOutputStream fos = new FileOutputStream(outputFile);
-                                byte[] buffer = new byte[16384];
-                                int len;
-                                long totalBytesRead = 0;
-                                long lastProgressTime = 0;
-
-                                while ((len = is.read(buffer)) != -1) {
-                                    fos.write(buffer, 0, len);
-                                    totalBytesRead += len;
-
-                                    long now = System.currentTimeMillis();
-                                    if (now - lastProgressTime > 150) {
-                                        int percent = contentLength > 0 ? (int) ((totalBytesRead * 100) / contentLength) : -1;
-                                        dispatchUpdateProgress(percent, totalBytesRead, contentLength);
-                                        lastProgressTime = now;
-                                    }
-                                }
-                                fos.flush();
-                                fos.close();
-                                is.close();
-                                conn.disconnect();
-
-                                // 100% Downloaded
-                                dispatchUpdateProgress(100, totalBytesRead, contentLength);
-
-                                // Transition to State 2: Verifying Cryptographic Integrity
-                                dispatchUpdateState("verifying", "Verifying package integrity & SHA-256 checksum...");
-
-                                if (expectedSha256 != null && !expectedSha256.trim().isEmpty() && !expectedSha256.equalsIgnoreCase("skip")) {
-                                    String computedHash = calculateSha256(outputFile);
-                                    if (!computedHash.equalsIgnoreCase(expectedSha256.trim())) {
-                                        isUpdateDownloading = false;
-                                        dispatchUpdateError("HASH_MISMATCH", "Cryptographic verification failed: SHA-256 checksum mismatch.");
-                                        return;
-                                    }
-                                }
-
-                                // Transition to State 3: Ready to Install
-                                dispatchUpdateState("ready", "Package verified! Launching package installer...");
-
-                                Thread.sleep(400);
-
-                                isUpdateDownloading = false;
-
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        installApkFile(outputFile);
-                                    }
-                                });
-
-                            } catch (final Exception e) {
-                                e.printStackTrace();
-                                isUpdateDownloading = false;
-                                dispatchUpdateError("DOWNLOAD_FAILED", e.getMessage() != null ? e.getMessage() : "Network error during update download.");
-                            }
-                        }
-                    }).start();
+                    performInAppUpdate(apkUrl, expectedSha256);
                 }
 
                 @JavascriptInterface
                 public void downloadAndInstallApk(final String apkUrl) {
-                    startInAppUpdate(apkUrl, "skip");
+                    performInAppUpdate(apkUrl, "skip");
                 }
 
                 @JavascriptInterface
@@ -338,20 +230,15 @@ public class MainActivity extends BridgeActivity {
                 }
             }, "NirvighnaNativeBridge");
 
-            // Also keep updater alias
+            // Also keep updater alias pointing directly to Java download engine
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
                 public void startInAppUpdate(final String apkUrl, final String expectedSha256) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            webView.evaluateJavascript("if(window.NirvighnaNativeBridge && window.NirvighnaNativeBridge.startInAppUpdate){ window.NirvighnaNativeBridge.startInAppUpdate('" + apkUrl + "', '" + expectedSha256 + "'); }", null);
-                        }
-                    });
+                    performInAppUpdate(apkUrl, expectedSha256);
                 }
                 @JavascriptInterface
                 public void downloadAndInstallApk(final String apkUrl) {
-                    startInAppUpdate(apkUrl, "skip");
+                    performInAppUpdate(apkUrl, "skip");
                 }
                 @JavascriptInterface
                 public boolean isNativeUpdater() {
@@ -359,6 +246,121 @@ public class MainActivity extends BridgeActivity {
                 }
             }, "NirvighnaNativeUpdater");
         }
+    }
+
+    private void performInAppUpdate(final String apkUrl, final String expectedSha256) {
+        if (isUpdateDownloading) {
+            return; // Prevent duplicate concurrent downloads
+        }
+
+        isUpdateDownloading = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    dispatchUpdateState("downloading", "Starting background update download...");
+
+                    File outputDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                    if (outputDir == null) {
+                        outputDir = getCacheDir();
+                    }
+                    final File outputFile = new File(outputDir, "Nirvighna-Pilgrim-Update.apk");
+                    if (outputFile.exists()) {
+                        outputFile.delete();
+                    }
+
+                    String currentUrlStr = (apkUrl != null && !apkUrl.trim().isEmpty()) 
+                        ? apkUrl.trim() 
+                        : "https://github.com/harshit25bce10223-eng/Nirvighna/releases/download/latest/Nirvighna-Pilgrim.apk";
+                    
+                    URL url = new URL(currentUrlStr);
+                    HttpURLConnection conn = null;
+                    int redirects = 0;
+                    while (redirects < 6) {
+                        conn = (HttpURLConnection) url.openConnection();
+                        conn.setInstanceFollowRedirects(true);
+                        conn.setConnectTimeout(15000);
+                        conn.setReadTimeout(30000);
+                        conn.setRequestProperty("User-Agent", "Nirvighna-Android-Updater");
+                        conn.connect();
+
+                        int responseCode = conn.getResponseCode();
+                        if (responseCode >= 300 && responseCode < 400) {
+                            String redirectUrl = conn.getHeaderField("Location");
+                            if (redirectUrl == null) break;
+                            conn.disconnect();
+                            url = new URL(url, redirectUrl);
+                            redirects++;
+                        } else if (responseCode == HttpURLConnection.HTTP_OK) {
+                            break;
+                        } else {
+                            throw new Exception("Server returned HTTP " + responseCode + " while fetching update.");
+                        }
+                    }
+
+                    if (conn == null) throw new Exception("Unable to establish connection to update server.");
+
+                    long contentLength = conn.getContentLength();
+                    InputStream is = conn.getInputStream();
+                    FileOutputStream fos = new FileOutputStream(outputFile);
+                    byte[] buffer = new byte[16384];
+                    int len;
+                    long totalBytesRead = 0;
+                    long lastProgressTime = 0;
+
+                    while ((len = is.read(buffer)) != -1) {
+                        fos.write(buffer, 0, len);
+                        totalBytesRead += len;
+
+                        long now = System.currentTimeMillis();
+                        if (now - lastProgressTime > 150) {
+                            int percent = contentLength > 0 ? (int) ((totalBytesRead * 100) / contentLength) : -1;
+                            dispatchUpdateProgress(percent, totalBytesRead, contentLength);
+                            lastProgressTime = now;
+                        }
+                    }
+                    fos.flush();
+                    fos.close();
+                    is.close();
+                    conn.disconnect();
+
+                    // 100% Downloaded
+                    dispatchUpdateProgress(100, totalBytesRead, contentLength);
+
+                    // Transition to State 2: Verifying Cryptographic Integrity
+                    dispatchUpdateState("verifying", "Verifying package integrity & SHA-256 checksum...");
+
+                    if (expectedSha256 != null && !expectedSha256.trim().isEmpty() && !expectedSha256.equalsIgnoreCase("skip")) {
+                        String computedHash = calculateSha256(outputFile);
+                        if (!computedHash.equalsIgnoreCase(expectedSha256.trim())) {
+                            isUpdateDownloading = false;
+                            dispatchUpdateError("HASH_MISMATCH", "Cryptographic verification failed: SHA-256 checksum mismatch.");
+                            return;
+                        }
+                    }
+
+                    // Transition to State 3: Ready to Install
+                    dispatchUpdateState("ready", "Package verified! Launching package installer...");
+
+                    Thread.sleep(400);
+
+                    isUpdateDownloading = false;
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            installApkFile(outputFile);
+                        }
+                    });
+
+                } catch (final Exception e) {
+                    e.printStackTrace();
+                    isUpdateDownloading = false;
+                    dispatchUpdateError("DOWNLOAD_FAILED", e.getMessage() != null ? e.getMessage() : "Network error during update download.");
+                }
+            }
+        }).start();
     }
 
     private void dispatchUpdateProgress(final int percent, final long downloadedBytes, final long totalBytes) {
