@@ -11,11 +11,13 @@ import { PilgrimFootwearModal } from '../components/PilgrimFootwearModal';
 import { NirvighnaLoader } from '../components/NirvighnaLoader';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { supabase } from '../lib/supabaseClient';
+import QRCode from 'qrcode';
+import { sendPilgrimNotification } from '../lib/notificationService';
 import { 
   Calendar, QrCode, Bus, Users, Sparkles, ArrowRight, Loader2, 
   Flame, Clock, MapPin, ShieldCheck, HeartHandshake, Compass, 
-  Volume2, AlertCircle, ChevronRight, Sun, PhoneCall, Utensils, Footprints
+  Volume2, AlertCircle, ChevronRight, Sun, PhoneCall, Utensils, Footprints,
+  X, Check, Minus, Plus, RefreshCw, CheckCircle, Lock
 } from 'lucide-react';
 
 const translations = {
@@ -377,6 +379,23 @@ export const Home = () => {
   const [activePrasadToken, setActivePrasadToken] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Inline Facility Expansion State
+  const [expandedFacility, setExpandedFacility] = useState(null); // 'prasad' | 'footwear' | null
+  const [prasadFormName, setPrasadFormName] = useState(currentUser?.full_name || 'Pilgrim Devotee');
+  const [prasadFormPhone, setPrasadFormPhone] = useState(currentUser?.phone || '');
+  const [prasadType, setPrasadType] = useState('thali'); // 'thali' | 'laddu_box'
+  const [diningHall, setDiningHall] = useState('hall1'); // 'hall1' | 'vip'
+  const [prasadHeadcount, setPrasadHeadcount] = useState(2);
+  const [prasadLoading, setPrasadLoading] = useState(false);
+  const [prasadQrUrl, setPrasadQrUrl] = useState('');
+
+  const [footwearFormName, setFootwearFormName] = useState(currentUser?.full_name || 'Pilgrim Devotee');
+  const [footwearFormPhone, setFootwearFormPhone] = useState(currentUser?.phone || '');
+  const [footwearStation, setFootwearStation] = useState('gate1'); // 'gate1' | 'gate2' | 'exit'
+  const [footwearPairs, setFootwearPairs] = useState(2);
+  const [footwearLoading, setFootwearLoading] = useState(false);
+  const [footwearQrUrl, setFootwearQrUrl] = useState('');
+
   // Check and sync active footwear & prasad tokens for Facilities cards
   useEffect(() => {
     const checkActiveTokens = () => {
@@ -401,7 +420,105 @@ export const Home = () => {
       window.removeEventListener('storage', checkActiveTokens);
       window.removeEventListener('nirvighna_notification_alert', checkActiveTokens);
     };
-  }, [selectedTempleId, showFootwearModal, showPrasadModal]);
+  }, [selectedTempleId, showFootwearModal, showPrasadModal, expandedFacility]);
+
+  // Sync QR codes for active tokens
+  useEffect(() => {
+    if (activePrasadToken?.token_number) {
+      QRCode.toDataURL(`NIRVIGHNA-PRASAD-${activePrasadToken.token_number}-${activePrasadToken.id || Date.now()}`, { width: 140, margin: 1 })
+        .then(url => setPrasadQrUrl(url))
+        .catch(() => {});
+    } else {
+      setPrasadQrUrl('');
+    }
+  }, [activePrasadToken]);
+
+  useEffect(() => {
+    if (activeFootwearToken?.token_id) {
+      QRCode.toDataURL(`NIRVIGHNA-LOCKER-${activeFootwearToken.token_id}`, { width: 140, margin: 1 })
+        .then(url => setFootwearQrUrl(url))
+        .catch(() => {});
+    } else {
+      setFootwearQrUrl('');
+    }
+  }, [activeFootwearToken]);
+
+  // Inline Token Generators
+  const handleGenerateInlinePrasadToken = async ({ name, phone, prasadType, diningHall, headcount }) => {
+    try {
+      const shrineName = temples.find(t => t.id === selectedTempleId)?.name || 'Somnath Temple';
+      const res = await prasadQueueEngine.joinQueue(
+        selectedTempleId,
+        currentUser?.id || `anon_${Date.now()}`,
+        name.trim() || currentUser?.full_name || 'Pilgrim Devotee',
+        phone.trim() || currentUser?.phone || '',
+        headcount,
+        prasadType,
+        diningHall
+      );
+
+      if (res && res.token) {
+        const fullToken = {
+          ...res.token,
+          temple_name: shrineName,
+          devotee_name: name.trim() || currentUser?.full_name || 'Pilgrim Devotee',
+          prasad_type: prasadType,
+          dining_hall: diningHall,
+          headcount: headcount
+        };
+        localStorage.setItem(`nirvighna_prasad_token_${selectedTempleId}`, JSON.stringify(fullToken));
+        setActivePrasadToken(fullToken);
+
+        await sendPilgrimNotification({
+          type: 'gate_info',
+          title: '🍲 Mahaprasad Token Issued',
+          message: `Token #${fullToken.token_number} confirmed for ${headcount} devotee(s) at ${shrineName}. Estimated wait: ~${res.queueStatus?.estimatedWaitTime || 12} mins.`,
+          templeId: selectedTempleId
+        });
+      }
+    } catch (err) {
+      console.error('Error generating inline prasad token:', err);
+    }
+  };
+
+  const handleGenerateInlineFootwearToken = async ({ name, phone, station, pairs }) => {
+    try {
+      const shrinePrefix = selectedTempleId === 'tmp_dwarka' ? 'DWA' : selectedTempleId === 'tmp_ambaji' ? 'AMB' : selectedTempleId === 'tmp_pavagadh' ? 'PAV' : 'SOM';
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const rackLetter = String.fromCharCode(65 + Math.floor(Math.random() * 4));
+      const rackNum = Math.floor(1 + Math.random() * 40);
+      const shrineName = temples.find(t => t.id === selectedTempleId)?.name || 'Somnath Temple';
+
+      const tokenObj = {
+        token_id: `FW-${shrinePrefix}-${randomNum}`,
+        id: `FW-${shrinePrefix}-${randomNum}`,
+        pilgrim_name: name.trim() || currentUser?.full_name || 'Pilgrim Devotee',
+        pilgrim_phone: phone.trim() || currentUser?.phone || '',
+        rack_no: `Rack ${rackLetter}-${rackNum}`,
+        temple_id: selectedTempleId,
+        temple_name: shrineName,
+        counter_station: station,
+        pair_count: pairs,
+        status: 'checked_in',
+        created_at: new Date().toISOString(),
+        time_formatted: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+      };
+
+      const existingLocal = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
+      const updatedList = [tokenObj, ...existingLocal];
+      localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updatedList));
+      setActiveFootwearToken(tokenObj);
+
+      await sendPilgrimNotification({
+        type: 'gate_info',
+        title: '👟 Footwear Locker Token Issued',
+        message: `Locker Token #${tokenObj.token_id} issued for ${tokenObj.pair_count} pair(s) at ${tokenObj.rack_no} (${shrineName}).`,
+        templeId: selectedTempleId
+      });
+    } catch (err) {
+      console.error('Error generating inline footwear token:', err);
+    }
+  };
 
   // Timer to refresh aarti countdown
   useEffect(() => {
@@ -1102,10 +1219,12 @@ export const Home = () => {
             </div>
 
             <div 
-              onClick={() => setShowPrasadModal(true)}
+              onClick={() => setExpandedFacility(prev => prev === 'prasad' ? null : 'prasad')}
               className={`p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group ${
                 activePrasadToken
-                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15'
+                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15 ring-2 ring-emerald-400/30'
+                  : expandedFacility === 'prasad'
+                  ? 'bg-gradient-to-br from-gold/25 via-amber-100 to-white border-gold shadow-md ring-2 ring-gold/40'
                   : 'bg-gradient-to-br from-gold/15 via-amber-500/10 to-amber-100/20 border-gold/50 hover:border-gold'
               }`}
             >
@@ -1113,27 +1232,31 @@ export const Home = () => {
                 <div className="w-8 h-8 rounded-xl bg-gold/20 text-maroon flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
                   🍲
                 </div>
-                {activePrasadToken && (
+                {activePrasadToken ? (
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                ) : (
+                  <span className="text-[10px] font-black text-maroon/80 font-mono">{expandedFacility === 'prasad' ? '▲' : '▼'}</span>
                 )}
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{t.prasadCounter}</p>
               {activePrasadToken ? (
                 <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1 font-mono">
-                  <span>🟢 #{activePrasadToken.token_number} Active</span> →
+                  <span>🟢 #{activePrasadToken.token_number} Active</span>
                 </p>
               ) : (
                 <p className="text-[10px] text-maroon font-extrabold flex items-center gap-1">
-                  <span>✨ {t.getFreeToken}</span> →
+                  <span>✨ {expandedFacility === 'prasad' ? 'Open Form' : t.getFreeToken}</span>
                 </p>
               )}
             </div>
 
             <div 
-              onClick={() => setShowFootwearModal(true)}
+              onClick={() => setExpandedFacility(prev => prev === 'footwear' ? null : 'footwear')}
               className={`p-3.5 rounded-2xl border-2 cursor-pointer hover-lift transition-all space-y-1.5 shadow-sm group ${
                 activeFootwearToken
-                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15'
+                  ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-amber-50 border-emerald-500/60 shadow-emerald-500/15 ring-2 ring-emerald-400/30'
+                  : expandedFacility === 'footwear'
+                  ? 'bg-gradient-to-br from-amber-100 via-orange-50 to-white border-amber-500 shadow-md ring-2 ring-amber-400/40'
                   : 'bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-500/40 hover:border-amber-500'
               }`}
             >
@@ -1141,18 +1264,20 @@ export const Home = () => {
                 <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
                   👟
                 </div>
-                {activeFootwearToken && (
+                {activeFootwearToken ? (
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                ) : (
+                  <span className="text-[10px] font-black text-amber-900/80 font-mono">{expandedFacility === 'footwear' ? '▲' : '▼'}</span>
                 )}
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{t.footwearLocker}</p>
               {activeFootwearToken ? (
                 <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1 font-mono">
-                  <span>🟢 Rack #{activeFootwearToken.rack_no}</span> →
+                  <span>🟢 #{activeFootwearToken.rack_no}</span>
                 </p>
               ) : (
                 <p className="text-[10px] text-amber-800 font-extrabold flex items-center gap-1">
-                  <span>🔑 {t.freeLocker}</span> →
+                  <span>🔑 {expandedFacility === 'footwear' ? 'Open Form' : t.freeLocker}</span>
                 </p>
               )}
             </div>
@@ -1168,6 +1293,339 @@ export const Home = () => {
               <p className="text-[10px] text-amber-800 font-semibold">{t.wheelchairSub}</p>
             </div>
           </div>
+
+          {/* 🍲 INLINE EXPANDED MAHAPRASAD CARD (Zero Modal, Zero Scroll) */}
+          {expandedFacility === 'prasad' && (
+            <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white border-2 border-gold/50 shadow-md animate-in slide-in-from-top-3 duration-200 space-y-3">
+              <div className="flex items-center justify-between border-b border-gold/20 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🍲</span>
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-dark font-heading uppercase tracking-wide">
+                      {t.prasadCounter} • {temples.find(tmp => tmp.id === selectedTempleId)?.name || 'Somnath Temple'}
+                    </h4>
+                    <p className="text-[10px] text-gray-500 font-semibold">100% Free Pure Sattvic Prasad Seva</p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setExpandedFacility(null)}
+                  className="p-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {activePrasadToken ? (
+                <div className="bg-white p-4 rounded-2xl border-2 border-emerald-500/40 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-full font-heading">
+                      🟢 Active Token #{activePrasadToken.token_number}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-500">{activePrasadToken.formatted_time || 'Live'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-1 text-left">
+                      <p className="text-2xl font-black text-indigo-dark font-mono font-heading">
+                        #{activePrasadToken.token_number}
+                      </p>
+                      <p className="text-xs font-bold text-gray-800">
+                        👤 {activePrasadToken.devotee_name || currentUser?.full_name || 'Pilgrim'} ({activePrasadToken.headcount || 1} Devotee{activePrasadToken.headcount > 1 ? 's' : ''})
+                      </p>
+                      <p className="text-[11px] font-semibold text-maroon">
+                        🍲 {activePrasadToken.prasad_type === 'laddu_box' ? 'Laddu Box Pack' : 'Free Mahaprasad Thali'} • {activePrasadToken.dining_hall === 'vip' ? 'Family VIP Hall' : 'Main Annakshetra Hall 1'}
+                      </p>
+                    </div>
+
+                    {prasadQrUrl && (
+                      <div className="p-1 bg-white border border-gold/30 rounded-xl shrink-0 shadow-inner">
+                        <img src={prasadQrUrl} alt="Prasad QR" className="w-20 h-20 object-contain" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem(`nirvighna_prasad_token_${selectedTempleId}`);
+                        setActivePrasadToken(null);
+                      }}
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 font-heading cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Mark Collected / New Token</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFacility(null)}
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors font-heading cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 block mb-1">Devotee Name</label>
+                      <input 
+                        type="text" 
+                        value={prasadFormName} 
+                        onChange={(e) => setPrasadFormName(e.target.value)}
+                        placeholder="Your Full Name"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:border-gold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 block mb-1">Mobile Phone (Optional)</label>
+                      <input 
+                        type="tel" 
+                        value={prasadFormPhone} 
+                        onChange={(e) => setPrasadFormPhone(e.target.value)}
+                        placeholder="10-digit number"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:border-gold outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-gray-600 block">Prasad Type</span>
+                      <div className="grid grid-cols-2 gap-1 bg-white p-0.5 rounded-xl border border-gray-200">
+                        <button 
+                          type="button"
+                          onClick={() => setPrasadType('thali')}
+                          className={`py-1.5 px-2 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                            prasadType === 'thali' ? 'bg-maroon text-white shadow-xs' : 'text-gray-600'
+                          }`}
+                        >
+                          🍲 Free Thali
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setPrasadType('laddu_box')}
+                          className={`py-1.5 px-2 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                            prasadType === 'laddu_box' ? 'bg-maroon text-white shadow-xs' : 'text-gray-600'
+                          }`}
+                        >
+                          🎁 Laddu Box
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-gray-600 block">Devotees Count</span>
+                      <div className="flex items-center justify-between bg-white px-2 py-1 rounded-xl border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => setPrasadHeadcount(prev => Math.max(1, prev - 1))}
+                          className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center font-black text-gray-700 hover:bg-gray-200 cursor-pointer"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-black text-indigo-dark font-heading">
+                          {prasadHeadcount} Devotee{prasadHeadcount > 1 ? 's' : ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPrasadHeadcount(prev => Math.min(10, prev + 1))}
+                          className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center font-black text-gray-700 hover:bg-gray-200 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={prasadLoading || !prasadFormName.trim()}
+                    onClick={async () => {
+                      setPrasadLoading(true);
+                      await handleGenerateInlinePrasadToken({
+                        name: prasadFormName,
+                        phone: prasadFormPhone,
+                        prasadType,
+                        diningHall,
+                        headcount: prasadHeadcount
+                      });
+                      setPrasadLoading(false);
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-gold-dark hover:to-gold text-indigo-dark font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 font-heading uppercase tracking-wide cursor-pointer disabled:opacity-50"
+                  >
+                    {prasadLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <span>🍲 Get Free Mahaprasad Token</span>}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 👟 INLINE EXPANDED FOOTWEAR LOCKER CARD (Zero Modal, Zero Scroll) */}
+          {expandedFacility === 'footwear' && (
+            <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white border-2 border-amber-400/50 shadow-md animate-in slide-in-from-top-3 duration-200 space-y-3">
+              <div className="flex items-center justify-between border-b border-amber-200 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">👟</span>
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-dark font-heading uppercase tracking-wide">
+                      {t.footwearLocker} • {temples.find(tmp => tmp.id === selectedTempleId)?.name || 'Somnath Temple'}
+                    </h4>
+                    <p className="text-[10px] text-gray-500 font-semibold">100% Free Secure Electronic Footwear Locker</p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setExpandedFacility(null)}
+                  className="p-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {activeFootwearToken ? (
+                <div className="bg-white p-4 rounded-2xl border-2 border-emerald-500/40 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-full font-heading">
+                      🟢 Assigned {activeFootwearToken.rack_no}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-500">{activeFootwearToken.time_formatted || 'Live'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-1 text-left">
+                      <p className="text-2xl font-black text-indigo-dark font-mono font-heading">
+                        {activeFootwearToken.rack_no}
+                      </p>
+                      <p className="text-xs font-bold text-gray-800">
+                        👤 {activeFootwearToken.pilgrim_name || currentUser?.full_name || 'Pilgrim'} ({activeFootwearToken.pair_count || 1} Pair{activeFootwearToken.pair_count > 1 ? 's' : ''})
+                      </p>
+                      <p className="text-[11px] font-semibold text-amber-900">
+                        📍 {activeFootwearToken.counter_station || 'Gate 1 Counter'} • Token #{activeFootwearToken.token_id}
+                      </p>
+                    </div>
+
+                    {footwearQrUrl && (
+                      <div className="p-1 bg-white border border-amber-200 rounded-xl shrink-0 shadow-inner">
+                        <img src={footwearQrUrl} alt="Locker QR" className="w-20 h-20 object-contain" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allFoot = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
+                        const updated = allFoot.map(tok => tok.token_id === activeFootwearToken.token_id ? { ...tok, status: 'retrieved' } : tok);
+                        localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updated));
+                        setActiveFootwearToken(null);
+                      }}
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 font-heading cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Collect Shoes / Free Locker</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFacility(null)}
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors font-heading cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 block mb-1">Devotee Name</label>
+                      <input 
+                        type="text" 
+                        value={footwearFormName} 
+                        onChange={(e) => setFootwearFormName(e.target.value)}
+                        placeholder="Your Full Name"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:border-gold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-600 block mb-1">Mobile Phone (Optional)</label>
+                      <input 
+                        type="tel" 
+                        value={footwearFormPhone} 
+                        onChange={(e) => setFootwearFormPhone(e.target.value)}
+                        placeholder="10-digit number"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:border-gold outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-gray-600 block">Counter Station</span>
+                      <div className="grid grid-cols-3 gap-1 bg-white p-0.5 rounded-xl border border-gray-200">
+                        {['gate1', 'gate2', 'exit'].map(st => (
+                          <button 
+                            key={st}
+                            type="button"
+                            onClick={() => setFootwearStation(st)}
+                            className={`py-1.5 px-1 rounded-lg text-[9px] font-extrabold uppercase transition-all cursor-pointer ${
+                              footwearStation === st ? 'bg-amber-900 text-white shadow-xs' : 'text-gray-600'
+                            }`}
+                          >
+                            {st === 'gate1' ? 'Gate 1' : st === 'gate2' ? 'Gate 2' : 'Exit'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-gray-600 block">Shoe Pairs</span>
+                      <div className="flex items-center justify-between bg-white px-2 py-1 rounded-xl border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => setFootwearPairs(prev => Math.max(1, prev - 1))}
+                          className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center font-black text-gray-700 hover:bg-gray-200 cursor-pointer"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-black text-indigo-dark font-heading">
+                          {footwearPairs} Pair{footwearPairs > 1 ? 's' : ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFootwearPairs(prev => Math.min(10, prev + 1))}
+                          className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center font-black text-gray-700 hover:bg-gray-200 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={footwearLoading || !footwearFormName.trim()}
+                    onClick={async () => {
+                      setFootwearLoading(true);
+                      await handleGenerateInlineFootwearToken({
+                        name: footwearFormName,
+                        phone: footwearFormPhone,
+                        station: footwearStation === 'gate1' ? 'Gate 1 Counter' : footwearStation === 'gate2' ? 'Gate 2 Counter' : 'Exit Gate Counter',
+                        pairs: footwearPairs
+                      });
+                      setFootwearLoading(false);
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500 hover:from-amber-600 hover:to-orange-500 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 font-heading uppercase tracking-wide cursor-pointer disabled:opacity-50"
+                  >
+                    {footwearLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <span>🔑 Generate Free Locker Token</span>}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 24/7 Pilgrim Emergency Helpline Banner */}
@@ -1188,22 +1646,6 @@ export const Home = () => {
             {t.callHelpline}
           </a>
         </div>
-
-        {/* Free Mahaprasad Token Generation Modal Overlay */}
-        {showPrasadModal && (
-          <PrasadQueueModal
-            templeId={selectedTempleId}
-            templeName={temples.find(tmp => tmp.id === selectedTempleId)?.name || 'Somnath Temple'}
-            onClose={() => setShowPrasadModal(false)}
-          />
-        )}
-
-        {/* Smart Footwear Locker Token Modal Overlay */}
-        <PilgrimFootwearModal
-          isOpen={showFootwearModal}
-          onClose={() => setShowFootwearModal(false)}
-          templeId={selectedTempleId}
-        />
       </div>
     </div>
   );
