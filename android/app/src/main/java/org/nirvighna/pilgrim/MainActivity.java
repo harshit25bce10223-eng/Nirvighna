@@ -6,6 +6,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import java.util.List;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -493,7 +495,16 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private File pendingApkToInstall = null;
+
     private void installApkFile(File apkFile) {
+        if (apkFile == null || !apkFile.exists()) {
+            Toast.makeText(this, "Update file not found. Please retry download.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        pendingApkToInstall = apkFile;
+
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!getPackageManager().canRequestPackageInstalls()) {
@@ -501,7 +512,7 @@ public class MainActivity extends BridgeActivity {
                     permIntent.setData(Uri.parse("package:" + getPackageName()));
                     permIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(permIntent);
-                    Toast.makeText(this, "Please grant permission to install updates directly.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Please allow 'Install unknown apps' to complete the update.", Toast.LENGTH_LONG).show();
                     return;
                 }
             }
@@ -509,11 +520,32 @@ public class MainActivity extends BridgeActivity {
             Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            
+            // Grant explicit URI read permission to package installer
+            List<ResolveInfo> resInfoList = getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+            for (ResolveInfo resolveInfo : resInfoList) {
+                String packageName = resolveInfo.activityInfo.packageName;
+                grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+
             startActivity(intent);
+            pendingApkToInstall = null;
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(this, "Could not open installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (pendingApkToInstall != null && pendingApkToInstall.exists()) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls()) {
+                File toInstall = pendingApkToInstall;
+                pendingApkToInstall = null;
+                installApkFile(toInstall);
+            }
         }
     }
 
