@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -151,30 +152,30 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div 
       onClick={onClose} 
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999999] p-4 select-none font-body animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[99999999] p-4 select-none font-body animate-in fade-in duration-200"
     >
       <div 
         onClick={(e) => e.stopPropagation()} 
-        className="bg-white border-2 border-gold/60 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col max-h-[82vh] animate-in zoom-in-95 duration-200 my-auto"
+        className="bg-white border-2 border-gold/60 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden text-gray-900 flex flex-col max-h-[82vh] animate-in zoom-in-95 duration-200"
       >
-        {/* Header with Big Close Button */}
-        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-[#450F16] text-white p-3.5 sm:p-4 flex items-center justify-between border-b border-gold/30">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">👟</span>
-            <div>
-              <h3 className="font-black text-sm sm:text-base text-white font-heading tracking-wide">
+        {/* Responsive Header with Lang Toggle & Close Button */}
+        <div className="bg-gradient-to-r from-maroon via-[#6B1B26] to-[#450F16] text-white px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between border-b border-gold/30 shrink-0 gap-1.5">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-xl sm:text-2xl shrink-0">👟</span>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-xs sm:text-sm md:text-base text-white font-heading tracking-wide truncate">
                 {t.title}
               </h3>
-              <p className="text-[11px] text-amber-200 truncate max-w-[190px]">
+              <p className="text-[10px] sm:text-[11px] text-amber-200 truncate">
                 {shrineName}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Lang Switcher */}
             <div className="flex bg-white/10 rounded-lg p-0.5 border border-white/20">
               {[{ id: 'hi', label: 'हि' }, { id: 'gu', label: 'ગુ' }, { id: 'en', label: 'EN' }].map(l => (
@@ -182,7 +183,7 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
                   key={l.id}
                   type="button"
                   onClick={() => setLanguage(l.id)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer ${
+                  className={`px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold transition-all cursor-pointer ${
                     currentLanguage === l.id ? 'bg-gold text-indigo-dark font-black' : 'text-white/80'
                   }`}
                 >
@@ -198,11 +199,11 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
                 e.stopPropagation();
                 onClose && onClose();
               }}
-              className="px-2.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-90 shadow-md shrink-0 border border-white/40"
+              className="p-1 sm:px-2 sm:py-1 rounded-lg sm:rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-90 shadow-md shrink-0 border border-white/40 min-w-[28px] h-7 sm:h-8"
               title={t.close}
             >
               <X className="w-4 h-4 text-white" strokeWidth={3} />
-              <span className="font-heading uppercase text-[11px]">{t.close}</span>
+              <span className="hidden sm:inline font-heading uppercase text-[10px]">{t.close}</span>
             </button>
           </div>
         </div>
@@ -369,7 +370,8 @@ export const PilgrimFootwearModal = ({ isOpen = true, onClose, templeId = 'tmp_s
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
