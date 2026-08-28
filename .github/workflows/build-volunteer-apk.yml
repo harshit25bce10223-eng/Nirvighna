@@ -37,9 +37,9 @@ jobs:
       - name: Build Volunteer Web Assets
         run: npm run build:volunteer
 
-      - name: Initialize Volunteer Android Platform
+      - name: Sync Volunteer Web Assets to Native Android
         run: |
-          npx --yes cap add android --config capacitor.volunteer.config.json || true
+          npx cap sync android --config capacitor.volunteer.config.json
 
       - name: Configure Android SDK & License Agreement
         run: |
