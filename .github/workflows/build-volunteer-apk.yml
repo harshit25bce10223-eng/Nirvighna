@@ -34,6 +34,14 @@ jobs:
       - name: Install Node Dependencies
         run: npm install
 
+      - name: Verify Volunteer App Files Exist
+        run: |
+          echo "Checking volunteer entry files..."
+          ls volunteer.html && echo "✓ volunteer.html found" || echo "✗ volunteer.html MISSING"
+          ls vite.volunteer.config.js && echo "✓ vite.volunteer.config.js found" || echo "✗ vite.volunteer.config.js MISSING"
+          ls src/volunteer-main.jsx && echo "✓ src/volunteer-main.jsx found" || echo "✗ src/volunteer-main.jsx MISSING"
+          ls src/VolunteerApp.jsx && echo "✓ src/VolunteerApp.jsx found" || echo "✗ src/VolunteerApp.jsx MISSING"
+
       - name: Build Volunteer Web Assets
         run: npm run build:volunteer
 
