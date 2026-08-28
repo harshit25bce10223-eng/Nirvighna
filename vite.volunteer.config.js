@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
@@ -14,7 +15,7 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       input: {
-        main: './volunteer.html'
+        main: fileURLToPath(new URL('./volunteer.html', import.meta.url))
       }
     }
   }
