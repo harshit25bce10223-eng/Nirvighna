@@ -35,7 +35,9 @@ jobs:
         run: npm install
 
       - name: Build Volunteer Web Assets
-        run: npm run build:volunteer
+        run: |
+          npm run build:volunteer
+          cp dist-volunteer/volunteer.html dist-volunteer/index.html || true
 
       - name: Sync Volunteer Web Assets to Native Android
         run: |
