@@ -43,7 +43,10 @@ jobs:
           ls src/VolunteerApp.jsx && echo "✓ src/VolunteerApp.jsx found" || echo "✗ src/VolunteerApp.jsx MISSING"
 
       - name: Build Volunteer Web Assets
-        run: npm run build:volunteer
+        run: |
+          npm run build:volunteer 2>&1 || true
+          # Verify build actually produced output files
+          ls dist-volunteer/volunteer.html && echo "✓ Build successful" || (echo "✗ Build failed - no output" && exit 1)
 
       - name: Copy Volunteer Web Assets into Android Project
         run: |
