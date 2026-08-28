@@ -43,6 +43,11 @@ jobs:
           ls src/VolunteerApp.jsx && echo "✓ src/VolunteerApp.jsx found" || echo "✗ src/VolunteerApp.jsx MISSING"
 
       - name: Build Volunteer Web Assets
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ENV: production
+          VITE_DEMO_MODE: "true"
         run: npm run build:volunteer
 
       - name: Copy Volunteer Web Assets into Android Project
