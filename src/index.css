@@ -1,0 +1,436 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FAF7F2;
+    color: #1F2937;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+}
+
+/* Custom Color Palette Classes for Devotional Aesthetics */
+.bg-ivory { background-color: #FAF7F2; }
+.bg-ivory-card { background-color: #FFFFFF; }
+.bg-saffron { background-color: #D97706; }
+.bg-saffron-light { background-color: #F59E0B; }
+.bg-maroon { background-color: #7C1D24; }
+.bg-maroon-dark { background-color: #4A1017; }
+.bg-gold { background-color: #F59E0B; }
+.bg-gold-light { background-color: #FEF3C7; }
+.bg-indigo-dark { background-color: #0F172A; }
+.bg-alertRed { background-color: #DC2626; }
+
+.text-saffron { color: #D97706; }
+.text-maroon { color: #7C1D24; }
+.text-gold { color: #F59E0B; }
+.text-gold-dark { color: #D97706; }
+.text-indigo-dark { color: #0F172A; }
+.text-alertRed { color: #DC2626; }
+
+.border-saffron { border-color: #D97706; }
+.border-maroon { border-color: #7C1D24; }
+.border-gold { border-color: #F59E0B; }
+
+/* Premium High-Contrast Devotional Gradients */
+.saffron-gradient {
+  background: linear-gradient(135deg, #7C1D24 0%, #4A1017 55%, #2A080C 100%);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+}
+
+.maroon-gradient {
+  background: linear-gradient(135deg, #4A1017 0%, #2A080C 100%);
+}
+
+.card-shadow {
+  box-shadow: 0 4px 20px -2px rgba(124, 29, 36, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+.card-shadow-lg {
+  box-shadow: 0 10px 30px -4px rgba(124, 29, 36, 0.20), 0 4px 12px -2px rgba(0, 0, 0, 0.10);
+}
+
+.gold-glow {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF7F2;
+}
+::-webkit-scrollbar-thumb {
+  background: #F59E0B;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7C1D24;
+}
+
+/* Om Watermark Background Effect */
+.om-watermark {
+  position: relative;
+}
+.om-watermark::before {
+  content: 'ॐ';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16rem;
+  opacity: 0.05;
+  pointer-events: none;
+  font-family: serif;
+  color: #F59E0B;
+  z-index: 0;
+}
+
+/* Shimmer animation for loading */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Pulse glow */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.03); }
+}
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+/* Floating animation */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+.animate-float {
+  animation: floatSlow 3s infinite ease-in-out;
+}
+
+/* Diya flame flicker */
+@keyframes flicker {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  25% { opacity: 0.9; transform: scale(1.05) rotate(1deg); }
+  50% { opacity: 1; transform: scale(0.98) rotate(-1deg); }
+  75% { opacity: 0.95; transform: scale(1.02) rotate(0.5deg); }
+}
+.animate-flicker {
+  animation: flicker 2s infinite ease-in-out;
+}
+
+/* Slide in from bottom */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+/* Staggered children animation */
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 320ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+
+/* Warm card hover lift */
+.hover-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -4px rgba(124, 29, 36, 0.15), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+/* Temple card shine sweep on hover */
+.shine-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.shine-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.6s ease;
+}
+.shine-sweep:hover::after {
+  left: 120%;
+}
+
+/* Aarti time dot pulse */
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+.dot-pulse {
+  animation: dotPulse 2s infinite;
+}
+
+/* Divya Logo Halo Rotation */
+@keyframes haloRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-halo-rotate {
+  animation: haloRotate 20s linear infinite;
+}
+
+/* Logo Divine Aura Pulse */
+@keyframes logoAura {
+  0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.6), 0 0 40px rgba(124, 29, 36, 0.4); }
+  50% { box-shadow: 0 0 35px rgba(245, 158, 11, 0.9), 0 0 60px rgba(245, 158, 11, 0.5); }
+}
+.animate-logo-aura {
+  animation: logoAura 3s ease-in-out infinite;
+}
+
+/* High-DPI Smooth & Ultra-Crisp Logo Rendering (Prevents pixelation & aliasing) */
+.crisp-img {
+  image-rendering: auto;
+  image-rendering: smooth;
+  image-rendering: high-quality;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* 100% SEAMLESS ZERO-GAP INFINITE MARQUEE TICKER */
+@keyframes tickerMarquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: tickerMarquee 28s linear infinite;
+}
+.animate-ticker-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Interactive Card Pulse Border */
+.interactive-border {
+  transition: all 0.2s ease-in-out;
+}
+.interactive-border:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== GLOBAL MICRO-INTERACTION & HUMAN UI SYSTEM ===== */
+
+/* Page entry animation */
+@keyframes pageSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-page-in {
+  animation: pageSlideIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Card press effect */
+.card-press {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  cursor: pointer;
+}
+.card-press:active {
+  transform: scale(0.975);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* Gold focus ring for inputs */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+  border-color: #F59E0B !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Warm input base */
+.input-warm {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #FAF7F2;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 0.875rem;
+  font-size: 0.875rem;
+  color: #0F172A;
+  font-weight: 600;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-warm:focus {
+  border-color: #F59E0B;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+/* Gold shimmer animation for confirmed items */
+@keyframes goldShimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+.animate-gold-shimmer {
+  background: linear-gradient(90deg, rgba(245,158,11,0.0) 0%, rgba(245,158,11,0.25) 50%, rgba(245,158,11,0.0) 100%);
+  background-size: 200% auto;
+  animation: goldShimmer 2.5s linear infinite;
+}
+
+/* Confirmed booking border */
+.border-confirmed {
+  border: 1.5px solid rgba(245,158,11,0.5);
+  box-shadow: 0 0 0 1px rgba(245,158,11,0.12), 0 4px 16px rgba(245,158,11,0.08);
+}
+
+/* Soft lift on hover for cards */
+.hover-warm {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.hover-warm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124,29,36,0.10), 0 2px 6px rgba(0,0,0,0.04);
+  border-color: rgba(245,158,11,0.35);
+}
+
+/* Urgency pulse */
+@keyframes urgencyPulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+  50%       { opacity: 0.9; transform: scale(1.01); box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+}
+.animate-urgency {
+  animation: urgencyPulse 2s ease-in-out infinite;
+}
+
+/* Badge notification dot */
+@keyframes badgePop {
+  0%   { transform: scale(0); opacity: 0; }
+  70%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.badge-pop {
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Bottom nav active tab indicator */
+@keyframes tabSlide {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.tab-indicator {
+  animation: tabSlide 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: center;
+}
+
+/* Smooth button */
+.btn-warm-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: #0F172A;
+  font-weight: 900;
+  font-size: 0.875rem;
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 14px rgba(245,158,11,0.35);
+  transition: all 0.18s ease;
+  cursor: pointer;
+  border: none;
+  letter-spacing: 0.03em;
+}
+.btn-warm-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245,158,11,0.45);
+}
+.btn-warm-primary:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(245,158,11,0.25);
+}
+
+/* Tag pill */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Section group card */
+.section-card {
+  background: #ffffff;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(229,231,235,0.8);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+
+/* Spin slow */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+
+/* Global Smooth Scroll & Active Feedback */
+html {
+  scroll-behavior: smooth;
+}
+
+.card-press {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-press:active {
+  transform: scale(0.97);
+}
+
+/* Devotional letter shimmer for NirvighnaLoader */
+@keyframes letterShimmer {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translateY(0px) scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.04);
+  }
+}
+
+.animate-letter {
+  display: inline-block;
+  animation: letterShimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Subtle gold halo glow pulse */
+@keyframes divineAuraGlow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.35), 0 0 50px rgba(124, 29, 36, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(245, 158, 11, 0.65), 0 0 80px rgba(245, 158, 11, 0.35);
+  }
+}
+
+.animate-divine-aura {
+  animation: divineAuraGlow 3s ease-in-out infinite;
+}
+
