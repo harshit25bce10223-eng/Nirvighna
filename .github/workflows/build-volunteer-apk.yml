@@ -39,7 +39,9 @@ jobs:
 
       - name: Sync Volunteer Web Assets to Native Android
         run: |
-          npx cap sync android --config capacitor.volunteer.config.json
+          cp capacitor.volunteer.config.json capacitor.config.json
+          npx cap sync android
+
 
       - name: Configure Android SDK & License Agreement
         run: |
