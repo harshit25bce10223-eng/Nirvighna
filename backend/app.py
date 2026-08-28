@@ -258,19 +258,23 @@ async def handle_websocket_stream(websocket: WebSocket):
                 frame_b64 = base64.b64encode(buffer).decode('utf-8')
 
                 # Predict 3-hour footfall forecast
-                forecast = footfall_forecaster.predict_next_3_hours(p_telemetry.get("devotees_present", 840))
+                forecast = footfall_forecaster.predict_next_3_hours(p_telemetry.get("devotees_present", 0))
 
                 telemetry_payload = {
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "frame": frame_b64,
-                    "devotees_present": p_telemetry.get("devotees_present", 840),
-                    "entry_rate": p_telemetry.get("entry_rate", 142),
-                    "exit_rate": p_telemetry.get("exit_rate", 128),
-                    "total_tracked": p_telemetry.get("total_tracked", 18),
-                    "verified_count": p_telemetry.get("verified_count", 14),
-                    "unverified_count": p_telemetry.get("unverified_count", 4),
+                    "devotees_present": p_telemetry.get("devotees_present", 0),
+                    "entry_rate": p_telemetry.get("entry_rate", 0),
+                    "exit_rate": p_telemetry.get("exit_rate", 0),
+                    "total_tracked": p_telemetry.get("total_tracked", 0),
+                    "verified_count": p_telemetry.get("verified_count", 0),
+                    "unverified_count": p_telemetry.get("unverified_count", 0),
+                    "avg_confidence": p_telemetry.get("avg_confidence", 0.0),
+                    "inference_ms": p_telemetry.get("inference_ms", 0.0),
+                    "detection_model": p_telemetry.get("detection_model", "Unknown"),
                     "real_face_count": face_count,
-                    "heads_packed": d_telemetry.get("heads_packed", 24),
+                    "heads_packed": d_telemetry.get("heads_packed", 0),
+                    "mcnn_method": d_telemetry.get("mcnn_method", ""),
                     "audio_status": audio_status,
                     "is_panic": is_panic,
                     "zones": d_telemetry.get("zones", []),
@@ -294,6 +298,40 @@ async def websocket_ws(websocket: WebSocket):
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
     await handle_websocket_stream(websocket)
+
+
+def _mjpeg_generator():
+    """MJPEG stream of the full processed pipeline (detection + heatmap)."""
+    while True:
+        try:
+            frame = camera_mgr.get_frame()
+            if frame is not None:
+                processed_frame, _ = person_detector.process_frame(frame)
+                final_frame, _ = crowd_density_engine.compute_density_and_heatmap(
+                    processed_frame,
+                    person_detector.active_tracks,
+                    0,
+                )
+                ok, buffer = cv2.imencode('.jpg', final_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+                if ok:
+                    yield (
+                        b'--frame\r\n'
+                        b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n'
+                    )
+            time.sleep(0.1)  # ~10 fps cap keeps CPU headroom for WS clients
+        except Exception as e:
+            logger.warning(f"MJPEG generator exception: {e}")
+            time.sleep(0.5)
+
+
+@app.get("/video_feed")
+async def video_feed():
+    """MJPEG live feed for <img> embedding (Command Centre Drishti panel)."""
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        _mjpeg_generator(),
+        media_type='multipart/x-mixed-replace; boundary=frame',
+    )
 
 
 @app.post("/upload_face")

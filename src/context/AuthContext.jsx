@@ -133,18 +133,25 @@ export const AuthProvider = ({ children }) => {
         if (session?.user && isMounted) {
           await fetchUserProfile(session.user.id, session.user);
         } else if (isMounted) {
-          const savedPilgrim = localStorage.getItem('nirvighna_pilgrim_session');
-          if (savedPilgrim) {
-            try {
-              const parsed = JSON.parse(savedPilgrim);
-              if (parsed && parsed.id) {
-                setCurrentUser(parsed);
-                setIsLoggedIn(true);
-              } else {
+          // Demo builds may restore an offline pilgrim session.
+          // Production always requires a valid Supabase session.
+          if (isDemoMode) {
+            const savedPilgrim = localStorage.getItem('nirvighna_pilgrim_session');
+            if (savedPilgrim) {
+              try {
+                const parsed = JSON.parse(savedPilgrim);
+                if (parsed && parsed.id) {
+                  setCurrentUser(parsed);
+                  setIsLoggedIn(true);
+                } else {
+                  setCurrentUser(null);
+                  setIsLoggedIn(false);
+                }
+              } catch (_) {
                 setCurrentUser(null);
                 setIsLoggedIn(false);
               }
-            } catch (_) {
+            } else {
               setCurrentUser(null);
               setIsLoggedIn(false);
             }
@@ -155,15 +162,17 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (err) {
         console.warn('Session fetch fallback:', err);
-        const savedPilgrim = localStorage.getItem('nirvighna_pilgrim_session');
-        if (savedPilgrim && isMounted) {
-          try {
-            const parsed = JSON.parse(savedPilgrim);
-            if (parsed && parsed.id) {
-              setCurrentUser(parsed);
-              setIsLoggedIn(true);
-            }
-          } catch (_) {}
+        if (isDemoMode && isMounted) {
+          const savedPilgrim = localStorage.getItem('nirvighna_pilgrim_session');
+          if (savedPilgrim) {
+            try {
+              const parsed = JSON.parse(savedPilgrim);
+              if (parsed && parsed.id) {
+                setCurrentUser(parsed);
+                setIsLoggedIn(true);
+              }
+            } catch (_) {}
+          }
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -181,7 +190,9 @@ export const AuthProvider = ({ children }) => {
             window.location.hash = '#/home';
           }
         } else if (!session && isMounted) {
-          const savedPilgrim = localStorage.getItem('nirvighna_pilgrim_session');
+          // Production: a signed-out Supabase session always clears local state.
+          // Demo builds may keep the offline pilgrim session.
+          const savedPilgrim = isDemoMode ? localStorage.getItem('nirvighna_pilgrim_session') : null;
           if (!savedPilgrim) {
             setCurrentUser(null);
             setIsLoggedIn(false);

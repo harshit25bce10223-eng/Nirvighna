@@ -3,7 +3,8 @@ import {
   Camera, Eye, Users, Activity, ShieldCheck, Cpu,
   ArrowUpRight, ArrowDownRight, UserCheck, Upload, Flame, Check,
   TrendingUp, MapPin, BarChart3, Search, RefreshCw, X, Radio, AlertTriangle,
-  Video, VideoOff, Play, Pause, BellRing, Sparkles, CheckCircle2
+  Video, VideoOff, Play, Pause, BellRing, Sparkles, CheckCircle2,
+  Settings, Cpu as CpuIcon, Zap, Mic, Wifi, Database, Shield
 } from 'lucide-react';
 import { getTempleById } from '../../lib/templeRegistry';
 import { templeAIConfigEngine } from '../../lib/templeAIConfigEngine';
@@ -66,6 +67,20 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
     inner_sanctum: { load: 84, headcount: 380, capacity: 450, status: 'HIGH' }
   });
 
+  // Face Detection State (NEW)
+  const [detectedFaces, setDetectedFaces] = useState([]);
+  const [faceDetectorType, setFaceDetectorType] = useState("blazeface_fallback");
+  const [faceDetSettings, setFaceDetSettings] = useState({
+    backend: "auto",      // auto, yunet, mediapipe
+    confThreshold: 0.6,
+    iouThreshold: 0.45,
+    maxDet: 100,
+    minFaceSize: 30,
+    showLandmarks: true,
+    showBBoxes: true,
+  });
+  const [showFaceSettings, setShowFaceSettings] = useState(false);
+
   // Re-ID & UI Interaction State
   const [lostPhoto, setLostPhoto] = useState(null);
   const [faceProcessing, setFaceProcessing] = useState(false);
@@ -77,15 +92,16 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
   const reconnectTimer = useRef(null);
   const videoLocalRef = useRef(null);
 
-  // 1. Connect WebSocket to ws://localhost:8001/ws with auto-reconnect
+  // 1. Connect WebSocket to Drishti backend with auto-reconnect
   useEffect(() => {
     let ws = null;
     let mounted = true;
+    const drishtiUrl = (import.meta.env.VITE_DRISHTI_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws');
 
     const connectWS = () => {
       if (!mounted) return;
       try {
-        ws = new WebSocket('ws://localhost:8001/ws');
+        ws = new WebSocket(`${drishtiUrl}/ws`);
 
         ws.onopen = () => {
           if (mounted) {
@@ -105,8 +121,11 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
               if (data.entry_rate !== undefined) setEntryRate(data.entry_rate);
               if (data.exit_rate !== undefined) setExitRate(data.exit_rate);
               if (data.real_face_count !== undefined) setRealFaceCount(data.real_face_count);
+              if (data.detected_faces !== undefined) setDetectedFaces(data.detected_faces);
+              if (data.face_detector !== undefined) setFaceDetectorType(data.face_detector);
               if (data.audio_status) setAudioStatus(data.audio_status);
               if (data.last_scan_time) setLastScanTime(data.last_scan_time);
+              if (data.timestamp) setLastScanTime(data.timestamp);
               if (data.advisory) setAdvisoryText(data.advisory);
               if (data.zones) setZoneData(data.zones);
               setIsOnline(true);
@@ -283,31 +302,37 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
   }, [useLocalWebcam, activeCam]);
 
   // REST API Handlers
-  const handleDetectFaceNow = async () => {
+  const drishtiHttpUrl = import.meta.env.VITE_DRISHTI_URL || 'http://127.0.0.1:8000';
+
+  const handleDetectFaces = async () => {
     try {
-      const res = await fetch('http://localhost:8001/detect_face', { method: 'POST' });
+      const res = await fetch(`${drishtiHttpUrl}/detect_faces`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        const detected = data.faces_detected !== undefined ? data.faces_detected : 6;
-        setRealFaceCount(detected);
-        setLastScanTime(data.timestamp || new Date().toLocaleTimeString('en-IN').toLowerCase());
-        setActionFeedback(`📷 5-Point Facial Landmark Scan Verified: ${detected} Active Devotees Synced.`);
-      } else {
-        setRealFaceCount(6);
+        setRealFaceCount(data.count);
+        setDetectedFaces(data.faces);
+        setFaceDetectorType(data.detector);
         setLastScanTime(new Date().toLocaleTimeString('en-IN').toLowerCase());
-        setActionFeedback(`📷 Optical Landmark Recalibration Verified.`);
+        setActionFeedback(`📷 Face Scan Complete: ${data.count} Faces Detected (${data.detector.toUpperCase()})`);
+      } else {
+        setLastScanTime(new Date().toLocaleTimeString('en-IN').toLowerCase());
+        setActionFeedback(`📷 Face detection request failed.`);
       }
     } catch (e) {
-      setRealFaceCount(6);
       setLastScanTime(new Date().toLocaleTimeString('en-IN').toLowerCase());
-      setActionFeedback(`📷 Live Face Scan Verified (Local Sync Mode).`);
+      setActionFeedback(`📷 Backend unreachable — check Drishti AI service on port 8000.`);
     }
     setTimeout(() => setActionFeedback(''), 4500);
   };
 
+  const handleDetectFaceNow = async () => {
+    // Legacy alias - now calls the real face detection
+    await handleDetectFaces();
+  };
+
   const handleSimulatePanic = async () => {
     try {
-      await fetch('http://localhost:8001/simulate_panic', { method: 'POST' });
+      await fetch(`${drishtiHttpUrl}/api/panic/simulate`, { method: 'POST' });
     } catch (e) {}
     setAudioStatus("Panic Detected");
     setActionFeedback('🚨 High-Decibel Acoustic Panic Spike Detected in Zone A!');
@@ -328,7 +353,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
       const fd = new FormData();
       fd.append('file', file);
       try {
-        const res = await fetch('http://localhost:8001/upload_face', { method: 'POST', body: fd });
+        const res = await fetch(`${drishtiHttpUrl}/upload_face`, { method: 'POST', body: fd });
         if (res.ok) {
           const data = await res.json();
           setFaceMatchResult({
@@ -397,7 +422,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
           <div className="flex items-center gap-2">
             {isOnline ? (
               <span className="text-xs px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> LIVE STREAM ONLINE (PORT 8001)
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> LIVE STREAM ONLINE (PORT 8000)
               </span>
             ) : (
               <span className="text-xs px-3 py-1 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5 shadow-sm">
@@ -470,9 +495,22 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             <span className="text-[11px] font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5 font-heading">
               <Camera className="w-3.5 h-3.5 text-amber-400" /> Select CCTV Feed Channel ({CAM_CHANNELS.length} Available)
             </span>
-            <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> ALL RTSP STREAMS ACTIVE
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowFaceSettings(!showFaceSettings)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${
+                  showFaceSettings
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-white/10'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Face Settings</span>
+              </button>
+              <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> ALL RTSP STREAMS ACTIVE
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -509,6 +547,145 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             })}
           </div>
         </div>
+
+        {/* Face Detection Settings Panel */}
+        {showFaceSettings && (
+          <Card className="p-4 space-y-3 border-amber-500/30">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                <Settings className="w-4 h-4 text-amber-400" /> Face Detection Engine Settings
+              </h4>
+              <button
+                onClick={() => setShowFaceSettings(false)}
+                className="p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Backend Selector */}
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase font-medium mb-1">Detector Backend</label>
+                <select
+                  value={faceDetSettings.backend}
+                  onChange={e => setFaceDetSettings(prev => ({ ...prev, backend: e.target.value }))}
+                  className="w-full bg-slate-900 text-slate-200 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500/50"
+                >
+                  <option value="auto">Auto (YuNet → MediaPipe → Fallback)</option>
+                  <option value="yunet">YuNet (OpenCV 4.8+)</option>
+                  <option value="mediapipe">MediaPipe Face Detection</option>
+                  <option value="blazeface_fallback">BlazeFace Fallback (Simulated)</option>
+                </select>
+              </div>
+
+              {/* Confidence Threshold */}
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase font-medium mb-1">Confidence Threshold: {faceDetSettings.confThreshold.toFixed(1)}</label>
+                <input
+                  type="range"
+                  min="0.3"
+                  max="0.9"
+                  step="0.05"
+                  value={faceDetSettings.confThreshold}
+                  onChange={e => setFaceDetSettings(prev => ({ ...prev, confThreshold: parseFloat(e.target.value) }))}
+                  className="w-full h-2 bg-slate-800 appearance-none rounded-lg accent-amber-500"
+                />
+              </div>
+
+              {/* IOU Threshold */}
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase font-medium mb-1">NMS IOU Threshold: {faceDetSettings.iouThreshold.toFixed(2)}</label>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="0.7"
+                  step="0.05"
+                  value={faceDetSettings.iouThreshold}
+                  onChange={e => setFaceDetSettings(prev => ({ ...prev, iouThreshold: parseFloat(e.target.value) }))}
+                  className="w-full h-2 bg-slate-800 appearance-none rounded-lg accent-amber-500"
+                />
+              </div>
+
+              {/* Max Detections */}
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase font-medium mb-1">Max Detections: {faceDetSettings.maxDet}</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="300"
+                  step="10"
+                  value={faceDetSettings.maxDet}
+                  onChange={e => setFaceDetSettings(prev => ({ ...prev, maxDet: parseInt(e.target.value) }))}
+                  className="w-full h-2 bg-slate-800 appearance-none rounded-lg accent-amber-500"
+                />
+              </div>
+
+              {/* Min Face Size */}
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase font-medium mb-1">Min Face Size: {faceDetSettings.minFaceSize}px</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={faceDetSettings.minFaceSize}
+                  onChange={e => setFaceDetSettings(prev => ({ ...prev, minFaceSize: parseInt(e.target.value) }))}
+                  className="w-full h-2 bg-slate-800 appearance-none rounded-lg accent-amber-500"
+                />
+              </div>
+
+              {/* Show Landmarks */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={faceDetSettings.showLandmarks}
+                    onChange={e => setFaceDetSettings(prev => ({ ...prev, showLandmarks: e.target.checked }))}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <span className="text-xs text-slate-300">Show 5-Point Landmarks</span>
+                </label>
+              </div>
+
+              {/* Show BBoxes */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={faceDetSettings.showBBoxes}
+                    onChange={e => setFaceDetSettings(prev => ({ ...prev, showBBoxes: e.target.checked }))}
+                    className="w-full w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <span className="text-xs text-slate-300">Show Bounding Boxes</span>
+                </label>
+              </div>
+
+              {/* Current Detector Status */}
+              <div className="sm:col-span-2 p-3 bg-slate-900/50 rounded-xl border border-white/10">
+                <div className="flex items-center gap-3">
+                  <CpuIcon className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <p className="text-xs font-medium text-white">Active Detector: <span className="text-amber-300 font-mono">{faceDetectorType.toUpperCase()}</span></p>
+                    <p className="text-[10px] text-slate-400">Last sync: {lastScanTime}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={handleDetectFaces}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-lg uppercase cursor-pointer transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Run Face Detection Now</span>
+                  </button>
+                  <span className="flex items-center px-2 py-1 bg-emerald-950/50 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1" /> {realFaceCount} Faces Live
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Video stream viewport with CCTV HUD Overlay */}
         <div className="relative rounded-2xl overflow-hidden bg-black border border-amber-900/40 min-h-[320px] sm:min-h-[440px] flex items-center justify-center shadow-2xl">
@@ -554,6 +731,13 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
                 {activeCam === 'webcam' && `${realFaceCount} Active Faces`}
               </strong>
             </div>
+            {/* Face Detection Overlay */}
+            {detectedFaces.length > 0 && (
+              <div className="bg-black/80 backdrop-blur-md px-2 sm:px-2.5 py-1 rounded-xl border border-amber-500/30 flex items-center gap-1.5">
+                <span className="text-amber-300 font-bold">Faces: {detectedFaces.length}</span>
+                <span className="text-[9px] text-slate-400">({faceDetectorType})</span>
+              </div>
+            )}
           </div>
 
           {/* Video Stream Rendering (Backend MJPEG with fallback to animated canvas or local webcam) */}
@@ -568,7 +752,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
           ) : isOnline ? (
             <img
               key={`${activeCam}-${streamKey}`}
-              src={`http://localhost:8001/video_feed?cam=${activeCam}&temple=${templeId}&t=${streamKey}`}
+              src={`${drishtiHttpUrl}/video_feed?cam=${activeCam}&temple=${templeId}&t=${streamKey}`}
               alt="Drishti AI Live Feed"
               className="w-full h-auto max-h-[480px] object-contain mx-auto block"
               onError={() => {
@@ -660,10 +844,10 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
           </div>
         </Card>
 
-        {/* Right Col: Flow Velocity, Dwell Time & Chokepoint Radar */}
+{/* Right Col: Flow Velocity, Dwell Time & Chokepoint Radar */}
         <Card className="p-4 space-y-3">
           <div className="border-b border-white/[0.08] pb-2 flex items-center justify-between">
-            <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">CORRIDOR FLOW &amp; BOTTLENECK RADAR</h4>
+            <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">CORRIDOR FLOW & BOTTLENECK RADAR</h4>
             <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-bold">
               SPATIAL VELOCITY ENGINE
             </span>
@@ -713,6 +897,54 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
               </div>
             </div>
           </div>
+
+          {/* Real-Time Face Detection Details */}
+          <Card className="p-3 space-y-2 border-amber-500/20">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-amber-400" /> Live Face Detection Feed
+              </h4>
+              <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${
+                faceDetectorType === 'yunet' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                faceDetectorType === 'mediapipe' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
+                'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}>
+                {faceDetectorType.toUpperCase()}
+              </span>
+            </div>
+
+            {detectedFaces.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-slate-500 text-xs">No faces detected in current frame</p>
+                <p className="text-[10px] text-slate-400 mt-1">Detector: {faceDetectorType} | Click "Recalibrate Queue" to scan</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {detectedFaces.map((face, idx) => (
+                  <div key={idx} className="p-2 bg-black/40 rounded-lg border border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-bold">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <p className="text-xs font-medium text-white">Face #{idx + 1}</p>
+                        <p className="text-[10px] text-slate-400">
+                          Conf: {face.confidence}% • [{face.bbox[0]}, {face.bbox[1]}, {face.bbox[2]}, {face.bbox[3]}]
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      face.confidence >= 90 ? 'bg-emerald-500/20 text-emerald-300' :
+                      face.confidence >= 70 ? 'bg-amber-500/20 text-amber-300' :
+                      'bg-red-500/20 text-red-300'
+                    }`}>
+                      {face.confidence >= 90 ? 'HIGH' : face.confidence >= 70 ? 'MED' : 'LOW'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
 
           {/* Consent-First Missing Pilgrim Re-Identification Search */}
           <div className="p-3 bg-slate-900/60 rounded-xl border border-amber-500/20 space-y-2">

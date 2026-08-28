@@ -42,7 +42,7 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-[max(env(safe-area-inset-bottom,0px),0.75rem)] left-3 right-3 bg-white/95 backdrop-blur-2xl border-2 border-gold/40 py-1.5 px-2 flex justify-around items-center z-50 max-w-lg mx-auto rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.16)] select-none">
+    <nav className="fixed bottom-[max(env(safe-area-inset-bottom,0px),0.75rem)] left-3 right-3 bg-ivory/95 backdrop-blur-2xl border-2 border-gold/40 py-1.5 px-2 flex justify-around items-center z-50 max-w-lg mx-auto rounded-2xl shadow-temple select-none">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = location.pathname === item.path ||
@@ -54,14 +54,14 @@ export const BottomNav = () => {
             onClick={() => navigate(item.path)}
             className={`relative flex flex-col items-center justify-center min-w-[58px] px-2 py-1.5 rounded-xl transition-all duration-200 card-press cursor-pointer ${
               isActive
-                ? 'bg-gradient-to-br from-maroon via-[#6B1B25] to-[#4A1017] text-gold shadow-md scale-102 ring-1 ring-gold/40'
-                : 'text-gray-600 hover:text-maroon hover:bg-amber-50/70'
+                ? 'bg-gradient-to-br from-maroon via-maroon.dark to-maroon.dark text-gold shadow-md scale-102 ring-1 ring-gold/40'
+                : 'text-temple.textMuted hover:text-maroon hover:bg-cream.light/70'
             }`}
           >
-            <Icon className={`w-[19px] h-[19px] mb-0.5 transition-transform ${isActive ? 'text-amber-300 scale-110' : 'text-gray-600'}`} />
+            <Icon className={`w-[19px] h-[19px] mb-0.5 transition-transform ${isActive ? 'text-gold.light scale-110' : 'text-temple.textMuted'}`} />
             
             <span className={`text-[10px] font-extrabold leading-tight tracking-tight font-heading ${
-              isActive ? 'text-amber-200 font-black' : 'text-gray-700 font-bold'
+              isActive ? 'text-gold.light font-black' : 'temple.text font-bold'
             }`}>
               {item.label}
             </span>

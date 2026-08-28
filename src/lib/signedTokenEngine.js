@@ -153,14 +153,7 @@ export async function issueSignedToken({
     created_at: new Date().toISOString()
   };
 
-  // 1. Try Supabase insert
-  try {
-    await supabase.from('signed_tokens').insert([tokenRecord]);
-  } catch (err) {
-    // Graceful fallback if table not yet created
-  }
-
-  // 2. Persist in LocalStorage
+  // 1. Persist in LocalStorage first (Offline-first architecture)
   try {
     const localTokens = JSON.parse(localStorage.getItem('nirvighna_signed_tokens') || '[]');
     localTokens.push(tokenRecord);
@@ -315,34 +308,15 @@ export async function validateAndConsumeToken(
 
 async function findTokenRecordBySignedValue(signedVal) {
   try {
-    const { data } = await supabase
-      .from('signed_tokens')
-      .select('*')
-      .eq('signed_value', signedVal)
-      .maybeSingle();
-    if (data) return data;
+    const localTokens = JSON.parse(localStorage.getItem('nirvighna_signed_tokens') || '[]');
+    const localMatch = localTokens.find(t => t.signed_value === signedVal);
+    if (localMatch) return localMatch;
   } catch (e) {}
 
-  try {
-    const localTokens = JSON.parse(localStorage.getItem('nirvighna_signed_tokens') || '[]');
-    return localTokens.find(t => t.signed_value === signedVal) || null;
-  } catch (e) {
-    return null;
-  }
+  return null;
 }
 
 async function markTokenAsConsumed(signedVal, volunteerId, usedAt) {
-  try {
-    await supabase
-      .from('signed_tokens')
-      .update({
-        is_used: true,
-        used_at: usedAt,
-        used_by_volunteer_id: volunteerId
-      })
-      .eq('signed_value', signedVal);
-  } catch (e) {}
-
   try {
     const localTokens = JSON.parse(localStorage.getItem('nirvighna_signed_tokens') || '[]');
     const idx = localTokens.findIndex(t => t.signed_value === signedVal);

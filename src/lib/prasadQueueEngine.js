@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { issueSignedToken } from './signedTokenEngine';
+import { sendPilgrimNotification } from './notificationService';
 
 // Default counter status per temple
 const DEFAULT_COUNTERS = {
@@ -101,20 +102,63 @@ export const prasadQueueEngine = {
     // Store and broadcast
     setStoredCounter(templeId, updatedCounter);
 
-    // Update token status in storage
+    // Check pilgrim pass notifications
     try {
-      const savedPilgrimToken = localStorage.getItem(`nirvighna_prasad_token_${templeId}`);
-      if (savedPilgrimToken) {
-        const parsed = JSON.parse(savedPilgrimToken);
-        if (parsed.token_number <= nextServingToken) {
-          parsed.status = 'served';
+      const checkAndNotifyPilgrim = (token) => {
+        if (!token) return;
+        if (token.token_number === nextServingToken) {
+          sendPilgrimNotification({
+            title: '🍲 Your Mahaprasad Turn is Here!',
+            message: `Token #${nextServingToken} is now being served at the Prasad Counter. Please proceed to the serving line with your QR pass.`,
+            type: 'prasad_turn',
+            templeId: templeId,
+            link: '/my-bookings'
+          });
+        } else if (token.token_number === nextServingToken + 2) {
+          sendPilgrimNotification({
+            title: '🔔 2 Tokens Remaining for Prasad',
+            message: `Currently serving Token #${nextServingToken}. Your Token #${token.token_number} is next up!`,
+            type: 'prasad_turn',
+            templeId: templeId,
+            link: '/my-bookings'
+          });
+        }
+      };
+
+      const savedSingle = localStorage.getItem(`nirvighna_prasad_token_${templeId}`);
+      if (savedSingle) {
+        const parsed = JSON.parse(savedSingle);
+        checkAndNotifyPilgrim(parsed);
+        if (parsed.token_number <= nextServingToken && parsed.status !== 'served') {
+          parsed.status = 'ready';
           localStorage.setItem(`nirvighna_prasad_token_${templeId}`, JSON.stringify(parsed));
-          window.dispatchEvent(new CustomEvent('nirvighna_prasad_token_served', { detail: { templeId, token: parsed } }));
+          window.dispatchEvent(new CustomEvent('nirvighna_prasad_token_ready', { detail: { templeId, token: parsed } }));
         }
       }
+
+      const list = JSON.parse(localStorage.getItem('nirvighna_prasad_tokens_list') || '[]');
+      list.forEach(t => {
+        if (t.temple_id === templeId) {
+          checkAndNotifyPilgrim(t);
+        }
+      });
     } catch (e) {}
 
     return updatedCounter;
+  },
+
+  // Get live real-time statistics
+  getCounterStats(templeId = 'tmp_somnath') {
+    const counter = getStoredCounter(templeId);
+    const storedHighest = localStorage.getItem(`nirvighna_highest_prasad_token_${templeId}`);
+    const currentServing = counter.current_serving_token || (templeId === 'tmp_somnath' ? 142 : 98);
+    const highestIssued = storedHighest ? parseInt(storedHighest, 10) : (currentServing + 53);
+    return {
+      currentServingToken: currentServing,
+      issuedToday: highestIssued,
+      servedToday: currentServing,
+      waitingCount: Math.max(0, highestIssued - currentServing)
+    };
   },
 
   // Get estimated wait time in minutes

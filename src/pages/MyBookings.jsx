@@ -182,32 +182,68 @@ export const MyBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-  const [livePrasadCounter, setLivePrasadCounter] = useState(142);
+  const [livePrasadCounters, setLivePrasadCounters] = useState({
+    tmp_somnath: 142,
+    tmp_dwarka: 98,
+    tmp_ambaji: 215,
+    tmp_pavagadh: 64
+  });
   const [modalQrDataUrl, setModalQrDataUrl] = useState('');
 
   useEffect(() => {
     fetchBookings();
-    loadLivePrasadCounter();
+    loadAllPrasadCounters();
 
     // Listen to live Prasad counter updates
     const handleCounterUpdate = (e) => {
-      if (e.detail?.counter?.current_serving_token) {
-        setLivePrasadCounter(e.detail.counter.current_serving_token);
+      if (e.detail?.templeId && e.detail?.counter?.current_serving_token) {
+        setLivePrasadCounters(prev => ({
+          ...prev,
+          [e.detail.templeId]: e.detail.counter.current_serving_token
+        }));
       }
+      fetchBookings();
     };
+
+    let bc = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('nirvighna_prasad_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.templeId && event.data?.counter?.current_serving_token) {
+            setLivePrasadCounters(prev => ({
+              ...prev,
+              [event.data.templeId]: event.data.counter.current_serving_token
+            }));
+          }
+          fetchBookings();
+        };
+      }
+    } catch (_) {}
+
     window.addEventListener('nirvighna_prasad_counter_updated', handleCounterUpdate);
+    window.addEventListener('nirvighna_prasad_token_served', handleCounterUpdate);
+    window.addEventListener('nirvighna_prasad_token_ready', handleCounterUpdate);
+    window.addEventListener('storage', handleCounterUpdate);
 
     return () => {
+      if (bc) try { bc.close(); } catch (_) {}
       window.removeEventListener('nirvighna_prasad_counter_updated', handleCounterUpdate);
+      window.removeEventListener('nirvighna_prasad_token_served', handleCounterUpdate);
+      window.removeEventListener('nirvighna_prasad_token_ready', handleCounterUpdate);
+      window.removeEventListener('storage', handleCounterUpdate);
     };
   }, [currentUser]);
 
-  const loadLivePrasadCounter = async () => {
+  const loadAllPrasadCounters = async () => {
     try {
-      const status = await prasadQueueEngine.fetchCounterStatus('tmp_somnath');
-      if (status?.current_serving_token) {
-        setLivePrasadCounter(status.current_serving_token);
+      const temples = ['tmp_somnath', 'tmp_dwarka', 'tmp_ambaji', 'tmp_pavagadh'];
+      const results = {};
+      for (const tId of temples) {
+        const stats = prasadQueueEngine.getCounterStats(tId);
+        results[tId] = stats.currentServingToken;
       }
+      setLivePrasadCounters(prev => ({ ...prev, ...results }));
     } catch (_) {}
   };
 
@@ -745,19 +781,43 @@ export const MyBookings = () => {
                   </div>
 
                   {/* Prasad Live Serving Mini Ticker */}
-                  {isPrasad && (
-                    <div className="bg-gradient-to-r from-amber-500/10 to-gold/15 p-2 rounded-xl border border-gold/40 flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-gray-600 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                        {t.labels.servingNow}: <strong className="text-indigo-dark font-mono font-black">#{livePrasadCounter}</strong>
-                      </span>
-                      <span className="text-maroon font-extrabold font-mono">
-                        {livePrasadCounter >= booking.token_number
-                          ? '🎉 Turn Active'
-                          : `${Math.max(1, (booking.token_number - livePrasadCounter))} Mins`}
-                      </span>
-                    </div>
-                  )}
+                  {isPrasad && (() => {
+                    const currentServing = livePrasadCounters[booking.temple_id || 'tmp_somnath'] || 142;
+                    const isServed = booking.status === 'served' || booking.received === true;
+                    const isMyTurn = !isServed && currentServing >= booking.token_number;
+
+                    if (isServed) {
+                      return (
+                        <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-300 flex items-center justify-between text-[11px] font-bold text-emerald-800">
+                          <span className="flex items-center gap-1.5 font-heading">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            ✓ Mahaprasad Received
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                            Token #{booking.token_number}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between text-[11px] font-bold ${
+                        isMyTurn
+                          ? 'bg-amber-50 border-gold ring-1 ring-gold/60 text-amber-900 animate-pulse'
+                          : 'bg-gradient-to-r from-amber-500/10 to-gold/15 border-gold/40 text-gray-700'
+                      }`}>
+                        <span className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${isMyTurn ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
+                          {t.labels.servingNow}: <strong className="text-indigo-dark font-mono font-black">#{currentServing}</strong>
+                        </span>
+                        <span className="font-extrabold font-mono text-maroon">
+                          {isMyTurn
+                            ? '🍲 Your Turn! Go to Counter'
+                            : `${Math.max(1, (booking.token_number - currentServing))} Mins Wait`}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Footer Actions */}
                   <div className="flex items-center justify-between pt-1 border-t border-gray-100">

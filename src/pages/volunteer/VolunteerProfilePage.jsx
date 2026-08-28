@@ -18,7 +18,7 @@ export const VolunteerProfilePage = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] text-gray-900 font-body pb-28 pt-4 px-4 max-w-md mx-auto space-y-4 selection:bg-gold selection:text-indigo-dark">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/v/dashboard')}
+          onClick={() => navigate('/v/scan')}
           className="p-2 bg-white rounded-2xl border border-gold/30 text-maroon hover:bg-gold/10 transition-colors shadow-xs cursor-pointer"
         >
           <ChevronLeft className="w-5 h-5" />

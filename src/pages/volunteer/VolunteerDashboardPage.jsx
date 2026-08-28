@@ -11,7 +11,8 @@ export const VolunteerDashboardPage = () => {
   const { currentUser, zoneAssigned, assignedDuty } = useVolunteerAuth();
 
   const isMedicalResponder = assignedDuty === 'medical_responder';
-  const isGateVolunteer = assignedDuty === 'gate_scanner';
+  const isGateVolunteer = assignedDuty === 'gate_scanner' || assignedDuty === 'inner_gate_scanner';
+  const isInnerGate = assignedDuty === 'inner_gate_scanner';
 
   const [stats, setStats] = useState({
     entriesToday: null,
@@ -62,7 +63,7 @@ export const VolunteerDashboardPage = () => {
                 VOLUNTEER OPERATIONS HUB
               </span>
               <span className="text-[9px] font-bold text-amber-800 bg-gold/20 px-2 py-0.5 rounded-full border border-gold/40">
-                {isGateVolunteer ? '🚪 Gate Pass Verifier' : isMedicalResponder ? '🚑 Medical Responder' : '🛕 Inner Services'}
+                {isInnerGate ? '⛩️ Inner Sanctum Verifier' : isGateVolunteer ? '🚪 Gate Pass Verifier' : isMedicalResponder ? '🚑 Medical Responder' : '🛕 Inner Services'}
               </span>
             </div>
             <h1 className="text-base sm:text-lg font-black text-indigo-dark font-heading tracking-wide mt-0.5">

@@ -1,8 +1,10 @@
 import { supabase } from './supabaseClient';
 import { issueSignedToken, validateAndConsumeToken } from './signedTokenEngine';
+import { checkGateRerouteStatus } from './aiGateRerouteEngine';
+import { sendPilgrimNotification } from './notificationService';
 
 // Touchpoint #1: Scan Main Gate QR Pass (token_type  'gate_entry')
-export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTempleId = 'all') => {
+export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTempleId = 'all', scanningGateId = 'gate_1') => {
   try {
     const cleanCode = (qrCodeValue || '').trim();
     if (!cleanCode) {
@@ -11,105 +13,82 @@ export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTem
 
     const localBookings = JSON.parse(localStorage.getItem('nirvighna_my_local_bookings') || '[]');
     const scannedPasses = JSON.parse(localStorage.getItem('nirvighna_scanned_passes') || '{}');
+    const uppercaseCode = cleanCode.toUpperCase();
 
-    // Unified 7-Step HMAC-SHA256 Signed Token Validation Engine
-    const valRes = await validateAndConsumeToken(cleanCode, 'gate_entry', scanningTempleId, volunteerId);
+    let matchedBooking = null;
+    let matchedPass = null;
 
-    if (valRes.valid) {
-      const passId = valRes.resource_id;
+    // 1. Built-in Demo Test Passes for Instant Verification:
+    if (uppercaseCode.includes('8492') || uppercaseCode === 'KV-8492') {
+      matchedPass = {
+        id: 'KV-8492',
+        pilgrim_name: 'Ramesh Patel',
+        gate_number: 'gate_1',
+        is_priority: false
+      };
+      matchedBooking = {
+        id: 'bk_demo_8492',
+        temple_id: scanningTempleId !== 'all' ? scanningTempleId : 'tmp_somnath',
+        slot_date: new Date().toISOString().split('T')[0],
+        start_time: '09:00 AM',
+        end_time: '10:30 AM',
+        temples: { name: 'Somnath Temple' }
+      };
+    } else if (uppercaseCode.includes('2024') || uppercaseCode.includes('PR-') || uppercaseCode === 'NIRV-PR-2024-88') {
+      matchedPass = {
+        id: 'NIRV-PR-2024-88',
+        pilgrim_name: 'Aarav Sharma (VIP Priority)',
+        gate_number: 'gate_2',
+        is_priority: true
+      };
+      matchedBooking = {
+        id: 'bk_demo_pr2024',
+        temple_id: scanningTempleId !== 'all' ? scanningTempleId : 'tmp_somnath',
+        is_priority: true,
+        slot_date: new Date().toISOString().split('T')[0],
+        start_time: '10:00 AM',
+        end_time: '11:30 AM',
+        temples: { name: 'Somnath Temple' }
+      };
+    } else if (uppercaseCode.includes('7741') || uppercaseCode === 'KV-7741') {
+      matchedPass = {
+        id: 'KV-7741',
+        pilgrim_name: 'Kamlesh Trivedi (Senior Citizen)',
+        gate_number: 'gate_1',
+        is_priority: true
+      };
+      matchedBooking = {
+        id: 'bk_demo_7741',
+        temple_id: scanningTempleId !== 'all' ? scanningTempleId : 'tmp_somnath',
+        is_priority: true,
+        slot_date: new Date().toISOString().split('T')[0],
+        start_time: '08:30 AM',
+        end_time: '10:00 AM',
+        temples: { name: 'Somnath Temple' }
+      };
+    }
 
-      // Find pass in local store or Supabase
-      let passDetails = null;
-      let matchedBooking = null;
-
-      for (const b of localBookings) {
-        if (b.qr_passes && Array.isArray(b.qr_passes)) {
-          const p = b.qr_passes.find(qp => qp.id === passId || qp.qr_value === cleanCode);
-          if (p) {
-            passDetails = p;
+    // 2. Cryptographic Signed Token Validation Engine (if not built-in demo)
+    if (!matchedBooking && !matchedPass) {
+      const valRes = await validateAndConsumeToken(cleanCode, 'gate_entry', scanningTempleId, volunteerId);
+      if (valRes.valid) {
+        const passId = valRes.resource_id;
+        for (const b of localBookings) {
+          if (b.qr_passes && Array.isArray(b.qr_passes)) {
+            const p = b.qr_passes.find(qp => qp.id === passId || qp.qr_value === cleanCode);
+            if (p) {
+              matchedPass = p;
+              matchedBooking = b;
+              break;
+            }
+          }
+          if (b.id === passId || b.shared_booking_code === passId) {
             matchedBooking = b;
             break;
           }
         }
-        if (b.id === passId || b.shared_booking_code === passId) {
-          matchedBooking = b;
-          break;
-        }
-      }
-
-      const holderName = passDetails?.pilgrim_name || matchedBooking?.pilgrim_phone || 'Pilgrim';
-      const gateNum = passDetails?.gate_number || (matchedBooking?.is_priority ? 'Gate 2 Priority Ramp' : `Gate #${matchedBooking?.gate_number || '1'} Main Gate`);
-      const isPriority = passDetails?.is_priority !== undefined ? passDetails.is_priority : (matchedBooking?.is_priority || false);
-      const templeName = matchedBooking?.temples?.name || 'Somnath Temple';
-      const slotDate = matchedBooking?.slot_date || matchedBooking?.darshan_slots?.slot_date || new Date().toISOString().split('T')[0];
-      const slotTime = matchedBooking?.start_time ? `${matchedBooking.start_time} - ${matchedBooking.end_time || ''}` : (matchedBooking?.darshan_slots?.start_time ? `${matchedBooking.darshan_slots.start_time} - ${matchedBooking.darshan_slots.end_time}` : '08:00 AM - 10:00 AM');
-
-      // Record in local scanned log
-      scannedPasses[passId] = {
-        scanned_at: new Date().toISOString(),
-        scanned_by: volunteerId
-      };
-      localStorage.setItem('nirvighna_scanned_passes', JSON.stringify(scannedPasses));
-
-      return {
-        success: true,
-        already_scanned: false,
-        qr_pass_id: passId,
-        holder_name: holderName,
-        gate_number: gateNum,
-        is_priority: isPriority,
-        temple_name: templeName,
-        slot_date: slotDate,
-        slot_time: slotTime
-      };
-    }
-
-    if (valRes.reason === 'already_used') {
-      const scanTime = valRes.usedAt ? new Date(valRes.usedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Earlier Today';
-      return {
-        success: false,
-        already_scanned: true,
-        code: 'ALREADY_USED',
-        scanned_at: scanTime,
-        message: `🚨 ALREADY USED — Entry Denied! First scanned at ${scanTime} (Duplicate QR Attempt)`
-      };
-    }
-
-    // Check local storage fallback for un-signed or plain demo codes
-    const uppercaseCode = cleanCode.toUpperCase();
-    let matchedBooking = null;
-    let matchedPass = null;
-
-    for (const b of localBookings) {
-      if (b.qr_passes && Array.isArray(b.qr_passes)) {
-        const p = b.qr_passes.find(qp => 
-          qp.qr_value === cleanCode || 
-          qp.id === cleanCode || 
-          (qp.qr_value && qp.qr_value.toUpperCase() === uppercaseCode)
-        );
-        if (p) {
-          matchedPass = p;
-          matchedBooking = b;
-          break;
-        }
-      }
-      if (
-        b.id === cleanCode || 
-        (b.shared_booking_code && (uppercaseCode.includes(b.shared_booking_code) || cleanCode.includes(b.shared_booking_code))) ||
-        (cleanCode.startsWith('NIRV-') && uppercaseCode.includes(b.shared_booking_code || ''))
-      ) {
-        matchedBooking = b;
-        break;
-      }
-    }
-
-    if (matchedBooking || matchedPass) {
-      const passId = matchedPass?.id || matchedBooking?.id || cleanCode;
-      const slotDate = matchedBooking?.slot_date || matchedBooking?.darshan_slots?.slot_date || new Date().toISOString().split('T')[0];
-      const slotTime = matchedBooking?.start_time ? `${matchedBooking.start_time} - ${matchedBooking.end_time || ''}` : (matchedBooking?.darshan_slots?.start_time ? `${matchedBooking.darshan_slots.start_time} - ${matchedBooking.darshan_slots.end_time}` : '08:00 AM - 10:00 AM');
-
-      if (scannedPasses[passId]) {
-        const scanTime = new Date(scannedPasses[passId].scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (valRes.reason === 'already_used') {
+        const scanTime = valRes.usedAt ? new Date(valRes.usedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Earlier Today';
         return {
           success: false,
           already_scanned: true,
@@ -118,35 +97,97 @@ export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTem
           message: `🚨 ALREADY USED — Entry Denied! First scanned at ${scanTime} (Duplicate QR Attempt)`
         };
       }
+    }
+
+    // 3. Fallback search across local user bookings
+    if (!matchedBooking && !matchedPass) {
+      for (const b of localBookings) {
+        if (b.qr_passes && Array.isArray(b.qr_passes)) {
+          const p = b.qr_passes.find(qp => 
+            qp.qr_value === cleanCode || 
+            qp.id === cleanCode || 
+            (qp.qr_value && qp.qr_value.toUpperCase() === uppercaseCode)
+          );
+          if (p) {
+            matchedPass = p;
+            matchedBooking = b;
+            break;
+          }
+        }
+        if (
+          b.id === cleanCode || 
+          (b.shared_booking_code && (uppercaseCode.includes(b.shared_booking_code) || cleanCode.includes(b.shared_booking_code))) ||
+          (cleanCode.startsWith('NIRV-') && uppercaseCode.includes(b.shared_booking_code || ''))
+        ) {
+          matchedBooking = b;
+          break;
+        }
+      }
+    }
+
+    if (matchedBooking || matchedPass) {
+      const passTempleId = matchedBooking?.temple_id || (matchedBooking?.temples?.id) || 'tmp_somnath';
+      if (scanningTempleId && scanningTempleId !== 'all' && passTempleId !== scanningTempleId) {
+        const templeNames = {
+          tmp_somnath: 'Somnath Temple',
+          tmp_dwarka: 'Dwarkadhish Temple',
+          tmp_ambaji: 'Ambaji Temple',
+          tmp_pavagadh: 'Kalika Mata (Pavagadh)'
+        };
+        const passName = templeNames[passTempleId] || passTempleId;
+        const currentName = templeNames[scanningTempleId] || scanningTempleId;
+        return {
+          success: false,
+          code: 'WRONG_TEMPLE',
+          message: `🚨 WRONG TEMPLE: This pass was issued for ${passName}, not ${currentName}!`
+        };
+      }
+
+      const passId = matchedPass?.id || matchedBooking?.id || cleanCode;
+      const rawGate = matchedPass?.gate_number || (matchedBooking?.is_priority ? 'gate_2' : (matchedBooking?.gate_number ? `gate_${matchedBooking.gate_number}` : 'gate_1'));
+
+      // Gate Reroute Check
+      const rerouteCheck = checkGateRerouteStatus(scanningTempleId, rawGate, scanningGateId);
+      if (!rerouteCheck.allowed) {
+        return {
+          success: false,
+          code: 'WRONG_GATE',
+          message: rerouteCheck.message || `🚨 WRONG GATE: Devotee assigned to Gate ${rawGate.toUpperCase()}. Please direct to proper gate.`
+        };
+      }
 
       scannedPasses[passId] = {
         scanned_at: new Date().toISOString(),
-        scanned_by: volunteerId
+        scanned_by: volunteerId,
+        scanned_gate: scanningGateId,
+        is_rerouted: rerouteCheck.isRerouted || false
       };
       localStorage.setItem('nirvighna_scanned_passes', JSON.stringify(scannedPasses));
 
       const holderName = matchedPass?.pilgrim_name || 'Pilgrim';
-      const gateNum = matchedPass?.gate_number || (matchedBooking?.is_priority ? 'Gate 2 Priority Ramp' : `Gate #${matchedBooking?.gate_number || '1'} Main Gate`);
       const isPriority = matchedPass?.is_priority !== undefined ? matchedPass.is_priority : (matchedBooking?.is_priority || false);
       const templeName = matchedBooking?.temples?.name || 'Somnath Temple';
+      const slotDate = matchedBooking?.slot_date || matchedBooking?.darshan_slots?.slot_date || new Date().toISOString().split('T')[0];
+      const slotTime = matchedBooking?.start_time ? `${matchedBooking.start_time} - ${matchedBooking.end_time || ''}` : (matchedBooking?.darshan_slots?.start_time ? `${matchedBooking.darshan_slots.start_time} - ${matchedBooking.darshan_slots.end_time}` : '08:00 AM - 10:00 AM');
 
       return {
         success: true,
         already_scanned: false,
         qr_pass_id: passId,
         holder_name: holderName,
-        gate_number: gateNum,
+        gate_number: rerouteCheck.isRerouted ? `Rerouted Gate (${scanningGateId})` : (matchedPass?.gate_number || `Gate #${rawGate}`),
         is_priority: isPriority,
         temple_name: templeName,
         slot_date: slotDate,
-        slot_time: slotTime
+        slot_time: slotTime,
+        reroute_notice: rerouteCheck.isRerouted ? rerouteCheck.message : null
       };
     }
 
     return {
       success: false,
-      code: valRes.reason ? valRes.reason.toUpperCase() : 'INVALID_CODE',
-      message: valRes.message || 'Invalid or Unrecognized Pass'
+      code: 'INVALID_CODE',
+      message: 'Invalid or Unrecognized Pass'
     };
   } catch (err) {
     return { success: false, code: 'ERROR', message: err.message };
@@ -255,6 +296,9 @@ export const verifyPrasadToken = async (qrCodeValue, volunteerId = 'vol_prasad_1
     const cleanCode = qrCodeValue.trim();
     const valRes = await validateAndConsumeToken(cleanCode, 'prasad', scanningTempleId, volunteerId);
 
+    let tokenNumber = 145;
+    let isSuccess = false;
+
     if (!valRes.valid) {
       if (valRes.reason === 'already_used') {
         const scanTime = valRes.usedAt ? new Date(valRes.usedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Earlier Today';
@@ -270,26 +314,69 @@ export const verifyPrasadToken = async (qrCodeValue, volunteerId = 'vol_prasad_1
       // Fallback check for plain token number or PR- codes
       if (cleanCode.toUpperCase().startsWith('PR-') || cleanCode.toUpperCase().startsWith('PRASAD-') || /^\d+$/.test(cleanCode)) {
         const tokenNum = cleanCode.replace(/\D/g, '') || '145';
-        return {
-          success: true,
-          already_scanned: false,
-          token_number: parseInt(tokenNum, 10),
-          holder_name: 'Prasad Pilgrim',
-          meal_type: 'Free Mahaprasad Meal'
-        };
+        tokenNumber = parseInt(tokenNum, 10);
+        isSuccess = true;
+      } else {
+        return { success: false, code: valRes.reason.toUpperCase(), message: valRes.message };
       }
-
-      return { success: false, code: valRes.reason.toUpperCase(), message: valRes.message };
+    } else {
+      tokenNumber = parseInt(valRes.resource_id.replace(/\D/g, '') || '145', 10);
+      isSuccess = true;
     }
 
-    return {
-      success: true,
-      already_scanned: false,
-      resource_id: valRes.resource_id,
-      token_number: parseInt(valRes.resource_id.replace(/\D/g, '') || '145', 10),
-      holder_name: 'Prasad Pilgrim',
-      meal_type: 'Free Mahaprasad Meal'
-    };
+    if (isSuccess) {
+      // 1. Mark as served in localStorage
+      try {
+        const savedPrasadList = JSON.parse(localStorage.getItem('nirvighna_prasad_tokens_list') || '[]');
+        let updatedList = savedPrasadList.map(t => {
+          if (t.token_number === tokenNumber || t.signed_value === cleanCode || (t.id && t.id.includes(tokenNumber.toString()))) {
+            return { ...t, status: 'served', received: true, received_at: new Date().toISOString() };
+          }
+          return t;
+        });
+        localStorage.setItem('nirvighna_prasad_tokens_list', JSON.stringify(updatedList));
+
+        const savedSingle = localStorage.getItem(`nirvighna_prasad_token_${scanningTempleId}`);
+        if (savedSingle) {
+          const parsed = JSON.parse(savedSingle);
+          if (parsed.token_number === tokenNumber) {
+            parsed.status = 'served';
+            parsed.received = true;
+            parsed.received_at = new Date().toISOString();
+            localStorage.setItem(`nirvighna_prasad_token_${scanningTempleId}`, JSON.stringify(parsed));
+          }
+        }
+      } catch (e) {}
+
+      // 2. Send instant real-time notification to pilgrim
+      try {
+        await sendPilgrimNotification({
+          title: '✨ Mahaprasad Received!',
+          message: `Your Mahaprasad meal (Pass Token #${tokenNumber}) has been verified and received at the Annakshetra. May you be blessed with divine grace!`,
+          type: 'prasad_received',
+          templeId: scanningTempleId,
+          link: '/my-bookings'
+        });
+      } catch (e) {}
+
+      // 3. Broadcast sync event
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('nirvighna_prasad_token_served', { detail: { templeId: scanningTempleId, tokenNumber } }));
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('nirvighna_prasad_sync');
+          bc.postMessage({ templeId: scanningTempleId, tokenNumber, action: 'TOKEN_SERVED' });
+          bc.close();
+        }
+      }
+
+      return {
+        success: true,
+        already_scanned: false,
+        token_number: tokenNumber,
+        holder_name: 'Prasad Pilgrim',
+        meal_type: 'Free Mahaprasad Meal'
+      };
+    }
   } catch (err) {
     return { success: false, code: 'ERROR', message: err.message };
   }
@@ -728,10 +815,11 @@ export const claimDutySlot = async (volunteerId, dutyType, templeId = 'tmp_dwark
 };
 
 // Issue new footwear token (Deposit mode)
-export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
+export const issueFootwearToken = async (templeId = 'tmp_somnath', pairs = 1) => {
   try {
     const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
-    const maxNum = existingTokens.reduce((max, t) => Math.max(max, t.token_number || 0), 100);
+    const templeTokens = existingTokens.filter(t => !t.temple_id || t.temple_id === templeId);
+    const maxNum = templeTokens.reduce((max, t) => Math.max(max, t.token_number || 0), 100);
     const tokenNum = maxNum + 1;
 
     // Issue HMAC-SHA256 Signed Token valid for 12 hours
@@ -747,6 +835,7 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
       id: `fw_tok_${Date.now()}`,
       temple_id: templeId,
       token_number: tokenNum,
+      pairs: pairs || 1,
       signed_value: signedRes.signed_value,
       status: 'deposited',
       deposited_at: new Date().toISOString()
@@ -758,6 +847,8 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
     return {
       success: true,
       token_number: tokenNum,
+      temple_id: templeId,
+      pairs: pairs || 1,
       signed_value: signedRes.signed_value,
       status: 'deposited'
     };
@@ -766,6 +857,7 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
     return {
       success: true,
       token_number: fallbackNum,
+      temple_id: templeId,
       signed_value: `FW-${fallbackNum}`,
       status: 'deposited'
     };
@@ -773,17 +865,19 @@ export const issueFootwearToken = async (templeId = 'tmp_dwarka') => {
 };
 
 // Search footwear token by number (Collect mode)
-export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') => {
+export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_somnath') => {
   try {
     const num = parseInt(tokenNumber, 10);
     const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
-    const found = existingTokens.find(t => t.token_number === num);
+    const found = existingTokens.find(t => t.token_number === num && (!t.temple_id || t.temple_id === templeId));
 
     if (!found) {
       // Create instant simulated token for easy demonstration
       const simToken = {
-        id: `fw_tok_${num}`,
+        id: `fw_tok_${Date.now()}`,
+        temple_id: templeId,
         token_number: num,
+        pairs: 1,
         status: 'deposited',
         deposited_at: new Date(Date.now() - 45 * 60 * 1000).toISOString()
       };
@@ -798,6 +892,7 @@ export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') 
       success: true,
       data: {
         token_number: parseInt(tokenNumber, 10),
+        temple_id: templeId,
         status: 'deposited',
         deposited_at: new Date().toISOString()
       }
@@ -806,10 +901,15 @@ export const searchFootwearToken = async (tokenNumber, templeId = 'tmp_dwarka') 
 };
 
 // Mark footwear as collected
-export const collectFootwearToken = async (tokenId) => {
+export const collectFootwearToken = async (tokenId, templeId = 'tmp_somnath') => {
   try {
     const existingTokens = JSON.parse(localStorage.getItem('nirvighna_footwear_tokens') || '[]');
-    const updated = existingTokens.map(t => (t.id === tokenId || t.token_number === parseInt(tokenId, 10)) ? { ...t, status: 'collected', collected_at: new Date().toISOString() } : t);
+    const updated = existingTokens.map(t => {
+      if ((t.id === tokenId || t.token_number === parseInt(tokenId, 10)) && (!t.temple_id || t.temple_id === templeId)) {
+        return { ...t, status: 'collected', collected_at: new Date().toISOString() };
+      }
+      return t;
+    });
     localStorage.setItem('nirvighna_footwear_tokens', JSON.stringify(updated));
     return { success: true };
   } catch (err) {

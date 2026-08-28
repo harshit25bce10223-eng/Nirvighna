@@ -22,8 +22,6 @@ import { PriorityAudioNav } from './components/PriorityAudioNav';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { NirvighnaSplash } from './components/NirvighnaSplash';
 import { useAuth } from './context/AuthContext';
-
-
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { VolunteerAuthProvider, useVolunteerAuth } from './context/VolunteerAuthContext';
 import { VolunteerBottomNav } from './components/VolunteerBottomNav';
@@ -37,6 +35,9 @@ import { VolunteerLostFoundPage } from './pages/volunteer/VolunteerLostFoundPage
 import { VolunteerProfilePage } from './pages/volunteer/VolunteerProfilePage';
 import { VolunteerPrasadCounterPage } from './pages/volunteer/VolunteerPrasadCounterPage';
 import { VolunteerFootwearPage } from './pages/volunteer/VolunteerFootwearPage';
+import { VolunteerFootwearResultPage } from './pages/volunteer/VolunteerFootwearResultPage';
+import { VolunteerInnerGatePage } from './pages/volunteer/VolunteerInnerGatePage';
+import { VolunteerGateAlertsPage } from './pages/volunteer/VolunteerGateAlertsPage';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isDemoMode } from './lib/runtimeMode';
@@ -50,7 +51,7 @@ const Layout = ({ children }) => {
   const { isLoggedIn, loading } = useAuth();
   const [pilgrimToast, setPilgrimToast] = React.useState(null);
   
-  const isVolunteerRoute = location.pathname.startsWith('/v');
+  const isVolunteerRoute = location.pathname.startsWith('/v/');
   const publicRoutes = ['/signup', '/login'];
   const showNav = !isVolunteerRoute && isLoggedIn && !publicRoutes.includes(location.pathname) && !loading;
 
@@ -76,7 +77,26 @@ const Layout = ({ children }) => {
     };
 
     window.addEventListener('nirvighna_notification_alert', handlePilgrimNotif);
-    return () => window.removeEventListener('nirvighna_notification_alert', handlePilgrimNotif);
+
+    // Cross-tab BroadcastChannel sync
+    let bc = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('nirvighna_interconnected_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.action === 'BROADCAST_NOTIFICATION' && event.data?.notification) {
+            handlePilgrimNotif({ detail: event.data.notification });
+          }
+        };
+      }
+    } catch (_) {}
+
+    return () => {
+      window.removeEventListener('nirvighna_notification_alert', handlePilgrimNotif);
+      if (bc) {
+        try { bc.close(); } catch (_) {}
+      }
+    };
   }, []);
 
   React.useEffect(() => {
@@ -153,7 +173,9 @@ const VolunteerLayout = ({ children }) => {
   const location = useLocation();
   const { isLoggedIn, loading } = useVolunteerAuth();
   const isLoginPage = location.pathname === '/v/login';
-  const showVolunteerBottomNav = isLoggedIn && !isLoginPage;
+  const standalonePages = ['/v/login', '/v/footwear', '/v/prasad'];
+  const isFootwearResult = location.pathname.startsWith('/v/footwear-result');
+  const showVolunteerBottomNav = isLoggedIn && !standalonePages.includes(location.pathname) && !isFootwearResult;
 
   const [liveDispatchAlert, setLiveDispatchAlert] = React.useState(null);
 
@@ -180,8 +202,7 @@ const VolunteerLayout = ({ children }) => {
       }
     };
 
-    window.addEventListener('nirvighna_temple_alert_dispatch', handleDispatch);
-    window.addEventListener('nirvighna_panic_alert', (e) => {
+    const handlePanicAlert = (e) => {
       if (e.detail) {
         const p = {
           id: 'panic_' + Date.now(),
@@ -193,10 +214,14 @@ const VolunteerLayout = ({ children }) => {
         setLiveDispatchAlert(p);
         playAlertSound();
       }
-    });
+    };
+
+    window.addEventListener('nirvighna_temple_alert_dispatch', handleDispatch);
+    window.addEventListener('nirvighna_panic_alert', handlePanicAlert);
 
     return () => {
       window.removeEventListener('nirvighna_temple_alert_dispatch', handleDispatch);
+      window.removeEventListener('nirvighna_panic_alert', handlePanicAlert);
     };
   }, []);
 
@@ -205,15 +230,15 @@ const VolunteerLayout = ({ children }) => {
       <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] text-gray-900 font-body selection:bg-gold selection:text-indigo-dark relative">
         {/* Live Command Centre Admin Emergency Dispatch Banner for Volunteers */}
         {liveDispatchAlert && !isLoginPage && (
-          <div className="bg-red-950/95 text-red-100 p-3.5 border-b-2 border-red-500 shadow-2xl backdrop-blur-md sticky top-0 z-50 animate-in slide-in-from-top">
+          <div className="bg-alertRed/95 text-white p-3.5 border-b-2 border-alertRed shadow-2xl backdrop-blur-md sticky top-0 z-50 animate-in slide-in-from-top">
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-red-600/30 border border-red-500 flex items-center justify-center shrink-0">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                <div className="w-8 h-8 rounded-xl bg-alertRed/30 border border-alertRed flex items-center justify-center shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-alertRed animate-ping"></span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 font-heading">
+                    <span className="text-[10px] font-black uppercase text-gold.light bg-gold/20 px-2 py-0.5 rounded border border-gold/30 font-heading">
                       COMMAND CENTRE DISPATCH • {liveDispatchAlert.templeName}
                     </span>
                     <span className="text-[10px] text-gray-400 font-mono">{liveDispatchAlert.timestamp}</span>
@@ -224,7 +249,7 @@ const VolunteerLayout = ({ children }) => {
               <button
                 type="button"
                 onClick={() => setLiveDispatchAlert(null)}
-                className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-lg shadow-sm uppercase shrink-0 font-heading"
+                className="px-3 py-1 bg-alertRed hover:bg-alertRed/90 text-white font-black text-xs rounded-lg shadow-sm uppercase shrink-0 font-heading"
               >
                 ACKNOWLEDGE
               </button>
@@ -348,6 +373,7 @@ export function App() {
           }
         />
         <Route path="/admin" element={<Navigate to="/command-centre" replace />} />
+        <Route path="/admin/*" element={<Navigate to="/command-centre" replace />} />
 
         {/* ─── Dedicated Volunteer Hub App Routes (/v/*) ─── */}
         <Route
@@ -357,16 +383,19 @@ export function App() {
               <VolunteerLayout>
                 <Routes>
                   <Route path="login" element={<VolunteerLogin />} />
-                  <Route path="dashboard" element={<VolunteerDashboardPage />} />
+                  <Route path="dashboard" element={<Navigate to="/v/scan" replace />} />
                   <Route path="scan" element={<VolunteerScanPage />} />
                   <Route path="scan-result/:qrId" element={<VolunteerScanResultPage />} />
                   <Route path="medical/:alertId" element={<VolunteerMedicalAlertPage />} />
                   <Route path="alerts" element={<VolunteerAlertsPage />} />
                   <Route path="lost-found" element={<VolunteerLostFoundPage />} />
+                  <Route path="gate-alerts" element={<VolunteerGateAlertsPage />} />
                   <Route path="prasad" element={<VolunteerPrasadCounterPage />} />
                   <Route path="footwear" element={<VolunteerFootwearPage />} />
+                  <Route path="footwear-result/:qrId" element={<VolunteerFootwearResultPage />} />
+                  <Route path="inner-gate" element={<VolunteerInnerGatePage />} />
                   <Route path="profile" element={<VolunteerProfilePage />} />
-                  <Route path="*" element={<Navigate to="dashboard" replace />} />
+                  <Route path="*" element={<Navigate to="/v/scan" replace />} />
                 </Routes>
               </VolunteerLayout>
             </VolunteerAuthProvider>

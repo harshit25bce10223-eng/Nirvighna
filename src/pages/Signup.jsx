@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../lib/supabaseClient';
-import { isDemoMode } from '../lib/runtimeMode';
 import { User, Mail, Phone, Lock, Loader2, ArrowRight, AlertCircle, CheckCircle, MailOpen, RefreshCw } from 'lucide-react';
 
 const translations = {

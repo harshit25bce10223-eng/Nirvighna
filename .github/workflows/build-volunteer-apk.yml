@@ -34,33 +34,16 @@ jobs:
       - name: Install Node Dependencies
         run: npm install
 
-      - name: Verify Volunteer App Files Exist
-        run: |
-          echo "Checking volunteer entry files..."
-          ls volunteer.html && echo "✓ volunteer.html found" || echo "✗ volunteer.html MISSING"
-          ls vite.volunteer.config.js && echo "✓ vite.volunteer.config.js found" || echo "✗ vite.volunteer.config.js MISSING"
-          ls src/volunteer-main.jsx && echo "✓ src/volunteer-main.jsx found" || echo "✗ src/volunteer-main.jsx MISSING"
-          ls src/VolunteerApp.jsx && echo "✓ src/VolunteerApp.jsx found" || echo "✗ src/VolunteerApp.jsx MISSING"
-
       - name: Build Volunteer Web Assets
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_ENV: production
-          VITE_DEMO_MODE: "true"
         run: npm run build:volunteer
 
-      - name: Copy Volunteer Web Assets into Android Project
+      - name: Sync Volunteer Web Assets to Native Android
         run: |
-          DEST="android/app/src/main/assets/public"
-          rm -rf "$DEST"
-          mkdir -p "$DEST"
-          cp -r dist-volunteer/. "$DEST/"
-          echo "✓ Volunteer assets copied to $DEST"
-          ls "$DEST"
+          npx cap sync android --config capacitor.volunteer.config.json
 
       - name: Configure Android SDK & License Agreement
         run: |
+          mkdir -p android
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           mkdir -p "$ANDROID_HOME/licenses" || true
           echo -e "\n89337d1c0b38038b5183877d13d4549dd367a660\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license"
@@ -73,33 +56,25 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          sh ./gradlew assembleDebug --no-daemon
+          sh ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Rename & Move APK
+      - name: Prepare APK File
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk Nirvighna-Volunteer.apk
-          echo "✓ APK ready: Nirvighna-Volunteer.apk"
 
-      - name: Upload APK as Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Nirvighna-Volunteer-APK
           path: Nirvighna-Volunteer.apk
 
-      - name: Create GitHub Release
+      - name: Create Direct APK GitHub Release
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
           tag_name: latest-volunteer
-          name: "Nirvighna Volunteer Operations App"
-          body: |
-            📱 **Nirvighna Volunteer Field Ops APK**
-            
-            Install on any Android device for:
-            - QR Gate Scanning
-            - Medical Triage Alerts  
-            - Lost & Found Management
-            - Prasad & Footwear Counter
+          name: "Nirvighna Volunteer Operations App Release"
+          body: "Official standalone Android APK for Nirvighna Volunteer Field Ops (QR Scanning, Lost & Found, Medical Triage)."
           draft: false
           prerelease: false
           files: Nirvighna-Volunteer.apk

@@ -168,36 +168,47 @@ export const VolunteerAuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      let loggedUser = null;
+      const cleanEmail = (email || '').toLowerCase().trim();
+      const cleanPassword = (password || '').trim();
 
-      // try supabase auth first
-      if (!isDemoMode && email && password) {
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-          if (!error && data?.user) {
-            loggedUser = data.user;
-          }
-        } catch (_) {
-          // fallback to local profile
-        }
+      if (!cleanEmail || !cleanPassword) {
+        return { success: false, error: 'Email and password are required.' };
       }
 
-      const cleanEmail = (email || '').toLowerCase().trim();
+      let loggedUser = null;
 
-      // volunteer accounts map
+      // Production: authenticate against Supabase — no fallback access
+      if (!isDemoMode) {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+        if (error || !data?.user) {
+          return { success: false, error: error?.message || 'Invalid volunteer credentials.' };
+        }
+        loggedUser = data.user;
+      }
+
+      // Demo-mode volunteer accounts map
       const volunteerAccounts = {
         'vikram.vol@nirvighna.org': { id: 'vol_8841', name: 'Vikram Sharma', phone: '+91 98412 88410', defaultZone: 'Gate 2 Swarga Dwar Queue' },
+        'anand.vol@nirvighna.org': { id: 'vol_8845', name: 'Anand Dave', phone: '+91 98412 88414', defaultZone: 'Inner Sanctum Dwar' },
         'savitri.vol@nirvighna.org': { id: 'vol_8842', name: 'Savitri Devi', phone: '+91 98412 88411', defaultZone: 'Medical Post 1 (Gate 2)' },
         'rajesh.vol@nirvighna.org': { id: 'vol_8843', name: 'Rajesh Kumar', phone: '+91 98412 88412', defaultZone: 'Prasad Counter #1' },
-        'pooja.vol@nirvighna.org': { id: 'vol_8844', name: 'Pooja Mehta', phone: '+91 98412 88413', defaultZone: 'Footwear Rack B' }
+        'pooja.vol@nirvighna.org': { id: 'vol_8844', name: 'Pooja Mehta', phone: '+91 98412 88413', defaultZone: 'Footwear Rack B' },
+        'karan.vol@nirvighna.org': { id: 'vol_8846', name: 'Karan Patel', phone: '+91 98412 88415', defaultZone: 'Lost & Found Seva Desk' }
       };
 
-      const matched = volunteerAccounts[cleanEmail] || {
-        id: loggedUser?.id || 'vol_guest_' + Math.floor(1000 + Math.random() * 9000),
-        name: cleanEmail.includes('@') ? cleanEmail.split('@')[0].toUpperCase() + ' (Volunteer)' : 'Vikram Sharma (Volunteer)',
-        phone: '+91 98412 99999',
-        defaultZone: 'Gate 1 Main Entrance'
-      };
+      const matched = isDemoMode
+        ? (volunteerAccounts[cleanEmail] || {
+            id: 'vol_guest_' + Math.floor(1000 + Math.random() * 9000),
+            name: cleanEmail.split('@')[0].toUpperCase() + ' (Volunteer)',
+            phone: '+91 98412 99999',
+            defaultZone: 'Gate 1 Main Entrance'
+          })
+        : {
+            id: loggedUser.id,
+            name: loggedUser.user_metadata?.full_name || cleanEmail.split('@')[0],
+            phone: loggedUser.phone || loggedUser.user_metadata?.phone || '',
+            defaultZone: loggedUser.user_metadata?.zone_assigned || 'Field Duty'
+          };
 
       // check assigned duty
       const adminDuty = localStorage.getItem(`nirvighna_vol_duty_email_${cleanEmail}`) ||
@@ -208,9 +219,9 @@ export const VolunteerAuthProvider = ({ children }) => {
       setAssignedDutyState(adminDuty);
       localStorage.setItem('nirvighna_volunteer_duty', adminDuty);
 
-      const demoVolunteerUser = {
+      const volunteerUser = {
         id: matched.id,
-        email: cleanEmail || 'vikram.vol@nirvighna.org',
+        email: cleanEmail,
         phone: matched.phone,
         full_name: matched.name,
         role: 'volunteer',
@@ -218,26 +229,13 @@ export const VolunteerAuthProvider = ({ children }) => {
         zone_assigned: matched.defaultZone
       };
 
-      localStorage.setItem('nirvighna_volunteer_session', JSON.stringify(demoVolunteerUser));
-      setCurrentUser(demoVolunteerUser);
-      setZoneAssigned(demoVolunteerUser.zone_assigned);
+      localStorage.setItem('nirvighna_volunteer_session', JSON.stringify(volunteerUser));
+      setCurrentUser(volunteerUser);
+      setZoneAssigned(volunteerUser.zone_assigned);
       setIsLoggedIn(true);
-      return { success: true, user: demoVolunteerUser };
+      return { success: true, user: volunteerUser };
     } catch (err) {
-      const fallbackUser = {
-        id: 'vol_8841',
-        email: email || 'vikram.vol@nirvighna.org',
-        phone: '+91 98412 88410',
-        full_name: 'Vikram Sharma (Volunteer)',
-        role: 'volunteer',
-        assigned_duty: 'gate_scanner',
-        zone_assigned: 'Gate 2 Swarga Dwar Sanctum Queue'
-      };
-      localStorage.setItem('nirvighna_volunteer_session', JSON.stringify(fallbackUser));
-      setCurrentUser(fallbackUser);
-      setZoneAssigned(fallbackUser.zone_assigned);
-      setIsLoggedIn(true);
-      return { success: true, user: fallbackUser };
+      return { success: false, error: err?.message || 'Sign-in failed. Please try again.' };
     } finally {
       setLoading(false);
     }
@@ -276,11 +274,15 @@ export const VolunteerAuthProvider = ({ children }) => {
 
   const getDutyRoute = (duty = assignedDuty) => {
     switch (duty) {
-      case 'gate_scanner': return '/v/scan';
+      case 'gate_scanner':
+      case 'ropeway_counter':
+      case 'boat_counter': return '/v/scan';
+      case 'inner_gate_scanner': return '/v/inner-gate';
       case 'medical_responder': return '/v/alerts';
       case 'prasad_counter': return '/v/prasad';
       case 'footwear_counter': return '/v/footwear';
-      default: return '/v/dashboard';
+      case 'lost_found': return '/v/lost-found';
+      default: return '/v/scan';
     }
   };
 

@@ -45,6 +45,60 @@ export const LiveWebcamCVMonitor = () => {
     capturedAt: null,
   });
 
+  // Backend (Drishti AI server) live telemetry — primary source when online
+  const [backendLive, setBackendLive] = useState(false);
+  const [bt, setBt] = useState(null);
+
+  useEffect(() => {
+    let ws = null;
+    let mounted = true;
+    let reconnect = null;
+    const drishtiWsUrl = (import.meta.env.VITE_DRISHTI_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws');
+
+    const connect = () => {
+      if (!mounted) return;
+      try {
+        ws = new WebSocket(`${drishtiWsUrl}/ws/telemetry`);
+        ws.onopen = () => { if (mounted) setBackendLive(true); };
+        ws.onmessage = (ev) => {
+          if (!mounted) return;
+          try {
+            const data = JSON.parse(ev.data);
+            setBackendLive(true);
+            setBt({
+              devotees_present: data.devotees_present ?? 0,
+              verified_count: data.verified_count ?? 0,
+              unverified_count: data.unverified_count ?? 0,
+              entry_rate: data.entry_rate ?? 0,
+              exit_rate: data.exit_rate ?? 0,
+              avg_confidence: data.avg_confidence ?? 0,
+              inference_ms: data.inference_ms ?? 0,
+              detection_model: data.detection_model || 'YOLOv8',
+              timestamp: data.timestamp,
+            });
+          } catch (_) {}
+        };
+        ws.onerror = () => { if (mounted) setBackendLive(false); };
+        ws.onclose = () => {
+          if (mounted) {
+            setBackendLive(false);
+            reconnect = setTimeout(connect, 3000);
+          }
+        };
+      } catch (_) {
+        if (mounted) reconnect = setTimeout(connect, 3000);
+      }
+    };
+
+    connect();
+    return () => {
+      mounted = false;
+      if (reconnect) clearTimeout(reconnect);
+      try { ws?.close(); } catch (_) {}
+    };
+  }, []);
+
+
   const captureFrame = useCallback(() => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return null;
@@ -351,10 +405,15 @@ export const LiveWebcamCVMonitor = () => {
       {/* Top Bar */}
       <div className="flex flex-wrap items-center justify-between px-4 py-3 border-b border-white/10 gap-2">
         <div className="flex items-center gap-2.5">
-          {streamActive ? (
+          {bt ? (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              DRISHTI BACKEND LIVE — {bt.detection_model}
+            </span>
+          ) : streamActive ? (
             <span className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
               <CheckCircle2 className="w-4 h-4 text-amber-400" />
-              REAL FACE DETECTION & LANDMARKS ACTIVE
+              LOCAL EDGE CV ACTIVE (Backend Offline)
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
@@ -401,6 +460,38 @@ export const LiveWebcamCVMonitor = () => {
         </div>
       </div>
 
+      {/* Backend Live Telemetry Strip — real detections from Drishti AI server */}
+      {bt && (
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 px-4 py-2.5 bg-black/30 border-b border-white/10 text-center">
+          <div>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Devotees</p>
+            <p className="text-lg font-black text-white tabular-nums leading-tight">{bt.devotees_present}</p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Verified</p>
+            <p className="text-sm font-bold text-emerald-400 tabular-nums leading-tight mt-1">{bt.verified_count}</p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Unverified</p>
+            <p className="text-sm font-bold text-slate-400 tabular-nums leading-tight mt-1">{bt.unverified_count}</p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">In / min</p>
+            <p className="text-sm font-bold text-emerald-400 tabular-nums leading-tight mt-1">↑{bt.entry_rate}</p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Out / min</p>
+            <p className="text-sm font-bold text-gold-light tabular-nums leading-tight mt-1" style={{ color: '#F4C465' }}>↓{bt.exit_rate}</p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Confidence</p>
+            <p className={`text-sm font-bold tabular-nums leading-tight mt-1 ${bt.avg_confidence >= 0.85 ? 'text-emerald-400' : bt.avg_confidence >= 0.7 ? 'text-amber-300' : 'text-red-400'}`}>
+              {Math.round(bt.avg_confidence * 100)}%
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Video Viewport */}
       <div className="grid grid-cols-1 md:grid-cols-3">
         <div className="md:col-span-2 relative bg-black flex items-center justify-center" style={{ minHeight: 300 }}>
@@ -419,7 +510,7 @@ export const LiveWebcamCVMonitor = () => {
           ) : (
             <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               <img
-                src="http://localhost:8001/video_feed"
+                src={`${import.meta.env.VITE_DRISHTI_URL || 'http://127.0.0.1:8000'}/video_feed`}
                 className="w-full h-auto max-h-[360px] object-contain mx-auto block rounded-lg border border-amber-900/40"
                 alt="Live Drishti AI CCTV Feed"
                 onError={(e) => {

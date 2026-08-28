@@ -341,6 +341,22 @@ export const VolunteerMedicalAlertPage = () => {
             <p className="text-xs text-gray-800 font-medium">
               Passage: <strong className="text-emerald-950">{evacuationPlan.hiddenPassageName}</strong>
             </p>
+            {evacuationPlan.distanceMeters ? (
+              <div className="grid grid-cols-3 gap-1.5 text-center">
+                <div className="bg-white rounded-lg border border-emerald-200 p-1.5">
+                  <p className="text-[8px] uppercase font-black text-gray-500">Distance</p>
+                  <p className="text-xs font-black text-emerald-900">{evacuationPlan.distanceMeters} m</p>
+                </div>
+                <div className="bg-white rounded-lg border border-emerald-200 p-1.5">
+                  <p className="text-[8px] uppercase font-black text-gray-500">ETA</p>
+                  <p className="text-xs font-black text-emerald-900">{evacuationPlan.estEvacuationMinutes}</p>
+                </div>
+                <div className="bg-white rounded-lg border border-emerald-200 p-1.5">
+                  <p className="text-[8px] uppercase font-black text-gray-500">Ambulance</p>
+                  <p className="text-[10px] font-bold text-emerald-900 leading-tight mt-0.5">{evacuationPlan.ambulanceBay}</p>
+                </div>
+              </div>
+            ) : null}
             <div className="p-2 bg-white rounded-xl border border-emerald-200 text-[11px] font-mono text-emerald-900 space-y-1">
               {evacuationPlan.pathSteps.map((step, idx) => (
                 <p key={idx}>{step}</p>

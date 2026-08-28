@@ -205,26 +205,25 @@ export const VolunteerScanResultPage = () => {
             </div>
           )}
 
-          {/* ACTION BUTTONS: APPROVE vs REJECT ONLY */}
-          <div className="space-y-2.5 pt-2">
-            {/* GREEN: APPROVE ENTRY BUTTON */}
+          {/* ACTION BUTTONS: CLEAN, HUMANIZED APPROVE & REJECT */}
+          <div className="space-y-2 pt-2">
+            {/* APPROVE ENTRY BUTTON */}
             <button
               type="button"
               onClick={handleApproveEntry}
-              className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 active:scale-98 text-white font-black text-sm rounded-2xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2.5 font-heading cursor-pointer transition-all border border-emerald-400"
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-[0.98] text-white font-bold text-sm rounded-2xl shadow-sm flex items-center justify-center gap-2 font-heading cursor-pointer transition-all"
             >
-              <CheckCircle className="w-6 h-6" />
-              <span>✅ APPROVE ENTRY (प्रवेश स्वीकृत)</span>
+              <CheckCircle className="w-5 h-5" />
+              <span>Allow Entry &amp; Validate Pass →</span>
             </button>
 
-            {/* RED: REJECT ENTRY BUTTON */}
+            {/* SECONDARY: REJECT ENTRY BUTTON */}
             <button
               type="button"
               onClick={() => setShowRejectModal(true)}
-              className="w-full py-3.5 bg-gradient-to-r from-rose-700 to-red-600 hover:from-rose-600 hover:to-red-500 active:scale-98 text-white font-black text-sm rounded-2xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2 font-heading cursor-pointer transition-all border border-rose-500"
+              className="w-full py-2.5 bg-white hover:bg-rose-50 text-gray-600 hover:text-red-700 font-medium text-xs rounded-2xl border border-gray-200 hover:border-red-200 transition-colors cursor-pointer"
             >
-              <XCircle className="w-5 h-5" />
-              <span>❌ REJECT ENTRY (प्रवेश अस्वीकृत)</span>
+              Deny Entry / Flag Pass
             </button>
           </div>
 

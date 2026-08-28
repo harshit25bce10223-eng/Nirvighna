@@ -42,7 +42,7 @@ export const Navbar = () => {
   const activeRole = getActiveRole();
 
   return (
-    <header className="relative bg-[#0F0D22]/95 backdrop-blur-2xl text-white border-b border-gold/30 sticky top-0 z-50 shadow-[0_4px_30px_rgba(0,0,0,0.35)] pt-[max(env(safe-area-inset-top,0px),0.5rem)] pb-1.5 px-3 sm:px-6">
+    <header className="relative bg-darkWarm.bg/95 backdrop-blur-2xl text-white border-b border-gold/30 sticky top-0 z-50 shadow-temple pt-[max(env(safe-area-inset-top,0px),0.5rem)] pb-1.5 px-3 sm:px-6">
       {/* Top subtle golden light streak */}
       <div className="absolute top-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/80 to-transparent pointer-events-none" />
 

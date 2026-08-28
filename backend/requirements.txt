@@ -8,3 +8,6 @@ sounddevice>=0.4.6
 websockets>=11.0
 python-multipart>=0.0.6
 requests>=2.31.0
+kagglehub>=0.2.0
+onnxruntime>=1.16.0
+faiss-cpu>=1.7.4

@@ -856,7 +856,7 @@ export const Booking = () => {
 
     try {
       const { data: bookingData, error: bookingErr } = await supabase
-        .from('darshan_bookings')
+        .from('bookings')
         .insert([
           {
             pilgrim_id: currentUser?.id || 'demo_user',

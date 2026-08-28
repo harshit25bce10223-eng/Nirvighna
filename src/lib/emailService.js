@@ -52,23 +52,35 @@ export const emailService = {
     try {
       const { supabase } = await import('./supabaseClient');
 
-      // Get booking details with emergency contact and group members
+      // Get booking details first (no embedded join — emergency_contacts relates to pilgrim, not booking)
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
-        .select('*, emergency_contacts(*), group_members(*)')
+        .select('*')
         .eq('id', bookingId)
         .single();
 
       if (bookingError) throw bookingError;
 
+      // Fetch emergency contacts via the pilgrim and group members via the booking
+      const [contactsRes, membersRes] = await Promise.all([
+        booking.pilgrim_id
+          ? supabase.from('emergency_contacts').select('*').eq('pilgrim_id', booking.pilgrim_id)
+          : Promise.resolve({ data: [] }),
+        supabase.from('group_members').select('*').eq('booking_id', bookingId)
+      ]);
+
+      const emergencyContacts = contactsRes.data || [];
+      const groupMembers = membersRes.data || [];
+
       const emailPromises = [];
       const errors = [];
 
-      // Send to emergency contact if email exists
-      if (booking.emergency_contacts?.email) {
+      // Send to emergency contacts that have an email
+      for (const contact of emergencyContacts) {
+        if (!contact.email) continue;
         const result = await this.sendAlertEmail({
-          recipient_email: booking.emergency_contacts.email,
-          recipient_name: booking.emergency_contacts.name || 'Emergency Contact',
+          recipient_email: contact.email,
+          recipient_name: contact.name || 'Emergency Contact',
           alert_type: 'medical_alert',
           context: {
             patientName: medicalInfo.patientName,
@@ -79,13 +91,13 @@ export const emailService = {
         });
 
         if (!result.success) {
-          errors.push(`Emergency contact email failed: ${result.error}`);
+          errors.push(`Emergency contact ${contact.name || ''} email failed: ${result.error}`);
         }
         emailPromises.push(result);
       }
 
       // Send to group members who have emails
-      if (booking.group_members && booking.group_members.length > 0) {
+      if (groupMembers && groupMembers.length > 0) {
         for (const member of booking.group_members) {
           if (member.email) {
             const result = await this.sendAlertEmail({
@@ -126,12 +138,19 @@ export const emailService = {
   async sendMedicalAlertWithRetry({ bookingId, alertId, patientName, location, condition, bloodGroup, emergencyPhone }) {
     const { supabase } = await import('./supabaseClient');
 
+    // Resolve current user for the notification row (RLS requires user_id)
+    let userId = null;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      userId = authData?.user?.id || null;
+    } catch (_) {}
+
     // 1. CRITICAL: Insert In-App Notification IMMEDIATELY (Never blocked by email failure)
     const inAppNotif = {
+      user_id: userId,
       type: 'medical_alert',
       title: '🚨 CRITICAL MEDICAL EMERGENCY',
       message: `Medical emergency logged for ${patientName || 'Pilgrim'} at ${location || 'Gate 2 Swarga Dwar'}. Response team dispatched.`,
-      delivery_status: 'sent_in_app',
       created_at: new Date().toISOString()
     };
 
@@ -178,10 +197,10 @@ export const emailService = {
 
       try {
         await supabase.from('notifications').insert({
+          user_id: userId,
           type: 'medical_alert',
           title: '📞 CALL EMERGENCY CONTACT DIRECTLY',
           message: humanEscalationMessage,
-          delivery_status: 'failed_permanent',
           created_at: new Date().toISOString()
         });
       } catch (e) {}
@@ -205,6 +224,7 @@ export const emailService = {
   },
 
   async updateDeliveryLog(alertId, status, attempts) {
+    if (!alertId) return;
     const { supabase } = await import('./supabaseClient');
     try {
       await supabase
