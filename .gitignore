@@ -48,3 +48,41 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Drishti AI training data & artifacts
+data/
+
+# ── Volunteer & Pilgrim Build Outputs ──────────────────────────────
+dist-volunteer/
+android-volunteer/
+
+# ── ML Model Binaries (large files, not needed in repo) ─────────────
+*.pt
+*.onnx
+*.zip
+backend/models/
+backend/drishti_face.pt
+backend/drishti_person.pt
+backend/buffalo_l.zip
+backend/arcface_r100.onnx
+backend/face_detection_yunet_2023mar.onnx
+
+# ── Testing / Debug / Scratch Scripts ───────────────────────────────
+test_*.js
+test_*.py
+check_*.py
+qa_*.js
+backend/test_face*.jpg
+backend/final_test.py
+backend/test_face.py
+backend/train_drishti.py
+backend/train_drishti_face.py
+check_effects.py
+check_imports.py
+check_volunteer.py
+scripts/download_dataset.py
+scripts/prepare_site_data.py
+launch_drishti.py
+start_drishti.bat
+yolo26n.pt
+supabase/.temp/

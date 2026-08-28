@@ -229,7 +229,7 @@ CREATE TABLE notifications (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
-    notification_type VARCHAR(50) NOT NULL CHECK (notification_type IN ('booking', 'alert', 'update', 'emergency', 'general')),
+    notification_type VARCHAR(50) NOT NULL CHECK (notification_type IN ('booking', 'booking_confirmed', 'gate', 'gate_info', 'emergency', 'medical_alert', 'alert', 'update', 'general')),
     is_read BOOLEAN DEFAULT FALSE,
     read_at TIMESTAMP WITH TIME ZONE,
     action_url TEXT,

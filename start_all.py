@@ -2,9 +2,9 @@ import os
 import sys
 import subprocess
 import time
-import shutil
 import urllib.request
 import webbrowser
+import threading
 
 # Ensure UTF-8 output on Windows console
 if sys.platform.startswith('win'):
@@ -13,6 +13,12 @@ if sys.platform.startswith('win'):
         sys.stderr.reconfigure(encoding='utf-8')
     except Exception:
         pass
+
+PORTS = [3000, 3001, 8000]
+
+# Model URLs
+YUNET_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+
 
 def free_port_windows(port):
     """Frees a specific port on Windows by killing the listening process."""
@@ -26,16 +32,18 @@ def free_port_windows(port):
     except Exception:
         pass
 
+
 def free_all_ports():
-    """Frees all Nirvighna service ports (3000, 8000, 8001) to prevent bind collisions."""
-    print("\n[PORT CHECK] Ensuring ports 3000, 8000, and 8001 are free...")
+    """Frees all Nirvighna service ports to prevent bind collisions."""
+    print("\n[PORT CHECK] Ensuring ports 3000, 3001 and 8000 are free...")
     if sys.platform.startswith('win'):
-        for p in [3000, 8000, 8001]:
+        for p in PORTS:
             free_port_windows(p)
     else:
-        for p in [3000, 8000, 8001]:
+        for p in PORTS:
             subprocess.run(f"fuser -k {p}/tcp", shell=True, capture_output=True)
     time.sleep(1)
+
 
 def run_command(cmd, cwd=None, description=""):
     """Runs a shell command and waits for completion."""
@@ -49,23 +57,47 @@ def run_command(cmd, cwd=None, description=""):
     except Exception as e:
         print(f"[WARN] Error executing {description}: {e}")
 
-def check_and_download_yolo(root_dir):
-    """Downloads yolov8n.pt weights automatically if not present."""
-    target_path = os.path.join(root_dir, "backend", "yolov8n.pt")
-    if not os.path.exists(target_path):
-        print("\n[DOWNLOAD] Downloading pre-trained YOLOv8n model weights (~6MB)...")
-        url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt"
-        try:
-            urllib.request.urlretrieve(url, target_path)
-            print("[OK] Downloaded YOLOv8n weights successfully!")
-        except Exception as e:
-            print(f"[WARN] Failed to auto-download YOLO weights: {e}")
+
+def check_models(root_dir):
+    """Ensures YOLO weights + YuNet + ArcFace exist; reports trained model status."""
+    backend_dir = os.path.join(root_dir, "backend")
+    trained = os.path.join(backend_dir, "drishti_person.pt")
+    if os.path.exists(trained):
+        print("[OK] Fine-tuned model found: backend/drishti_person.pt (Drishti AI will use this)")
     else:
-        print("[OK] YOLOv8n model weights found.")
+        for name in ("yolov8s.pt", "yolov8n.pt"):
+            target = os.path.join(backend_dir, name)
+            if os.path.exists(target):
+                print(f"[OK] Base weights found: {name}")
+                break
+        else:
+            print("\n[DOWNLOAD] Downloading YOLOv8s weights (~22MB)...")
+            url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8s.pt"
+            try:
+                urllib.request.urlretrieve(url, os.path.join(backend_dir, "yolov8s.pt"))
+                print("[OK] Downloaded yolov8s.pt")
+            except Exception as e:
+                print(f"[WARN] Failed to auto-download YOLO weights: {e}")
+
+    # YuNet face detector
+    yunet_path = os.path.join(backend_dir, "face_detection_yunet_2023mar.onnx")
+    if not os.path.exists(yunet_path):
+        print("\n[DOWNLOAD] Downloading YuNet face detector (~2MB)...")
+        try:
+            urllib.request.urlretrieve(YUNET_URL, yunet_path)
+            print("[OK] Downloaded YuNet face detector")
+        except Exception as e:
+            print(f"[WARN] Failed to download YuNet: {e}")
+    else:
+        print("[OK] YuNet face detector found")
+
+    # ArcFace model (will auto-download on first run via insightface)
+    print("[INFO] ArcFace model will auto-download on first run (~166MB) if missing")
+
 
 def wait_for_service(url, name, max_retries=20, delay=1):
-    """Polls a service URL until it responds with HTTP 200/300/400 or timeout."""
-    for i in range(max_retries):
+    """Polls a service URL until it responds or times out."""
+    for _ in range(max_retries):
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'NirvighnaLauncher/1.0'})
             with urllib.request.urlopen(req, timeout=1.5) as res:
@@ -76,104 +108,123 @@ def wait_for_service(url, name, max_retries=20, delay=1):
         time.sleep(delay)
     return False
 
+
+def open_browser_later(url, delay_sec):
+    """Opens a URL after a delay without blocking the main loop."""
+    def worker():
+        time.sleep(delay_sec)
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+    import threading
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     os.chdir(root_dir)
 
+    npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+
     print("=" * 78)
-    print(" 🛕 [NIRVIGHNA] — ALL-IN-ONE MASTER UNIFIED LAUNCHER")
+    print(" 🛕 [NIRVIGHNA] — MASTER LAUNCHER | PILGRIM + VOLUNTEER + ADMIN + DRISHTI AI")
     print("=" * 78)
 
     # 0. Free busy ports
     free_all_ports()
 
-    # 1. Install / Update Python Dependencies
-    print("\n[STEP 1/4] Checking & Installing Python AI/ML dependencies...")
-    req_file_1 = os.path.join(root_dir, "backend", "requirements.txt")
-    req_file_2 = os.path.join(root_dir, "backend", "ml_engine", "requirements.txt")
-    
-    if os.path.exists(req_file_1):
-        run_command(f'"{sys.executable}" -m pip install -q -r "{req_file_1}"', description="Backend Requirements")
-    if os.path.exists(req_file_2):
-        run_command(f'"{sys.executable}" -m pip install -q -r "{req_file_2}"', description="ML Engine Requirements")
+    # 1. Python dependencies (backend)
+    print("\n[STEP 1/3] Checking Python AI dependencies...")
+    req_file = os.path.join(root_dir, "backend", "requirements.txt")
+    if os.path.exists(req_file):
+        run_command(f'"{sys.executable}" -m pip install -q -r "{req_file}"', description="Backend Requirements")
 
-    # 2. Check & Install Node.js Frontend Dependencies
+    # 2. Node dependencies
     node_modules = os.path.join(root_dir, "node_modules")
-    npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
     if not os.path.exists(node_modules):
-        print("\n[STEP 2/4] Installing Node.js frontend dependencies (npm install)...")
+        print("\n[STEP 2/3] Installing frontend dependencies (npm install)...")
         run_command(f"{npm_cmd} install", cwd=root_dir, description="NPM Package Installation")
     else:
-        print("\n[STEP 2/4] [OK] Node.js frontend packages verified.")
+        print("\n[STEP 2/3] [OK] Frontend packages verified.")
 
-    # 3. Check YOLO Weights & Train ML Baseline
-    print("\n[STEP 3/4] Preparing AI & ML Engine Baselines...")
-    check_and_download_yolo(root_dir)
+    # 3. Model weights
+    print("\n[STEP 3/3] Checking Drishti AI models...")
+    check_models(root_dir)
 
-    synthetic_csv = os.path.join(root_dir, "backend", "ml_engine", "temple_footfall_synthetic.csv")
-    model_pkl = os.path.join(root_dir, "backend", "ml_engine", "ensemble_model.pkl")
-
-    if not os.path.exists(synthetic_csv):
-        run_command(f'"{sys.executable}" backend/ml_engine/generate_synthetic_data.py', cwd=root_dir, description="Synthetic Data Generation")
-
-    if not os.path.exists(model_pkl):
-        run_command(f'"{sys.executable}" backend/ml_engine/train_models.py', cwd=root_dir, description="Ensemble Model Training")
-
-    # 4. Launch All 3 Microservices Simultaneously
-    print("\n[STEP 4/4] Launching All Nirvighna Portals & Microservices Simultaneously...")
+    # Launch all services simultaneously
+    print("\n[LAUNCH] Starting ALL Nirvighna services...")
 
     processes = []
     use_shell = sys.platform.startswith('win')
 
-    # Service 1: ML Prediction Microservice (Port 8000)
-    print("  [1/3] Starting CatBoost + LightGBM ML Engine -> http://127.0.0.1:8000")
-    p1 = subprocess.Popen([sys.executable, "backend/ml_engine/prediction_service.py"], cwd=root_dir, shell=use_shell)
-    processes.append(("ML Engine (Port 8000)", p1))
+    # Prepare env with Kaggle key
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.path.join(root_dir, "backend")
+    env["KAGGLE_KEY"] = "KGAT_a99c21687c698371e452e1779740016b"
 
-    # Service 2: Drishti AI Vision & Audio Microservice (Port 8001)
-    print("  [2/3] Starting Drishti AI Vision Microservice -> http://127.0.0.1:8001")
-    p2 = subprocess.Popen([sys.executable, "backend/drishti_demo.py"], cwd=root_dir, shell=use_shell)
-    processes.append(("Drishti AI (Port 8001)", p2))
+    # Service 1: Drishti AI Vision & Audio Backend (Port 8000) - NEW ai_service with Face Detection + Re-ID
+    print("  [1/4] Drishti AI Backend (Face Detection + Re-ID) -> http://127.0.0.1:8000")
+    p1 = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "ai_service:app", "--host", "127.0.0.1", "--port", "8000"],
+        cwd=os.path.join(root_dir, "backend"), shell=use_shell, env=env,
+    )
+    processes.append(("Drishti AI Backend (8000)", p1))
 
-    # Service 3: React Web Portal (Port 3000)
-    print("  [3/3] Starting React Web Portal -> http://localhost:3000")
-    p3 = subprocess.Popen(f"{npm_cmd} run dev", cwd=root_dir, shell=True)
-    processes.append(("Web Portal (Port 3000)", p3))
+    # Service 2: Unified Web Portal — Pilgrim + Volunteer Hub + Command Centre (Port 3000)
+    print("  [2/4] Unified Portal: Pilgrim + /v/* Volunteer + /command-centre Admin -> http://localhost:3000")
+    p2 = subprocess.Popen(f"{npm_cmd} run dev", cwd=root_dir, shell=True, env=env)
+    processes.append(("Unified Web Portal (3000)", p2))
 
+    # Service 3: Dedicated Volunteer Android-style App (Port 3001)
+    print("  [3/4] Dedicated Volunteer App -> http://localhost:3001")
+    p3 = subprocess.Popen(f"{npm_cmd} run dev -- --config vite.volunteer.config.js", cwd=root_dir, shell=True, env=env)
+    processes.append(("Volunteer App (3001)", p3))
+
+    # Service 4: Drishti AI Face Detection Training (optional - only if you want to train)
+    # Skipped by default - run manually: python backend/train_drishti_face.py
+
+    # Health checks
     print("\n[HEALTH CHECK] Waiting for all services to initialize...")
-    s1_ok = wait_for_service("http://127.0.0.1:8000/docs", "ML Engine", max_retries=15)
-    s2_ok = wait_for_service("http://127.0.0.1:8001", "Drishti AI", max_retries=15)
-    s3_ok = wait_for_service("http://localhost:3000", "Web Portal", max_retries=20)
+    ok1 = wait_for_service("http://127.0.0.1:8000/health", "Drishti AI", max_retries=30)
+    ok2 = wait_for_service("http://localhost:3000", "Unified Portal", max_retries=40)
+    ok3 = wait_for_service("http://localhost:3001", "Volunteer App", max_retries=40)
 
-    print(f"  • ML Engine (Port 8000):        {'🟢 ONLINE' if s1_ok else '🟡 STARTING'}")
-    print(f"  • Drishti AI (Port 8001):       {'🟢 ONLINE' if s2_ok else '🟡 STARTING'}")
-    print(f"  • React Web Portal (Port 3000): {'🟢 ONLINE' if s3_ok else '🟡 STARTING'}")
+    print(f"  • Drishti AI Backend   : {'🟢 ONLINE' if ok1 else '🟡 STARTING'} (Face Detection + Re-ID)")
+    print(f"  • Unified Web Portal   : {'🟢 ONLINE' if ok2 else '🟡 STARTING'}")
+    print(f"  • Volunteer App        : {'🟢 ONLINE' if ok3 else '🟡 STARTING'}")
 
     print("\n" + "=" * 78)
-    print(" 🎉 [SUCCESS] ALL NIRVIGHNA PORTALS & ENGINES ARE LIVE & READY!")
+    print(" 🎉 NIRVIGHNA FULL STACK IS LIVE — SAARE PORTALS EK SAATH!")
     print("=" * 78)
-    print("  🔱 1. PILGRIM PORTAL:         http://localhost:3000/home")
-    print("  🛡️ 2. VOLUNTEER FIELD HUB:    http://localhost:3000/v/login")
-    print("        Direct Dashboard:       http://localhost:3000/v/dashboard")
-    print("  🛰️ 3. UNIFIED COMMAND CENTRE: http://localhost:3000/command-centre")
-    print("        Staff Login:            http://localhost:3000/command-centre/login")
-    print("  🤖 4. CATBOOST ML SERVICE:    http://127.0.0.1:8000/docs (Swagger UI)")
-    print("  👁️ 5. DRISHTI AI HARDWARE:    http://127.0.0.1:8001")
+    print("  🔱 PILGRIM PORTAL      : http://localhost:3000/home")
+    print("  🛡️ VOLUNTEER HUB       : http://localhost:3000/v/login")
+    print("  📱 VOLUNTEER APP       : http://localhost:3001/#/v/login")
+    print("  🛰️ COMMAND CENTRE      : http://localhost:3000/command-centre")
+    print("        Staff Login      : http://localhost:3000/command-centre/login")
+    print("  👁️ DRISHTI AI API      : http://127.0.0.1:8000/docs (Swagger UI)")
+    print("        Health Check     : http://127.0.0.1:8000/health")
+    print("        Face Detection   : POST http://127.0.0.1:8000/detect_faces")
+    print("        Re-ID Search     : POST http://127.0.0.1:8000/upload_face")
+    print("        Enroll Face      : POST http://127.0.0.1:8000/enroll_face")
+    print("        WebSocket        : ws://127.0.0.1:8000/ws")
     print("=" * 78)
-    print(" 💡 Tip: Press Ctrl+C in this terminal anytime to cleanly stop all services.")
+    print(" 💡 Ctrl+C dabao to saare services cleanly band ho jayenge.")
     print("=" * 78 + "\n")
 
-    # Automatically open the browser to the main portal
-    try:
-        webbrowser.open("http://localhost:3000/home")
-    except Exception:
-        pass
+    # Auto-open all portals in browser tabs (staggered)
+    if ok2:
+        open_browser_later("http://localhost:3000/home", 2)
+        open_browser_later("http://localhost:3000/command-centre/login", 5)
+        open_browser_later("http://localhost:3000/command-centre/drishti_ai", 8)
+    if ok3:
+        open_browser_later("http://localhost:3001/#/v/login", 11)
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\n\nStopping all Nirvighna microservices...")
+        print("\n\nStopping all Nirvighna services...")
         for name, proc in processes:
             try:
                 if sys.platform.startswith('win'):
@@ -186,6 +237,7 @@ def main():
         free_all_ports()
         print("All services stopped cleanly.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

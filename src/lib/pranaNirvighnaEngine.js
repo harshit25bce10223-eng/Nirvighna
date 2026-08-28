@@ -1,5 +1,5 @@
 /**
- * PRANA KAVACH Engine
+ * PRANA NIRVIGHNA Engine
  * AI-based Suffocation & Crowd Risk Detection
  *
  * Tracks temperature, humidity, crowd density, and movement
@@ -37,7 +37,7 @@ function getDynamicCapacity(staticCapacity, riskScore) {
   return staticCapacity;
 }
 
-export const pranaKavachEngine = {
+export const pranaNirvighnaEngine = {
   /**
    * Get live readings for real zones of a specific temple
    */

@@ -105,9 +105,13 @@ CREATE TABLE IF NOT EXISTS bookings (
   shared_booking_code TEXT UNIQUE,
   pilgrim_phone TEXT,
   total_pilgrims INTEGER DEFAULT 1,
+  priority_allocations JSONB DEFAULT '[]'::jsonb,
   status TEXT DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add priority_allocations to pre-existing bookings tables
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS priority_allocations JSONB DEFAULT '[]'::jsonb;
 
 -- RLS Policies for bookings
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
@@ -223,17 +227,32 @@ CREATE POLICY "Users can update own cases" ON lost_found_cases FOR UPDATE USING 
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('booking', 'gate', 'emergency', 'general')),
+  type TEXT NOT NULL CHECK (type IN ('booking', 'booking_confirmed', 'gate', 'gate_info', 'emergency', 'medical_alert', 'alert', 'update', 'general')),
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   is_read BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Migrate the CHECK constraint on pre-existing notifications tables
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_check;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'notifications_type_check'
+  ) THEN
+    ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
+      CHECK (type IN ('booking', 'booking_confirmed', 'gate', 'gate_info', 'emergency', 'medical_alert', 'alert', 'update', 'general'));
+  END IF;
+END $$;
+
 -- RLS Policies for notifications
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view own notifications" ON notifications;
 CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own notifications" ON notifications;
+CREATE POLICY "Users can insert own notifications" ON notifications FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can update own notifications" ON notifications;
 CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id);
 
@@ -774,3 +793,139 @@ INSERT INTO temples (name, location, description, image_url, live_capacity_perce
 ('Pavagadh Temple', 'Champaner, Gujarat', 'Kalika Mata Temple on Pavagadh Hill', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Kalika_Mata_Temple_Pavagadh.jpg/800px-Kalika_Mata_Temple_Pavagadh.jpg', 55, '06:00:00', '19:00:00'),
 ('Girnar Temple', 'Junagadh, Gujarat', 'Group of temples on Girnar mountain', 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Girnar_Temple_Complex.jpg/800px-Girnar_Temple_Complex.jpg', 42, '06:00:00', '18:00:00')
 ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- MEDICAL ALERTS (used by emergency email retry engine)
+-- ============================================
+CREATE TABLE IF NOT EXISTS medical_alerts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  qr_pass_id UUID REFERENCES qr_passes(id) ON DELETE SET NULL,
+  booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
+  pilgrim_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  alert_type TEXT NOT NULL,
+  description TEXT,
+  severity TEXT DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'en_route', 'reached', 'resolved')),
+  responding_volunteer_id UUID REFERENCES users(id),
+  location TEXT,
+  delivery_status TEXT,
+  delivery_attempts INTEGER DEFAULT 0,
+  last_attempt_at TIMESTAMP WITH TIME ZONE,
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE medical_alerts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own medical alerts" ON medical_alerts;
+CREATE POLICY "Users can view own medical alerts" ON medical_alerts FOR SELECT USING (
+  auth.uid() = pilgrim_id OR auth.uid() = responding_volunteer_id
+  OR auth.uid() IN (SELECT id FROM users WHERE role IN ('volunteer', 'admin'))
+);
+DROP POLICY IF EXISTS "Authenticated can report medical alerts" ON medical_alerts;
+CREATE POLICY "Authenticated can report medical alerts" ON medical_alerts FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Responders can update medical alerts" ON medical_alerts;
+CREATE POLICY "Responders can update medical alerts" ON medical_alerts FOR UPDATE USING (
+  auth.uid() IS NOT NULL
+);
+
+-- ============================================
+-- VOLUNTEER DUTY SLOTS & ASSIGNMENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS duty_slots (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  temple_id TEXT NOT NULL,
+  duty_type TEXT NOT NULL,
+  max_capacity INTEGER DEFAULT 99,
+  claimed_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE duty_slots ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Volunteers can view duty slots" ON duty_slots;
+CREATE POLICY "Volunteers can view duty slots" ON duty_slots FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Volunteers can claim duty slots" ON duty_slots;
+CREATE POLICY "Volunteers can claim duty slots" ON duty_slots FOR UPDATE USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Volunteers can create duty slots" ON duty_slots;
+CREATE POLICY "Volunteers can create duty slots" ON duty_slots FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE TABLE IF NOT EXISTS volunteer_duty_assignments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  volunteer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  duty_type TEXT NOT NULL,
+  temple_id TEXT NOT NULL,
+  assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE volunteer_duty_assignments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Volunteers can view own assignments" ON volunteer_duty_assignments;
+CREATE POLICY "Volunteers can view own assignments" ON volunteer_duty_assignments FOR SELECT USING (
+  auth.uid() = volunteer_id OR auth.uid() IN (SELECT id FROM users WHERE role = 'admin')
+);
+DROP POLICY IF EXISTS "Volunteers can claim assignments" ON volunteer_duty_assignments;
+CREATE POLICY "Volunteers can claim assignments" ON volunteer_duty_assignments FOR INSERT WITH CHECK (auth.uid() = volunteer_id);
+
+-- ============================================
+-- PADYATRI (FOOT MARCH) CHECKPOINTS & CHECK-INS
+-- ============================================
+CREATE TABLE IF NOT EXISTS padyatri_checkpoints (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  temple_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  sequence_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE padyatri_checkpoints ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view checkpoints" ON padyatri_checkpoints;
+CREATE POLICY "Anyone can view checkpoints" ON padyatri_checkpoints FOR SELECT USING (true);
+
+CREATE TABLE IF NOT EXISTS padyatri_checkins (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  pilgrim_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  checkpoint_id UUID REFERENCES padyatri_checkpoints(id) ON DELETE CASCADE,
+  checked_in_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE padyatri_checkins ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own check-ins" ON padyatri_checkins;
+CREATE POLICY "Users can view own check-ins" ON padyatri_checkins FOR SELECT USING (auth.uid() = pilgrim_id);
+DROP POLICY IF EXISTS "Users can insert own check-ins" ON padyatri_checkins;
+CREATE POLICY "Users can insert own check-ins" ON padyatri_checkins FOR INSERT WITH CHECK (auth.uid() = pilgrim_id);
+
+-- ============================================
+-- ROPEWAY BOOKINGS
+-- ============================================
+CREATE TABLE IF NOT EXISTS ropeway_bookings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id TEXT,
+  pilgrim_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  temple_id TEXT,
+  slot_id TEXT,
+  time_window TEXT,
+  date DATE,
+  direction TEXT DEFAULT 'upward' CHECK (direction IN ('upward', 'downward', 'round_trip')),
+  passenger_count INTEGER DEFAULT 1,
+  pilgrim_name TEXT,
+  pilgrim_phone TEXT,
+  qr_token TEXT UNIQUE NOT NULL,
+  status TEXT DEFAULT 'booked' CHECK (status IN ('booked', 'boarded', 'cancelled')),
+  boarded_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE ropeway_bookings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own ropeway bookings" ON ropeway_bookings;
+CREATE POLICY "Users can view own ropeway bookings" ON ropeway_bookings FOR SELECT USING (
+  auth.uid() = pilgrim_id OR auth.uid() IN (SELECT id FROM users WHERE role IN ('volunteer', 'admin'))
+);
+DROP POLICY IF EXISTS "Users can create ropeway bookings" ON ropeway_bookings;
+CREATE POLICY "Users can create ropeway bookings" ON ropeway_bookings FOR INSERT WITH CHECK (auth.uid() = pilgrim_id);
+DROP POLICY IF EXISTS "Volunteers can scan ropeway bookings" ON ropeway_bookings;
+CREATE POLICY "Volunteers can scan ropeway bookings" ON ropeway_bookings FOR UPDATE USING (
+  auth.uid() IN (SELECT id FROM users WHERE role IN ('volunteer', 'admin'))
+);

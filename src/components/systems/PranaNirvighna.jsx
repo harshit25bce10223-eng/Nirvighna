@@ -9,9 +9,9 @@ const EnterpriseCard = ({ children, className = '' }) => (
   </div>
 );
 
-export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
+export const PranaNirvighna = ({ templeId = 'tmp_somnath' }) => {
   const shrine = getTempleById(templeId);
-  const pranaConfig = templeAIConfigEngine.getConfig(templeId, 'prana_kavach').config;
+  const pranaConfig = templeAIConfigEngine.getConfig(templeId, 'prana_nirvighna').config;
 
   const [compositeRiskScore, setCompositeRiskScore] = useState(68);
   const [liveOccupancy, setLiveOccupancy] = useState(resolveInitialOccupancy(templeId));
@@ -65,7 +65,7 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-lg font-bold text-white tracking-tight">Prana Kavach • Environmental & Risk Monitor</h2>
+                <h2 className="text-lg font-bold text-white tracking-tight">Prana Nirvighna • Environmental & Risk Monitor</h2>
                 <span className="text-xs px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 font-semibold border border-amber-500/20">
                   {shrine.name}
                 </span>
