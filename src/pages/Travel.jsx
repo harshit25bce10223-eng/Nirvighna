@@ -1307,9 +1307,9 @@ export const Travel = () => {
                               type="tel"
                               required
                               value={pilgrimPhone}
-                              onChange={(e) => setPilgrimPhone(e.target.value.slice(0, 10))}
+                              onChange={(e) => setPilgrimPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                               placeholder={t.mobilePlaceholder}
-                              maxLength={10}
+                              inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                               className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:border-maroon"
                             />
                           </div>
@@ -1397,9 +1397,10 @@ export const Travel = () => {
                             <input
                               type="tel"
                               value={emergencyContact.phone}
-                              onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value })}
+                              onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                               className="w-full px-3 py-2 bg-ivory border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-maroon"
                               placeholder={t.emergencyPhone}
+                              inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                             />
                             <input
                               type="email"
@@ -1496,9 +1497,10 @@ export const Travel = () => {
                                 <input
                                   type="tel"
                                   value={member.phone}
-                                  onChange={(e) => updateBookingMember(index, 'phone', e.target.value)}
+                                  onChange={(e) => updateBookingMember(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                                   className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-maroon"
                                   placeholder={t.memberPhone}
+                                  inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                                 />
                               </div>
                             </div>
@@ -1813,9 +1815,9 @@ export const Travel = () => {
                           type="tel"
                           required
                           value={pilgrimPhone}
-                          onChange={(e) => setPilgrimPhone(e.target.value.slice(0, 10))}
+                          onChange={(e) => setPilgrimPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                           placeholder={t.mobilePlaceholder}
-                          maxLength={10}
+                          inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                           className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:border-maroon"
                         />
                       </div>
@@ -1874,9 +1876,10 @@ export const Travel = () => {
                         <input
                           type="tel"
                           value={emergencyContact.phone}
-                          onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value })}
+                          onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                           className="w-full px-3 py-2 bg-ivory border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-maroon"
                           placeholder={t.emergencyPhone}
+                          inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                         />
                         <input
                           type="email"
@@ -1973,9 +1976,10 @@ export const Travel = () => {
                             <input
                               type="tel"
                               value={member.phone}
-                              onChange={(e) => updateBookingMember(index, 'phone', e.target.value)}
+                              onChange={(e) => updateBookingMember(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                               className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-maroon"
                               placeholder={t.memberPhone}
+                              inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                             />
                           </div>
                         </div>

@@ -10,11 +10,22 @@ const translations = {
   en: {
     title: 'Create Your Pilgrim Account',
     subtitle: 'Nirvighna — Yatra bina vighna ke',
+    yourIdentity: 'Your Identity',
     fullName: 'Full Name',
     email: 'Email Address',
     phone: 'Phone Number (Optional)',
+    mobileMandatory: 'Mobile Number (Mandatory *)',
+    emergencyContactHeader: 'Emergency Contact',
+    emergencyNamePlaceholder: 'Emergency Contact Name *',
+    emergencyPhonePlaceholder: 'Emergency Phone *',
+    emergencyEmailPlaceholder: 'Email (Optional)',
+    securePassword: 'Secure Password',
     password: 'Password',
     confirmPassword: 'Confirm Password',
+    dpdpHeading: '🇮🇳 DPDP Act 2023 Consent',
+    dpdpMedical: 'I consent to Nirvighna processing my medical profile only during emergency dispatch.',
+    dpdpContact: 'I have permission from my emergency contacts to share their details for safety dispatch.',
+    dpdpRequired: 'DPDP Act 2023 Consent required: Please accept both checkboxes.',
     createAccount: 'Create Account',
     creating: 'Creating Account...',
     fullNameRequired: 'Full name is required',
@@ -30,11 +41,22 @@ const translations = {
   hi: {
     title: 'अपना तीर्थयात्री खाता बनाएं',
     subtitle: 'निर्विघ्न — यात्रा बिना विघ्न के',
+    yourIdentity: 'आपकी पहचान',
     fullName: 'पूरा नाम',
     email: 'ईमेल पता',
     phone: 'फ़ोन नंबर (वैकल्पिक)',
+    mobileMandatory: 'मोबाइल नंबर (अनिवार्य *)',
+    emergencyContactHeader: 'आपातकालीन संपर्क',
+    emergencyNamePlaceholder: 'आपातकालीन संपर्क का नाम *',
+    emergencyPhonePlaceholder: 'आपातकालीन फ़ोन *',
+    emergencyEmailPlaceholder: 'ईमेल (वैकल्पिक)',
+    securePassword: 'सुरक्षित पासवर्ड',
     password: 'पासवर्ड',
     confirmPassword: 'पासवर्ड की पुष्टि करें',
+    dpdpHeading: '🇮🇳 DPDP अधिनियम 2023 सहमति',
+    dpdpMedical: 'मैं आपातकालीन सहायता के दौरान ही निर्विघ्न को अपनी मेडिकल जानकारी प्रोसेस करने की सहमति देता/देती हूँ।',
+    dpdpContact: 'मेरे पास सुरक्षा सहायता के लिए अपने आपातकालीन संपर्कों का विवरण साझा करने की अनुमति है।',
+    dpdpRequired: 'DPDP अधिनियम 2023 सहमति आवश्यक: कृपया दोनों चेकबॉक्स स्वीकार करें।',
     createAccount: 'खाता बनाएं',
     creating: 'खाता बनाया जा रहा है...',
     fullNameRequired: 'पूरा नाम आवश्यक है',
@@ -50,11 +72,22 @@ const translations = {
   gu: {
     title: 'તમારુ તીર્થયાત્રી ખાતું બનાવો',
     subtitle: 'નિર્વિઘ્ન — યાત્રા વિના વિઘ્ન કે',
+    yourIdentity: 'તમારી ઓળખ',
     fullName: 'પૂરું નામ',
     email: 'ઈમેલ સરનામું',
     phone: 'ફોન નંબર (વૈકલ્પિક)',
+    mobileMandatory: 'મોબાઇલ નંબર (ફરજિયાત *)',
+    emergencyContactHeader: 'કટોકટી સંપર્ક',
+    emergencyNamePlaceholder: 'કટોકટી સંપર્કનું નામ *',
+    emergencyPhonePlaceholder: 'કટોકટી ફોન *',
+    emergencyEmailPlaceholder: 'ઈમેલ (વૈકલ્પિક)',
+    securePassword: 'સુરક્ષિત પાસવર્ડ',
     password: 'પાસવર્ડ',
     confirmPassword: 'પાસવર્ડ પુષ્ટિ કરો',
+    dpdpHeading: '🇮🇳 DPDP અધિનિયમ 2023 સંમતિ',
+    dpdpMedical: 'હું કટોકટી સહાય દરમિયાન જ નિર્વિઘ્નને મારી તબીબી પ્રોફાઇલ પ્રોસેસ કરવાની સંમતિ આપું છું.',
+    dpdpContact: 'મારી પાસે સુરક્ષા સહાય માટે મારા કટોકટી સંપર્કોની વિગતો શેર કરવાની પરવાનગી છે.',
+    dpdpRequired: 'DPDP અધિનિયમ 2023 સંમતિ જરૂરી: કૃપા કરીને બંને ચેકબોક્સ સ્વીકારો.',
     createAccount: 'ખાતું બનાવો',
     creating: 'ખાતું બનાવી રહ્યું છે...',
     fullNameRequired: 'પૂરું નામ જરૂરી છે',
@@ -132,7 +165,7 @@ export const Signup = () => {
       return;
     }
     if (!dpdpMedicalConsent || !dpdpContactConsent) {
-      setError('DPDP Act 2023 Consent required: Please accept both checkboxes.');
+      setError(t.dpdpRequired || 'DPDP Act 2023 Consent required: Please accept both checkboxes.');
       return;
     }
 
@@ -162,7 +195,6 @@ export const Signup = () => {
           }
         }
       });
-
 
       if (signupError) {
         const msg = signupError.message?.toLowerCase() || '';
@@ -205,7 +237,6 @@ export const Signup = () => {
       setPendingEmail(cleanEmail);
       setVerificationPending(true);
 
-
     } catch (err) {
       console.error('Signup error:', err);
       const msg = err.message?.toLowerCase() || '';
@@ -243,9 +274,6 @@ export const Signup = () => {
       setResending(false);
     }
   };
-
-
-
 
   // ── Open Email App Helper ──
   const handleOpenEmailApp = () => {
@@ -361,7 +389,6 @@ export const Signup = () => {
     );
   }
 
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-amber-50/40 to-[#FAF7F2] pt-[max(env(safe-area-inset-top,0px),2.5rem)] pb-[max(env(safe-area-inset-bottom,0px),2.5rem)] px-4 flex flex-col justify-center select-none font-body animate-page-in">
       <div className="max-w-sm w-full mx-auto space-y-5">
@@ -429,7 +456,7 @@ export const Signup = () => {
               {/* Section: Your Identity */}
               <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-maroon/70 font-heading flex items-center gap-1.5">
-                  <span>👤</span> Your Identity
+                  <span>👤</span> {t.yourIdentity}
                 </p>
                 <div className="relative">
                   <User className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -455,9 +482,10 @@ export const Signup = () => {
                   <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="tel" value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    placeholder="Mobile Number (Mandatory *)" required
+                    placeholder={t.mobileMandatory} required
+                    inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                     className="w-full pl-10 pr-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all focus:border-maroon focus:bg-white"
                   />
                 </div>
@@ -466,26 +494,27 @@ export const Signup = () => {
               {/* Section: Emergency Contact */}
               <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl space-y-2.5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-900 font-heading flex items-center gap-1.5">
-                  <span>🛡️</span> Emergency Contact
+                  <span>🛡️</span> {t.emergencyContactHeader}
                 </p>
                 <input type="text" required value={emergencyName}
                   onChange={(e) => setEmergencyName(e.target.value)}
                   onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                  placeholder="Emergency Contact Name *"
+                  placeholder={t.emergencyNamePlaceholder}
                   className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <input type="tel" required value={emergencyPhone}
-                    onChange={(e) => setEmergencyPhone(e.target.value)}
+                    onChange={(e) => setEmergencyPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    placeholder="Emergency Phone *"
+                    placeholder={t.emergencyPhonePlaceholder}
+                    inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                     className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                   />
                   <input
                     type="email" value={emergencyEmail}
                     onChange={(e) => setEmergencyEmail(e.target.value)}
                     onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    placeholder="Email"
+                    placeholder={t.emergencyEmailPlaceholder}
                     className="w-full px-3 py-2.5 bg-white border-[1.5px] border-amber-200 rounded-xl text-xs font-semibold text-indigo-dark transition-all focus:border-maroon focus:ring-1 focus:ring-maroon"
                   />
                 </div>
@@ -494,7 +523,7 @@ export const Signup = () => {
               {/* Section: Password */}
               <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-maroon/70 font-heading flex items-center gap-1.5">
-                  <span>🔒</span> Secure Password
+                  <span>🔒</span> {t.securePassword}
                 </p>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -521,7 +550,7 @@ export const Signup = () => {
               {/* DPDP Consent */}
               <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-2.5 text-xs text-blue-950 font-medium">
                 <span className="font-black uppercase text-[10px] text-blue-900 tracking-wider block font-heading">
-                  🇮🇳 DPDP Act 2023 Consent
+                  {t.dpdpHeading}
                 </span>
                 <label className="flex items-start gap-2 cursor-pointer select-none">
                   <input type="checkbox" required checked={dpdpMedicalConsent}
@@ -529,7 +558,7 @@ export const Signup = () => {
                     className="mt-0.5 w-4 h-4 text-gold border-gray-300 rounded focus:ring-gold shrink-0"
                   />
                   <span className="text-[11px] leading-snug">
-                    I consent to Nirvighna processing my medical profile only during emergency dispatch.
+                    {t.dpdpMedical}
                   </span>
                 </label>
                 <label className="flex items-start gap-2 cursor-pointer select-none">
@@ -538,7 +567,7 @@ export const Signup = () => {
                     className="mt-0.5 w-4 h-4 text-gold border-gray-300 rounded focus:ring-gold shrink-0"
                   />
                   <span className="text-[11px] leading-snug">
-                    I have permission from my emergency contacts to share their details for safety dispatch.
+                    {t.dpdpContact}
                   </span>
                 </label>
               </div>
@@ -569,4 +598,4 @@ export const Signup = () => {
   );
 };
 
-
+export default Signup;

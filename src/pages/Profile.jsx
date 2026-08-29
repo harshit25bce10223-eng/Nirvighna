@@ -582,7 +582,8 @@ export const Profile = () => {
                   type="tel"
                   required
                   value={profilePhone}
-                  onChange={(e) => setProfilePhone(e.target.value)}
+                  onChange={(e) => setProfilePhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                   className="w-full px-3 py-2 bg-ivory border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-gold font-mono font-bold"
                 />
               </div>
@@ -668,8 +669,9 @@ export const Profile = () => {
                   type="tel"
                   required
                   value={emergencyContact.phone}
-                  onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value })}
+                  onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   placeholder={t.contactPhone}
+                  inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                   className="w-full px-3 py-2 bg-ivory border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-gold font-mono font-bold"
                 />
               </div>

@@ -1568,10 +1568,10 @@ export const Booking = () => {
                 <input
                   type="tel"
                   value={userPhone}
-                  onChange={(e) => setUserPhone(e.target.value.slice(0, 10))}
+                  onChange={(e) => setUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   className="w-full pl-10 pr-4 py-2.5 bg-ivory border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-maroon"
                   placeholder={t.yourPhonePlaceholder}
-                  maxLength={10}
+                  inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                 />
               </div>
             </div>
@@ -1640,9 +1640,10 @@ export const Booking = () => {
               <input
                 type="tel"
                 value={emergencyContact.phone}
-                onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value })}
+                onChange={(e) => setEmergencyContact({ ...emergencyContact, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 className="w-full px-4 py-2.5 bg-ivory border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-maroon"
                 placeholder={t.emergencyPhone}
+                inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
               />
               <input
                 type="email"
@@ -1749,9 +1750,10 @@ export const Booking = () => {
                     <input
                       type="tel"
                       value={member.phone}
-                      onChange={(e) => updateBookingMember(index, 'phone', e.target.value)}
+                      onChange={(e) => updateBookingMember(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                       className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-maroon"
                       placeholder={t.memberPhone}
+                      inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                     />
                   </div>
                   <input

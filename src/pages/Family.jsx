@@ -336,9 +336,10 @@ export const Family = () => {
                 <input
                   type="tel"
                   value={newMember.phone}
-                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   className="w-full px-4 py-3 bg-ivory border-[1.5px] border-gray-200 rounded-xl text-sm font-semibold text-indigo-dark transition-all"
                   placeholder={`📞 ${t.memberPhone}`}
+                  inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                 />
               </div>
               <div className="flex gap-2 pt-1">

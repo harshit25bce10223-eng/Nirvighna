@@ -92,7 +92,8 @@ export const OfflineCounterBooking = ({ onBookingSuccess }) => {
               type="tel"
               placeholder="+91 98765 00000"
               value={formData.phone}
-              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-1 focus:ring-gold"
             />
           </div>

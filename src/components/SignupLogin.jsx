@@ -75,7 +75,8 @@ export const SignupLogin = ({ onAuthSuccess }) => {
               required
               placeholder="+91 98765 43210"
               value={formData.phone}
-              onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
               className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold text-sm"
             />
           </div>
@@ -106,7 +107,8 @@ export const SignupLogin = ({ onAuthSuccess }) => {
                   type="tel"
                   placeholder="Emergency Phone Number"
                   value={formData.emergencyPhone}
-                  onChange={e => setFormData({ ...formData, emergencyPhone: e.target.value })}
+                  onChange={e => setFormData({ ...formData, emergencyPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                  inputMode="numeric" pattern="[0-9]{10}" maxLength={10}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs focus:ring-1 focus:ring-gold"
                 />
               </div>
