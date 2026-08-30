@@ -52,6 +52,16 @@
       (function() {
         try {
           var h = window.location.hash || '';
+          var p = window.location.pathname;
+          // Fix legacy / mixed URL formats so HashRouter opens the right portal.
+          // Rewrite the FULL URL (pathname -> '/') to avoid infinite redirect loops:
+          //   /command-centre/login#/login  ->  /#/command-centre/login
+          //   /command-centre/login         ->  /#/command-centre/login
+          //   /home                         ->  /#/home
+          if (p !== '/' && (h.startsWith('#/') || !h)) {
+            window.location.replace('/#' + p);
+            return;
+          }
           if (h.indexOf('access_token=') !== -1) {
             var params = new URLSearchParams(h.replace(/^#\/?/, ''));
             var tok = params.get('access_token');
