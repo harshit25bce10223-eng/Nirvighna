@@ -77,10 +77,11 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
   const reconnectTimer = useRef(null);
   const videoLocalRef = useRef(null);
 
-  // 1. Connect WebSocket to ws://localhost:8001/ws with auto-reconnect
+  // 1. Connect WebSocket to ws://localhost:8001/ws with exponential backoff
   useEffect(() => {
     let ws = null;
     let mounted = true;
+    let retryDelay = 5000; // start at 5s, grows to max 30s
 
     const connectWS = () => {
       if (!mounted) return;
@@ -89,6 +90,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
 
         ws.onopen = () => {
           if (mounted) {
+            retryDelay = 5000; // reset on success
             setIsOnline(true);
             setStreamKey(Date.now());
           }
@@ -122,14 +124,16 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
           if (mounted) {
             setIsOnline(false);
             if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-            reconnectTimer.current = setTimeout(connectWS, 3000);
+            reconnectTimer.current = setTimeout(connectWS, retryDelay);
+            retryDelay = Math.min(retryDelay * 1.5, 30000); // exponential backoff, max 30s
           }
         };
       } catch (err) {
         if (mounted) {
           setIsOnline(false);
           if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-          reconnectTimer.current = setTimeout(connectWS, 3000);
+          reconnectTimer.current = setTimeout(connectWS, retryDelay);
+          retryDelay = Math.min(retryDelay * 1.5, 30000);
         }
       }
     };
@@ -269,8 +273,9 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
 
           detectionAnimId = requestAnimationFrame(runWebcamDetection);
         })
-        .catch((err) => {
-          console.warn("[DrishtiAI] Local webcam access:", err);
+        .catch(() => {
+          // Webcam unavailable (NotReadableError or PermissionDenied) — silently disable
+          setUseLocalWebcam(false);
         });
     }
 

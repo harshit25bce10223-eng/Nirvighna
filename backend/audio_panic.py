@@ -95,9 +95,10 @@ class DhwaniAudioPanicDetector:
         total_energy = np.sum(fft) + 1e-7
         scream_ratio = scream_band_energy / total_energy
 
-        scream_confidence = min(0.99, max(0.05, float(scream_ratio * 2.8)))
+        scream_confidence = min(0.99, max(0.05, float(scream_ratio * 4.5)))
         
-        if scream_confidence >= self.scream_thresh or db_level >= 92.0:
+        # Require BOTH high confidence AND high decibel level to avoid false alarms
+        if scream_confidence >= self.scream_thresh and db_level >= 88.0:
             self.is_panic_active = True
             self.latest_status = "Audio: PANIC DETECTED (Scream/Siren Alert!)"
             event = {
