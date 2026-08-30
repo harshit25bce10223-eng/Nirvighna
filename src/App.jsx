@@ -41,7 +41,7 @@ import { VolunteerFootwearPage } from './pages/volunteer/VolunteerFootwearPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isDemoMode } from './lib/runtimeMode';
 
-const CommandCentre = React.lazy(() => import('./components/CommandCentre').then(module => ({ default: module.CommandCentre })));
+const CommandCentre = React.lazy(() => import('./components/CommandCentre.jsx').then(module => ({ default: module.CommandCentre })));
 
 // Layout wrapper for Pilgrim Portal
 const Layout = ({ children }) => {
@@ -333,6 +333,7 @@ export function App() {
             </ErrorBoundary>
           }
         />
+        <Route path="/command-centre/login/:extra" element={<Navigate to="/command-centre/login" replace />} />
         <Route path="/admin/login" element={<Navigate to="/command-centre/login" replace />} />
 
         <Route
