@@ -365,69 +365,6 @@ const CaseCard = ({ item, onResolve, nameKey = 'full_name', locationKey = 'locat
   );
 };
 
-const SafetyCommandLoopCard = ({ templeId }) => {
-  const [incident, setIncident] = useState(() => safetyCommandDemo.getActive());
-
-  useEffect(() => {
-    const syncIncident = (event) => setIncident(event.detail);
-    window.addEventListener('nirvighna_safety_incident_update', syncIncident);
-    return () => window.removeEventListener('nirvighna_safety_incident_update', syncIncident);
-  }, []);
-
-  const isActiveForTemple = incident?.templeId === templeId;
-  const visibleIncident = isActiveForTemple ? incident : null;
-
-  return (
-    <Card className="overflow-hidden border-amber-500/35">
-      <div className="p-4 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-transparent flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-bold text-white">SIH Safety Response Loop</h2>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">DEMO SCENARIO</span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">Forecast → reroute → field dispatch → measured crowd outcome.</p>
-        </div>
-        {!visibleIncident && (
-          <button onClick={() => setIncident(safetyCommandDemo.startSurgeResponse(templeId))} className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" /> Run surge response
-          </button>
-        )}
-        {visibleIncident?.status === 'response_active' && (
-          <button onClick={() => setIncident(safetyCommandDemo.verifyOutcome())} className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5" /> Verify outcome
-          </button>
-        )}
-        {visibleIncident?.status === 'resolved' && (
-          <button onClick={() => { safetyCommandDemo.reset(); setIncident(null); }} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold flex items-center gap-1.5">
-            <RotateCcw className="w-3.5 h-3.5" /> Reset demo
-          </button>
-        )}
-      </div>
-
-      {!visibleIncident ? (
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3"><p className="text-red-300 font-bold">1. Detect early</p><p className="text-slate-400 mt-1">15-minute surge prediction at entry gate.</p></div>
-          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3"><p className="text-amber-300 font-bold">2. Coordinate response</p><p className="text-slate-400 mt-1">LED, pilgrim advisory and 4-volunteer dispatch.</p></div>
-          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3"><p className="text-emerald-300 font-bold">3. Prove the result</p><p className="text-slate-400 mt-1">Measure density reduction before closing incident.</p></div>
-        </div>
-      ) : (
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3"><p className="text-[10px] text-slate-400">SOURCE GATE</p><p className="text-lg font-bold text-red-300">{visibleIncident.beforeDensity}%</p><p className="text-[10px] text-slate-500">{visibleIncident.sourceGate}</p></div>
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3"><p className="text-[10px] text-slate-400">ALTERNATE GATE</p><p className="text-lg font-bold text-emerald-300">{visibleIncident.targetDensity}%</p><p className="text-[10px] text-slate-500">{visibleIncident.targetGate}</p></div>
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3"><p className="text-[10px] text-slate-400">FIELD RESPONSE</p><p className="text-lg font-bold text-amber-300">{visibleIncident.volunteersAssigned}</p><p className="text-[10px] text-slate-500">volunteers dispatched</p></div>
-            <div className="rounded-lg bg-sky-500/10 border border-sky-500/20 p-3"><p className="text-[10px] text-slate-400">{visibleIncident.status === 'resolved' ? 'WAIT SAVED' : 'PREDICTED WAIT SAVED'}</p><p className="text-lg font-bold text-sky-300">{visibleIncident.waitSavedMins || visibleIncident.predictedWaitSavedMins} min</p><p className="text-[10px] text-slate-500">{visibleIncident.status === 'resolved' ? 'verified outcome' : 'estimated impact'}</p></div>
-          </div>
-          <div className="space-y-2">
-            {visibleIncident.timeline.map((step, index) => <div key={step.label} className="flex gap-3 text-xs"><span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center font-bold ${step.state === 'complete' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300 animate-pulse'}`}>{index + 1}</span><div><p className="text-slate-200 font-semibold">{step.label}</p><p className="text-slate-500 mt-0.5">{step.detail}</p></div></div>)}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-};
-
 // ─── Overview Tab ─────────────────────────────────────────────────
 const OverviewTab = ({ lostCases, medicalCases, priorityCases, panicAlerts, templeCapacities, volunteerLocations, adminSession }) => {
   const totalActive = lostCases.length + medicalCases.length + priorityCases.length;
@@ -441,8 +378,8 @@ const OverviewTab = ({ lostCases, medicalCases, priorityCases, panicAlerts, temp
   ];
 
   return (
-    <div className="space-y-6">
-      <SafetyCommandLoopCard templeId={adminSession.templeId} />
+    <div className="space-y-4">
+      {/* SIH Safety Response Loop removed as per user request */}
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(s => (

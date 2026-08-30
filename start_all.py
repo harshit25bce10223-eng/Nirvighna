@@ -106,66 +106,60 @@ def main():
     else:
         print("\n[STEP 2/4] [OK] Node.js frontend packages verified.")
 
-    # 3. Check YOLO Weights & Train ML Baseline
-    print("\n[STEP 3/4] Preparing AI & ML Engine Baselines...")
+    # 3. Check YOLO Weights
+    print("\n[STEP 3/4] Checking AI model weights...")
     check_and_download_yolo(root_dir)
 
-    synthetic_csv = os.path.join(root_dir, "backend", "ml_engine", "temple_footfall_synthetic.csv")
-    model_pkl = os.path.join(root_dir, "backend", "ml_engine", "ensemble_model.pkl")
 
-    if not os.path.exists(synthetic_csv):
-        run_command(f'"{sys.executable}" backend/ml_engine/generate_synthetic_data.py', cwd=root_dir, description="Synthetic Data Generation")
-
-    if not os.path.exists(model_pkl):
-        run_command(f'"{sys.executable}" backend/ml_engine/train_models.py', cwd=root_dir, description="Ensemble Model Training")
-
-    # 4. Launch All 3 Microservices Simultaneously
+    # 4. Launch All Microservices Simultaneously
     print("\n[STEP 4/4] Launching All Nirvighna Portals & Microservices Simultaneously...")
 
     processes = []
     use_shell = sys.platform.startswith('win')
 
-    # Service 1: ML Prediction Microservice (Port 8000)
-    print("  [1/3] Starting CatBoost + LightGBM ML Engine -> http://127.0.0.1:8000")
-    p1 = subprocess.Popen([sys.executable, "backend/ml_engine/prediction_service.py"], cwd=root_dir, shell=use_shell)
-    processes.append(("ML Engine (Port 8000)", p1))
+    # Service 1: Drishti AI Vision & WebSocket Backend (Port 8001)
+    drishti_backend = os.path.join(root_dir, "backend", "app.py")
+    if os.path.exists(drishti_backend):
+        print("  [1/2] Starting Drishti AI Vision Backend -> http://127.0.0.1:8001")
+        p1 = subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+            cwd=os.path.join(root_dir, "backend"),
+            shell=use_shell
+        )
+        processes.append(("Drishti AI (Port 8001)", p1))
+    else:
+        print("  [SKIP] Drishti AI backend not found — Drishti panel will show offline demo mode.")
+        p1 = None
 
-    # Service 2: Drishti AI Vision & Audio Microservice (Port 8001)
-    print("  [2/3] Starting Drishti AI Vision Microservice -> http://127.0.0.1:8001")
-    p2 = subprocess.Popen([sys.executable, "backend/drishti_demo.py"], cwd=root_dir, shell=use_shell)
-    processes.append(("Drishti AI (Port 8001)", p2))
-
-    # Service 3: React Web Portal (Port 3000)
-    print("  [3/3] Starting React Web Portal -> http://localhost:3000")
-    p3 = subprocess.Popen(f"{npm_cmd} run dev", cwd=root_dir, shell=True)
+    # Service 2: React Web Portal (Port 3000)
+    print("  [2/2] Starting React Web Portal -> http://localhost:3000")
+    p3 = subprocess.Popen(f"{npm_cmd} run dev -- --port 3000", cwd=root_dir, shell=True)
     processes.append(("Web Portal (Port 3000)", p3))
 
     print("\n[HEALTH CHECK] Waiting for all services to initialize...")
-    s1_ok = wait_for_service("http://127.0.0.1:8000/docs", "ML Engine", max_retries=15)
-    s2_ok = wait_for_service("http://127.0.0.1:8001", "Drishti AI", max_retries=15)
-    s3_ok = wait_for_service("http://localhost:3000", "Web Portal", max_retries=20)
+    s2_ok = wait_for_service("http://127.0.0.1:8001", "Drishti AI", max_retries=20) if p1 else False
+    s3_ok = wait_for_service("http://localhost:3000", "Web Portal", max_retries=25)
 
-    print(f"  • ML Engine (Port 8000):        {'🟢 ONLINE' if s1_ok else '🟡 STARTING'}")
-    print(f"  • Drishti AI (Port 8001):       {'🟢 ONLINE' if s2_ok else '🟡 STARTING'}")
+    print(f"  • Drishti AI (Port 8001):       {'🟢 ONLINE' if s2_ok else '⚪ NOT RUNNING (demo mode active)'}")
     print(f"  • React Web Portal (Port 3000): {'🟢 ONLINE' if s3_ok else '🟡 STARTING'}")
 
     print("\n" + "=" * 78)
-    print(" 🎉 [SUCCESS] ALL NIRVIGHNA PORTALS & ENGINES ARE LIVE & READY!")
+    print(" 🎉 [SUCCESS] NIRVIGHNA IS LIVE & READY!")
     print("=" * 78)
-    print("  🔱 1. PILGRIM PORTAL:         http://localhost:3000/home")
-    print("  🛡️ 2. VOLUNTEER FIELD HUB:    http://localhost:3000/v/login")
-    print("        Direct Dashboard:       http://localhost:3000/v/dashboard")
-    print("  🛰️ 3. UNIFIED COMMAND CENTRE: http://localhost:3000/command-centre")
-    print("        Staff Login:            http://localhost:3000/command-centre/login")
-    print("  🤖 4. CATBOOST ML SERVICE:    http://127.0.0.1:8000/docs (Swagger UI)")
-    print("  👁️ 5. DRISHTI AI HARDWARE:    http://127.0.0.1:8001")
+    print("  🔱 1. PILGRIM PORTAL:         http://localhost:3000/#/home")
+    print("  🛡️ 2. VOLUNTEER FIELD HUB:    http://localhost:3000/#/v/login")
+    print("        Direct Dashboard:       http://localhost:3000/#/v/dashboard")
+    print("  🛰️ 3. UNIFIED COMMAND CENTRE: http://localhost:3000/#/command-centre/login")
+    if s2_ok:
+        print("  👁️ 4. DRISHTI AI BACKEND:     http://127.0.0.1:8001")
     print("=" * 78)
     print(" 💡 Tip: Press Ctrl+C in this terminal anytime to cleanly stop all services.")
     print("=" * 78 + "\n")
 
+
     # Automatically open the browser to the main portal
     try:
-        webbrowser.open("http://localhost:3000/home")
+        webbrowser.open("http://localhost:3000/#/home")
     except Exception:
         pass
 
