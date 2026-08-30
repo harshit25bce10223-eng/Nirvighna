@@ -108,7 +108,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
               if (data.audio_status) setAudioStatus(data.audio_status);
               if (data.last_scan_time) setLastScanTime(data.last_scan_time);
               if (data.advisory) setAdvisoryText(data.advisory);
-              if (data.zones) setZoneData(data.zones);
+              if (data.zones) setZoneData(prev => ({ ...prev, ...data.zones }));
               setIsOnline(true);
             }
           } catch (e) {}
@@ -364,9 +364,9 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
 
   // Camera Channel metadata
   const CAM_CHANNELS = [
-    { id: 'cam1', label: 'CAM 1', name: 'Inner Sanctum', zone: 'Garbhagriha Queue', load: `${zoneData.inner_sanctum.load}%`, count: zoneData.inner_sanctum.headcount },
-    { id: 'cam2', label: 'CAM 2', name: 'Gate 1 North', zone: 'Holding Ramp (82% High)', load: `${zoneData.gate1.load}%`, count: zoneData.gate1.headcount, isHot: true },
-    { id: 'cam3', label: 'CAM 3', name: 'Gate 2 South', zone: 'Priority Fast-Track (24%)', load: `${zoneData.gate2.load}%`, count: zoneData.gate2.headcount },
+    { id: 'cam1', label: 'CAM 1', name: 'Inner Sanctum', zone: 'Garbhagriha Queue', load: `${zoneData?.inner_sanctum?.load ?? 84}%`, count: zoneData?.inner_sanctum?.headcount ?? 380 },
+    { id: 'cam2', label: 'CAM 2', name: 'Gate 1 North', zone: 'Holding Ramp (82% High)', load: `${zoneData?.gate1?.load ?? 82}%`, count: zoneData?.gate1?.headcount ?? 410, isHot: true },
+    { id: 'cam3', label: 'CAM 3', name: 'Gate 2 South', zone: 'Priority Fast-Track (24%)', load: `${zoneData?.gate2?.load ?? 24}%`, count: zoneData?.gate2?.headcount ?? 120 },
     { id: 'cam4', label: 'CAM 4', name: 'Courtyard', zone: 'Sea-Face Parikrama', load: '48%', count: 420 },
     { id: 'webcam', label: 'USB/WEBCAM', name: 'Physical Camera', zone: 'Hardware Stream', load: 'LIVE', count: realFaceCount, isHardware: true }
   ];
@@ -547,9 +547,9 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             <div className="bg-black/80 backdrop-blur-md px-2 sm:px-2.5 py-1 rounded-xl border border-white/10">
               <span className="text-slate-400">Live Load: </span>
               <strong className={activeCam === 'cam2' ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
-                {activeCam === 'cam1' && `${zoneData.inner_sanctum.load}% (${zoneData.inner_sanctum.headcount} Devotees)`}
-                {activeCam === 'cam2' && `${zoneData.gate1.load}% (${zoneData.gate1.headcount} Devotees)`}
-                {activeCam === 'cam3' && `${zoneData.gate2.load}% (${zoneData.gate2.headcount} Devotees)`}
+                {activeCam === 'cam1' && `${zoneData?.inner_sanctum?.load ?? 84}% (${zoneData?.inner_sanctum?.headcount ?? 380} Devotees)`}
+                {activeCam === 'cam2' && `${zoneData?.gate1?.load ?? 82}% (${zoneData?.gate1?.headcount ?? 410} Devotees)`}
+                {activeCam === 'cam3' && `${zoneData?.gate2?.load ?? 24}% (${zoneData?.gate2?.headcount ?? 120} Devotees)`}
                 {activeCam === 'cam4' && `48% (420 Devotees)`}
                 {activeCam === 'webcam' && `${realFaceCount} Active Faces`}
               </strong>
@@ -611,51 +611,51 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             <div className="p-3 bg-[#140F10] rounded-xl border border-white/[0.06] space-y-2">
               <div className="flex justify-between text-xs font-bold">
                 <span>Gate 1 Holding Ramp</span>
-                <span className={zoneData.gate1.load >= 80 ? 'text-red-400 font-black' : 'text-emerald-400'}>
-                  {zoneData.gate1.load}%
+                <span className={(zoneData?.gate1?.load ?? 82) >= 80 ? 'text-red-400 font-black' : 'text-emerald-400'}>
+                  {zoneData?.gate1?.load ?? 82}%
                 </span>
               </div>
               <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${zoneData.gate1.load >= 80 ? 'bg-red-500' : 'bg-emerald-400'}`}
-                  style={{ width: `${zoneData.gate1.load}%` }}
+                  className={`h-full rounded-full transition-all ${(zoneData?.gate1?.load ?? 82) >= 80 ? 'bg-red-500' : 'bg-emerald-400'}`}
+                  style={{ width: `${zoneData?.gate1?.load ?? 82}%` }}
                 />
               </div>
-              <p className="text-[11px] text-slate-400">{zoneData.gate1.headcount} / {zoneData.gate1.capacity} Devotees</p>
+              <p className="text-[11px] text-slate-400">{zoneData?.gate1?.headcount ?? 410} / {zoneData?.gate1?.capacity ?? 500} Devotees</p>
             </div>
 
             {/* Zone 2 */}
             <div className="p-3 bg-[#140F10] rounded-xl border border-white/[0.06] space-y-2">
               <div className="flex justify-between text-xs font-bold">
                 <span>Gate 2 Priority Corridor</span>
-                <span className={zoneData.gate2.load >= 80 ? 'text-red-400' : 'text-emerald-400 font-black'}>
-                  {zoneData.gate2.load}%
+                <span className={(zoneData?.gate2?.load ?? 24) >= 80 ? 'text-red-400' : 'text-emerald-400 font-black'}>
+                  {zoneData?.gate2?.load ?? 24}%
                 </span>
               </div>
               <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-emerald-400 transition-all"
-                  style={{ width: `${zoneData.gate2.load}%` }}
+                  style={{ width: `${zoneData?.gate2?.load ?? 24}%` }}
                 />
               </div>
-              <p className="text-[11px] text-slate-400">{zoneData.gate2.headcount} / {zoneData.gate2.capacity} Devotees</p>
+              <p className="text-[11px] text-slate-400">{zoneData?.gate2?.headcount ?? 120} / {zoneData?.gate2?.capacity ?? 500} Devotees</p>
             </div>
 
             {/* Zone 3 */}
             <div className="p-3 bg-[#140F10] rounded-xl border border-white/[0.06] space-y-2">
               <div className="flex justify-between text-xs font-bold">
                 <span>Inner Sanctum Queue</span>
-                <span className={zoneData.inner_sanctum.load >= 80 ? 'text-red-400 font-black' : 'text-emerald-400'}>
-                  {zoneData.inner_sanctum.load}%
+                <span className={(zoneData?.inner_sanctum?.load ?? 84) >= 80 ? 'text-red-400 font-black' : 'text-emerald-400'}>
+                  {zoneData?.inner_sanctum?.load ?? 84}%
                 </span>
               </div>
               <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${zoneData.inner_sanctum.load >= 80 ? 'bg-red-500' : 'bg-emerald-400'}`}
-                  style={{ width: `${zoneData.inner_sanctum.load}%` }}
+                  className={`h-full rounded-full transition-all ${(zoneData?.inner_sanctum?.load ?? 84) >= 80 ? 'bg-red-500' : 'bg-emerald-400'}`}
+                  style={{ width: `${zoneData?.inner_sanctum?.load ?? 84}%` }}
                 />
               </div>
-              <p className="text-[11px] text-slate-400">{zoneData.inner_sanctum.headcount} / {zoneData.inner_sanctum.capacity} Devotees</p>
+              <p className="text-[11px] text-slate-400">{zoneData?.inner_sanctum?.headcount ?? 380} / {zoneData?.inner_sanctum?.capacity ?? 450} Devotees</p>
             </div>
           </div>
         </Card>
