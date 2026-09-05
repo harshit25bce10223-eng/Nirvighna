@@ -40,6 +40,7 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
     let ws = null;
     let mounted = true;
     let retryDelay = 5000;
+    let retryTimer = null;
 
     const connectWS = () => {
       if (!mounted) return;
@@ -56,14 +57,34 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
           } catch (_) {}
         };
         ws.onclose = () => {
-          if (mounted) { setBackendConnected(false); setTimeout(connectWS, retryDelay); retryDelay = Math.min(retryDelay * 1.5, 30000); }
+          if (mounted) {
+            setBackendConnected(false);
+            retryTimer = setTimeout(connectWS, retryDelay);
+            retryDelay = Math.min(retryDelay * 1.5, 30000);
+          }
         };
-        ws.onerror = () => { if (mounted) setBackendConnected(false); };
-      } catch (_) { if (mounted) { setBackendConnected(false); setTimeout(connectWS, retryDelay); } }
+        ws.onerror = () => {
+          // Suppress — onclose will handle retry; avoid double-close race
+          if (mounted) setBackendConnected(false);
+        };
+      } catch (_) {
+        if (mounted) {
+          setBackendConnected(false);
+          retryTimer = setTimeout(connectWS, retryDelay);
+        }
+      }
     };
 
     connectWS();
-    return () => { mounted = false; if (ws) { try { ws.close(); } catch (_) {} } };
+    return () => {
+      mounted = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      // Only close if socket is still connecting or open — avoids the
+      // "WebSocket is closed before the connection is established" warning
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+        try { ws.close(); } catch (_) {}
+      }
+    };
   }, []);
 
   // Canvas renderer
