@@ -6,7 +6,7 @@
 
 import { MASTER_TEMPLES } from './templeRegistry';
 
-const ML_SERVICE_URL = 'http://localhost:8000/predict';
+const ML_SERVICE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DRISHTI_URL || 'http://localhost:8000') + '/predict';
 
 /**
  * Predicts crowd footfall and risk level using FastAPI ML Ensemble service.
