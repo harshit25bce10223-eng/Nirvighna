@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Volume2, AlertTriangle, ShieldCheck, Activity, User, Phone, Radio, Siren } from 'lucide-react';
+import { Mic, MicOff, Volume2, AlertTriangle, ShieldCheck, Activity, User, Phone, Radio, Siren, WifiOff } from 'lucide-react';
 import { templeAIConfigEngine } from '../../lib/templeAIConfigEngine';
 import { acousticPanicEngine } from '../../lib/acousticPanicEngine';
 
 const DRISHTI_URL = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
+const WS_URL = (import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000').replace(/^http/, 'ws');
 
 const EnterpriseCard = ({ children, className = '' }) => (
   <div className={`bg-[#1C1617] border border-amber-950/40 rounded-xl shadow-xs transition-all ${className}`}>
@@ -30,6 +31,40 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
   const dataArrayRef = useRef(null);
   const baselineRef = useRef(dhwaniConfig.baselineDb || 58);
   const simIntervalRef = useRef(null);
+
+  // Backend audio monitoring WS sync
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [backendAudioStatus, setBackendAudioStatus] = useState('Audio: Normal');
+
+  useEffect(() => {
+    let ws = null;
+    let mounted = true;
+    let retryDelay = 5000;
+
+    const connectWS = () => {
+      if (!mounted) return;
+      try {
+        ws = new WebSocket(`${WS_URL}/ws`);
+        ws.onopen = () => {
+          if (mounted) { setBackendConnected(true); retryDelay = 5000; }
+        };
+        ws.onmessage = (ev) => {
+          if (!mounted) return;
+          try {
+            const data = JSON.parse(ev.data);
+            if (data.audio_status) setBackendAudioStatus(data.audio_status);
+          } catch (_) {}
+        };
+        ws.onclose = () => {
+          if (mounted) { setBackendConnected(false); setTimeout(connectWS, retryDelay); retryDelay = Math.min(retryDelay * 1.5, 30000); }
+        };
+        ws.onerror = () => { if (mounted) setBackendConnected(false); };
+      } catch (_) { if (mounted) { setBackendConnected(false); setTimeout(connectWS, retryDelay); } }
+    };
+
+    connectWS();
+    return () => { mounted = false; if (ws) { try { ws.close(); } catch (_) {} } };
+  }, []);
 
   // Canvas renderer
   useEffect(() => {
@@ -165,20 +200,18 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-lg font-bold text-white tracking-tight">Dhwani Rakshak • Acoustic Monitoring</h2>
-                {isLiveMic ? (
-                  <span className="text-xs px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/30 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-                    Live Microphone Active
-                  </span>
-                ) : (
-                  <span className="text-xs px-2.5 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Live Acoustic Sensor Stream Active (58 dB Ambient Sync)
-                  </span>
-                )}
+                <span className={`text-xs px-2.5 py-0.5 rounded-md font-semibold border flex items-center gap-1.5 ${
+                  backendConnected
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${backendConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  {backendConnected ? 'Synced to Drishti Audio Backend' : 'Local Acoustic Engine (Backend Offline)'}
+                </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Baseline: <strong className="text-slate-200">{rollingBaselineDb} dB</strong> • Spike Trigger: <strong className="text-slate-200">+{dhwaniConfig.spikeDeltaDb || 22} dB</strong> • Scream Band: <strong className="text-slate-200">1.2°•4.5 kHz</strong>
+                Backend Status: <strong className={backendAudioStatus.includes('Panic') || backendAudioStatus.includes('CRITICAL') ? 'text-red-300' : 'text-emerald-300'}>{backendAudioStatus}</strong>
+                • Baseline: <strong className="text-slate-200">{rollingBaselineDb} dB</strong> • Spike Trigger: <strong className="text-slate-200">+{dhwaniConfig.spikeDeltaDb || 22} dB</strong> • Scream Band: <strong className="text-slate-200">1.2°•4.5 kHz</strong>
               </p>
             </div>
           </div>

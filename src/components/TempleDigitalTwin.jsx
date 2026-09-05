@@ -386,7 +386,7 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
       const z1 = dx * sy + dz * cy;
       const y2 = z1 * cp - dy * sp;
       const z2 = z1 * sp + dy * cp;
-      if (z2 < 0.3) return null;
+      if (z2 < 0.1) return null;
       const s = focal / z2;
       return { x: 320 + x1 * s, y: 252 - y2 * s, d: z2, s };
     };
@@ -401,7 +401,12 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
 
   const getCollisionBounds = (C) => {
     const bounds = [];
-    bounds.push({ min: [-C.baseT - 0.35, -10, -C.baseT * 0.62], max: [C.baseT + 0.35, 10, C.baseT * 0.62] });
+    const shrineWall = C.baseT + 0.35;
+    const shrineDepth = C.baseT * 0.62;
+    bounds.push({ min: [-shrineWall, -10, -shrineDepth], max: [-shrineWall + 0.3, 10, shrineDepth] });
+    bounds.push({ min: [shrineWall - 0.3, -10, -shrineDepth], max: [shrineWall, 10, shrineDepth] });
+    bounds.push({ min: [-shrineWall, -10, -shrineDepth], max: [shrineWall, 10, -shrineDepth + 0.3] });
+    bounds.push({ min: [-shrineWall, -10, shrineDepth - 0.3], max: [shrineWall, 10, shrineDepth] });
     (C.scene || []).forEach(f => {
       if (f.type === 'gate') {
         const sz = f.size || 1;
@@ -410,6 +415,9 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
         bounds.push({ min: [f.x - 0.7, -1, f.z - 0.7], max: [f.x + 0.7, 2, f.z + 0.7] });
       } else if (f.type === 'slab') {
         bounds.push({ min: [f.x - 0.95, -1, f.z - 0.8], max: [f.x + 0.95, 1, f.z + 0.8] });
+      } else if (f.type === 'hill') {
+        const r = 1.9;
+        bounds.push({ min: [f.x - r, -10, f.z - r], max: [f.x + r, 10, f.z + r] });
       }
     });
     return bounds;
@@ -443,48 +451,114 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
 
     let animFrame;
     const C = CORE_CFG[templeId] || CORE_CFG.tmp_somnath;
-    const cam = (yaw, pitch, f) => {
-      const cy = Math.cos(yaw), sy = Math.sin(yaw);
-      const cp = Math.cos(pitch), sp = Math.sin(pitch);
-      const focal = 680 * f;
-      return (x, y, z) => {
-        const x1 = x * cy - z * sy;
-        const z1 = x * sy + z * cy;
-        const y2 = z1 * cp - y * sp;
-        const z2 = z1 * sp + y * cp;
-        const depth = 11.5 - z2;
-        if (depth < 0.6) return null;
-        const s = focal / depth;
-        return { x: 320 + x1 * s, y: 252 - y2 * s, d: depth, s };
-      };
+    const collisionBounds = getCollisionBounds(C);
+    const keys = { w: false, a: false, s: false, d: false };
+
+    const handleKeyDown = (e) => {
+      if (viewMode !== 'inside') return;
+      if (e.code === 'KeyW') keys.w = true;
+      if (e.code === 'KeyA') keys.a = true;
+      if (e.code === 'KeyS') keys.s = true;
+      if (e.code === 'KeyD') keys.d = true;
+    };
+    const handleKeyUp = (e) => {
+      if (viewMode !== 'inside') return;
+      if (e.code === 'KeyW') keys.w = false;
+      if (e.code === 'KeyA') keys.a = false;
+      if (e.code === 'KeyS') keys.s = false;
+      if (e.code === 'KeyD') keys.d = false;
+    };
+    const handlePointerLockChange = () => {
+      insideRef.current.pointerLocked = document.pointerLockElement === canvas;
+    };
+    const handleMouseMoveFP = (e) => {
+      if (!insideRef.current.pointerLocked) return;
+      const sens = 0.002;
+      insideRef.current.yaw -= e.movementX * sens;
+      insideRef.current.pitch = Math.max(-1.4, Math.min(1.4, insideRef.current.pitch - e.movementY * sens));
+    };
+    const handleWheel = (e) => {
+      e.preventDefault();
+      if (viewMode === 'dollhouse') {
+        setZoom(z => Math.max(0.65, Math.min(1.8, z - e.deltaY * 0.001)));
+      } else if (viewMode === 'floorplan') {
+        setZoom(z => Math.max(0.3, Math.min(3, z - e.deltaY * 0.002)));
+      }
     };
 
-    const projectFeature = (P, x, z, h) => P(x, h, z);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
+    canvas.addEventListener('mousemove', handleMouseMoveFP);
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
 
     const render = () => {
       const pulse = (pulseRef.current.angle += 0.05);
-      if (!pulseRef.current.dragging) {
-        pulseRef.current.yaw += 0.0018;
-        if (pulseRef.current.yaw > TAU) pulseRef.current.yaw -= TAU;
-      }
-      const P = cam(pulseRef.current.yaw, pulseRef.current.pitch, zoom);
-
-      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      grad.addColorStop(0, '#0b1424');
-      grad.addColorStop(0.55, '#0e1a30');
-      grad.addColorStop(1, '#0a1120');
-      ctx.fillStyle = grad;
+      ctx.fillStyle = '#0a1120';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(203,213,225,0.45)';
-      for (let i = 0; i < STARFIELD.length; i++) {
-        const st = STARFIELD[i];
-        ctx.globalAlpha = st[3] * (0.6 + 0.4 * Math.sin(pulse * 0.5 + st[2]));
-        ctx.fillRect(st[0], st[1], 1.5, 1.5);
+
+      let P;
+      let camInfo = '';
+      let modeHint = '';
+
+      if (viewMode === 'dollhouse') {
+        if (!pulseRef.current.dragging) {
+          pulseRef.current.yaw += 0.0018;
+          if (pulseRef.current.yaw > TAU) pulseRef.current.yaw -= TAU;
+        }
+        P = makeOrbitCam(pulseRef.current.yaw, pulseRef.current.pitch, zoom);
+        camInfo = `${Math.round(pulseRef.current.yaw * 57.3) % 360}° orbit`;
+        modeHint = 'Drag to orbit · Scroll to zoom';
+      } else if (viewMode === 'inside') {
+        const spd = 0.08;
+        const nextPos = [...insideRef.current.pos];
+        if (keys.w) { nextPos[0] -= Math.sin(insideRef.current.yaw) * spd; nextPos[2] -= Math.cos(insideRef.current.yaw) * spd; }
+        if (keys.s) { nextPos[0] += Math.sin(insideRef.current.yaw) * spd; nextPos[2] += Math.cos(insideRef.current.yaw) * spd; }
+        if (keys.a) { nextPos[0] -= Math.cos(insideRef.current.yaw) * spd; nextPos[2] += Math.sin(insideRef.current.yaw) * spd; }
+        if (keys.d) { nextPos[0] += Math.cos(insideRef.current.yaw) * spd; nextPos[2] -= Math.sin(insideRef.current.yaw) * spd; }
+        if (!checkCollision(nextPos, collisionBounds)) insideRef.current.pos = nextPos;
+        
+        P = makeFirstPersonCam(insideRef.current.pos, insideRef.current.yaw, insideRef.current.pitch);
+        camInfo = `FP: ${Math.round(insideRef.current.yaw * 57.3) % 360}°`;
+        modeHint = insideRef.current.pointerLocked ? 'WASD move · Mouse look · Esc to release' : 'Click to lock mouse · WASD + Mouse';
+      } else {
+        P = makeOrthoCam(zoom * 45);
+        camInfo = `Scale: ${(zoom * 100).toFixed(0)}%`;
+        modeHint = 'Drag to pan · Scroll to zoom';
       }
-      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = viewMode === 'floorplan' ? '#0d1a2b' : '#0b1424';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (viewMode !== 'floorplan') {
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, viewMode === 'inside' ? '#0b1424' : '#0b1424');
+        grad.addColorStop(1, viewMode === 'inside' ? '#0a1120' : '#0a1120');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(203,213,225,0.35)';
+        for (let i = 0; i < STARFIELD.length; i++) {
+          const st = STARFIELD[i];
+          ctx.globalAlpha = st[3] * (0.5 + 0.5 * Math.sin(pulse * 0.4 + st[2]));
+          ctx.fillRect(st[0], st[1], 1.5, 1.5);
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.strokeStyle = 'rgba(56,189,248,0.08)';
+        ctx.lineWidth = 1;
+        for (let gx = -8; gx <= 8; gx += 0.5) {
+          const px = 320 + gx * zoom * 45;
+          ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+        }
+        for (let gz = -8; gz <= 8; gz += 0.5) {
+          const py = 252 - gz * zoom * 45;
+          ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+        }
+      }
 
       const drawn = [];
       (mesh.faces || []).forEach((fc) => {
+        if (viewMode === 'floorplan' && fc.pts[0][1] > 0.5) return;
         const projPts = [];
         let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9, depth = 0;
         for (let i = 0; i < fc.pts.length; i++) {
@@ -496,56 +570,69 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
           depth += p.d;
         }
         depth /= fc.pts.length;
-        drawn.push({ pts: projPts, fill: fc.fill, depth, id: fc.id, minX, maxX, minY, maxY });
+        drawn.push({ pts: projPts, fill: viewMode === 'floorplan' ? fc.fill.replace(/rgba?\([^)]+\)/, (m) => m.replace(/[^,)]+\)$/, '0.6)')) : fc.fill, depth, id: fc.id, minX, maxX, minY, maxY });
       });
 
-      drawn.sort((a, b) => b.depth - a.depth);
-      drawn.forEach((fc) => {
-        if (fc.pts.length < 3) return;
+      drawn.sort((a, b) => viewMode === 'floorplan' ? a.d - b.d : b.depth - a.depth);
+      
+      const drawFace = (pts, fill) => {
+        if (pts.length < 3) return;
         ctx.beginPath();
-        ctx.moveTo(fc.pts[0][0], fc.pts[0][1]);
-        for (let i = 1; i < fc.pts.length; i++) ctx.lineTo(fc.pts[i][0], fc.pts[i][1]);
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
         ctx.closePath();
-        ctx.fillStyle = fc.fill;
+        ctx.fillStyle = fill;
         ctx.fill();
-        ctx.strokeStyle = fc.fill;
-        ctx.lineWidth = 0.6;
-        ctx.stroke();
+        if (viewMode !== 'floorplan') {
+          ctx.strokeStyle = fill;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      };
+      
+      drawn.forEach((fc) => {
+        drawFace(fc.pts, fc.fill);
+        if (viewMode === 'inside') {
+          const rev = [...fc.pts].reverse();
+          drawFace(rev, fc.fill);
+        }
       });
 
-      const flagOf = CORE_CFG[templeId] && mesh.flag;
-      const flagColor = mesh.flag && mesh.flag.color;
-      const shrineTop = P(0, C.height + 0.4, 0);
-      if (shrineTop && flagColor) {
-        ctx.strokeStyle = '#cbb488';
-        ctx.lineWidth = 2.4;
-        ctx.beginPath();
-        ctx.moveTo(shrineTop.x, shrineTop.y);
-        ctx.lineTo(shrineTop.x, shrineTop.y - 30);
-        ctx.stroke();
-        if (flagColor === 'sunmoon') {
-          ctx.fillStyle = '#f87171';
-          ctx.fillRect(shrineTop.x, shrineTop.y - 28, 16, 11);
-          ctx.fillStyle = '#fbbf24';
-          ctx.beginPath(); ctx.arc(shrineTop.x + 4, shrineTop.y - 23, 2.6, 0, TAU); ctx.fill();
-          ctx.fillStyle = '#f1f5f9';
-          ctx.beginPath(); ctx.arc(shrineTop.x + 10, shrineTop.y - 23, 2.6, 0, TAU); ctx.fill();
-        } else {
-          ctx.fillStyle = flagColor;
-          ctx.beginPath();
-          ctx.moveTo(shrineTop.x, shrineTop.y - 28);
-          ctx.lineTo(shrineTop.x + 20, shrineTop.y - 22);
-          ctx.lineTo(shrineTop.x, shrineTop.y - 16);
-          ctx.closePath();
-          ctx.fill();
+      if (viewMode === 'floorplan') {
+        ctx.strokeStyle = 'rgba(56,189,248,0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        const water = C.water;
+        if (water) {
+          const p1 = P(water.width, 0, water.z0);
+          const p2 = P(-water.width, 0, water.z0);
+          const p3 = P(-water.width, 0, water.z0 + water.r);
+          const p4 = P(water.width, 0, water.z0 + water.r);
+          if (p1 && p2 && p3 && p4) {
+            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.closePath(); ctx.stroke();
+          }
         }
-        ctx.font = "bold 10px 'Segoe UI', system-ui, sans-serif";
-        ctx.textAlign = 'center';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(2,6,23,0.88)';
-        ctx.strokeText(C.label, shrineTop.x, shrineTop.y - 42);
-        ctx.fillStyle = '#fde047';
-        ctx.fillText(C.label, shrineTop.x, shrineTop.y - 42);
+        ctx.setLineDash([]);
+      }
+
+      const projectFeature = (P, x, z, h) => P(x, h, z);
+
+      const flagColor = mesh.flag && mesh.flag.color;
+      const shrineTop = viewMode !== 'floorplan' ? P(0, C.height + 0.4, 0) : P(0, 0, 0);
+      if (shrineTop && flagColor && viewMode !== 'floorplan') {
+        ctx.strokeStyle = '#cbb488';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(shrineTop.x, shrineTop.y); ctx.lineTo(shrineTop.x, shrineTop.y - 30); ctx.stroke();
+        if (flagColor === 'sunmoon') {
+          ctx.fillStyle = '#f87171'; ctx.fillRect(shrineTop.x, shrineTop.y - 28, 16, 11);
+          ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(shrineTop.x + 4, shrineTop.y - 23, 2.6, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#f1f5f9'; ctx.beginPath(); ctx.arc(shrineTop.x + 10, shrineTop.y - 23, 2.6, 0, TAU); ctx.fill();
+        } else {
+          ctx.fillStyle = flagColor; ctx.beginPath(); ctx.moveTo(shrineTop.x, shrineTop.y - 28); ctx.lineTo(shrineTop.x + 20, shrineTop.y - 22); ctx.lineTo(shrineTop.x, shrineTop.y - 16); ctx.closePath(); ctx.fill();
+        }
+        ctx.font = "bold 10px 'Segoe UI', system-ui, sans-serif"; ctx.textAlign = 'center';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,6,23,0.88)'; ctx.strokeText(C.label, shrineTop.x, shrineTop.y - 42);
+        ctx.fillStyle = '#fde047'; ctx.fillText(C.label, shrineTop.x, shrineTop.y - 42);
       }
 
       const overlays = [];
@@ -560,124 +647,109 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
       const hours = live.result?.estimatedEntryDurationHours || 0;
       const loadPct = live.result ? Math.min(100, Math.round((live.result.perGateLoad / 6000) * 100)) : 0;
 
-      overlays
-        .filter((o) => o.f.zoneId && o.f.type !== 'gate')
-        .forEach((o) => {
-          const dens = densityOf(o.f.zoneId);
-          const col = dens > 0.72 ? '239,68,68' : dens > 0.44 ? '245,158,11' : '16,185,129';
-          const r = o.s * (o.f.type === 'flame' ? 0.5 : 0.42) + Math.sin(pulse + o.f.x) * 6;
-          const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, r);
-          g.addColorStop(0, `rgba(${col},0.28)`);
-          g.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(o.x, o.y, r, 0, TAU);
-          ctx.fill();
-        });
+      overlays.filter((o) => o.f.zoneId && o.f.type !== 'gate').forEach((o) => {
+        const dens = densityOf(o.f.zoneId);
+        const col = dens > 0.72 ? '239,68,68' : dens > 0.44 ? '245,158,11' : '16,185,129';
+        const baseR = o.s * (o.f.type === 'flame' ? 0.5 : 0.42);
+        const r = Math.max(4, baseR + Math.sin(pulse + o.f.x) * 6);
+        const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, r);
+        g.addColorStop(0, `rgba(${col},0.25)`); g.addColorStop(1, `rgba(${col},0)`);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, TAU); ctx.fill();
+      });
 
       const flow = (o, t, col) => {
-        const fx = (1 - t) * o.f.x;
-        const fz = (1 - t) * o.f.z;
-        const p = projectFeature(P, fx, 0, fz);
-        if (!p) return;
-        ctx.fillStyle = col;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(1.6, 3.2 * p.s * 0.12 + 0.8), 0, TAU);
-        ctx.fill();
+        const fx = (1 - t) * o.f.x; const fz = (1 - t) * o.f.z;
+        const p = projectFeature(P, fx, 0, fz); if (!p) return;
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1.6, 3.2 * p.s * 0.12 + 0.8), 0, TAU); ctx.fill();
       };
+      overlays.filter((o) => o.f.type === 'gate').forEach((o) => {
+        const t = (pulse * 0.06 + o.f.x * 0.07) % 1;
+        const cols = ['rgba(56,189,248,0.9)', 'rgba(125,211,252,0.75)'];
+        for (let k = 0; k < 3; k++) flow(o, (t + k / 3) % 1, cols[k % 2]);
+      });
 
-      overlays
-        .filter((o) => o.f.type === 'gate')
-        .forEach((o) => {
-          const t = (pulse * 0.06 + o.f.x * 0.07) % 1;
-          const cols = ['rgba(56,189,248,0.9)', 'rgba(125,211,252,0.75)'];
-          for (let k = 0; k < 3; k++) {
-            flow(o, (t + k / 3) % 1, cols[k % 2]);
-          }
-        });
-
-      overlays
-        .filter((o) => o.f.type === 'gate')
-        .forEach((o) => {
-          const barH = Math.max(7, (loadPct / 100) * 46);
-          const bx = o.x;
-          const by = o.y - 66;
-          ctx.fillStyle = 'rgba(2,6,23,0.82)';
-          ctx.fillRect(bx - 6, by - barH, 12, barH + 6);
-          ctx.fillStyle = loadPct > 80 ? '#ef4444' : loadPct > 55 ? '#f59e0b' : '#10b981';
-          ctx.fillRect(bx - 4, by - barH + 3, 8, barH);
-          if (hours > 2.5 && (hours > 4 || Math.sin(pulse * 1.2 + o.f.x) > 0.1)) {
-            ctx.strokeStyle = 'rgba(239,68,68,0.9)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 3]);
-            ctx.beginPath();
-            ctx.arc(o.x, o.y - 40, 22 + Math.sin(pulse) * 3, 0, TAU);
-            ctx.stroke();
-            ctx.setLineDash([]);
-          }
-        });
+      overlays.filter((o) => o.f.type === 'gate').forEach((o) => {
+        const barH = Math.max(7, (loadPct / 100) * 46);
+        const bx = o.x, by = o.y - 66;
+        ctx.fillStyle = 'rgba(2,6,23,0.82)'; ctx.fillRect(bx - 6, by - barH, 12, barH + 6);
+        ctx.fillStyle = loadPct > 80 ? '#ef4444' : loadPct > 55 ? '#f59e0b' : '#10b981'; ctx.fillRect(bx - 4, by - barH + 3, 8, barH);
+        if (hours > 2.5 && (hours > 4 || Math.sin(pulse * 1.2 + o.f.x) > 0.1)) {
+          ctx.strokeStyle = 'rgba(239,68,68,0.9)'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+          ctx.beginPath(); ctx.arc(o.x, o.y - 40, 22 + Math.sin(pulse) * 3, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        }
+      });
 
       overlays.forEach((o) => {
         const isHover = live.hovered === o.f.id;
-        ctx.font = "bold 8px 'Segoe UI', system-ui, sans-serif";
-        ctx.textAlign = 'center';
-        const labelY = o.y + 26;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(2,6,23,0.85)';
+        ctx.font = "bold 8px 'Segoe UI', system-ui, sans-serif"; ctx.textAlign = 'center';
+        const labelY = o.y + 26; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,6,23,0.85)';
         ctx.strokeText(o.f.short || o.f.label, o.x, labelY);
-        ctx.fillStyle = isHover ? '#fde047' : '#cbd5e1';
-        ctx.fillText(o.f.short || o.f.label, o.x, labelY);
-        if (isHover) {
-          ctx.strokeStyle = '#fbbf24';
-          ctx.lineWidth = 1.6;
-          ctx.setLineDash([4, 3]);
-          ctx.beginPath();
-          ctx.arc(o.x, o.y + 6, 26 * o.s * 0.1 + 14, 0, TAU);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
+        ctx.fillStyle = isHover ? '#fde047' : '#cbd5e1'; ctx.fillText(o.f.short || o.f.label, o.x, labelY);
+        if (isHover) { ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(o.x, o.y + 6, 26 * o.s * 0.1 + 14, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
       });
 
       const live2 = liveRef.current;
       if (live2.result?.additionalGates > 0 && shrineP) {
-        ctx.fillStyle = 'rgba(234,88,12,0.92)';
-        ctx.beginPath();
-        ctx.moveTo(shrineP.x - 58, shrineP.y - 92);
-        ctx.lineTo(shrineP.x + 58, shrineP.y - 92);
-        ctx.lineTo(shrineP.x + 58, shrineP.y - 74);
-        ctx.lineTo(shrineP.x - 58, shrineP.y - 74);
-        ctx.closePath();
-        ctx.fill();
-        ctx.font = "bold 9px 'Segoe UI', sans-serif";
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(`+${live2.result.additionalGates} gates needed`, shrineP.x, shrineP.y - 80);
+        ctx.fillStyle = 'rgba(234,88,12,0.92)'; ctx.beginPath(); ctx.moveTo(shrineP.x - 58, shrineP.y - 92); ctx.lineTo(shrineP.x + 58, shrineP.y - 92); ctx.lineTo(shrineP.x + 58, shrineP.y - 74); ctx.lineTo(shrineP.x - 58, shrineP.y - 74); ctx.closePath(); ctx.fill();
+        ctx.font = "bold 9px 'Segoe UI', sans-serif"; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(`+${live2.result.additionalGates} gates needed`, shrineP.x, shrineP.y - 80);
       }
 
-      ctx.font = "10px 'Segoe UI', system-ui, sans-serif";
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(148,163,184,0.75)';
-      ctx.fillText(`${Math.round(pulseRef.current.yaw * 57.3) % 360}° orbit · drag to spin`, canvas.width - 10, canvas.height - 10);
+      if (viewMode === 'inside' && insideRef.current.pointerLocked) {
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        ctx.strokeStyle = 'rgba(56,189,248,0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx - 12, cy); ctx.lineTo(cx - 4, cy); ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 12, cy); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx, cy - 4); ctx.moveTo(cx, cy + 4); ctx.lineTo(cx, cy + 12); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, 3, 0, TAU); ctx.stroke();
+      }
+
+      ctx.font = "10px 'Segoe UI', system-ui, sans-serif"; ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(148,163,184,0.75)'; ctx.fillText(`${camInfo} · ${modeHint}`, canvas.width - 10, canvas.height - 10);
 
       animFrame = requestAnimationFrame(render);
     };
 
     render();
-    return () => cancelAnimationFrame(animFrame);
-  }, [templeId, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      cancelAnimationFrame(animFrame);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      canvas.removeEventListener('mousemove', handleMouseMoveFP);
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [templeId, zoom, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDown = (e) => {
-    pulseRef.current.dragging = true;
-    pulseRef.current.lastX = e.clientX;
-    pulseRef.current.lastY = e.clientY;
+    if (viewMode === 'dollhouse') {
+      pulseRef.current.dragging = true;
+      pulseRef.current.lastX = e.clientX;
+      pulseRef.current.lastY = e.clientY;
+    } else if (viewMode === 'floorplan') {
+      pulseRef.current.dragging = true;
+      pulseRef.current.lastX = e.clientX;
+      pulseRef.current.lastY = e.clientY;
+    } else if (viewMode === 'inside') {
+      canvasRef.current?.requestPointerLock();
+    }
   };
   const handleMove = (e) => {
-    const cam = pulseRef.current;
-    if (cam.dragging) {
-      cam.yaw -= (e.clientX - cam.lastX) * 0.01;
-      cam.pitch = Math.max(0.15, Math.min(1.15, cam.pitch + (e.clientY - cam.lastY) * 0.01));
-      cam.lastX = e.clientX;
-      cam.lastY = e.clientY;
+    if (viewMode === 'dollhouse') {
+      const cam = pulseRef.current;
+      if (cam.dragging) {
+        cam.yaw -= (e.clientX - cam.lastX) * 0.01;
+        cam.pitch = Math.max(0.15, Math.min(1.15, cam.pitch + (e.clientY - cam.lastY) * 0.01));
+        cam.lastX = e.clientX;
+        cam.lastY = e.clientY;
+      }
+    } else if (viewMode === 'floorplan') {
+      if (pulseRef.current.dragging) {
+        const dx = (e.clientX - pulseRef.current.lastX) / (zoom * 45);
+        const dy = (e.clientY - pulseRef.current.lastY) / (zoom * 45);
+        insideRef.current.pos[0] -= dx;
+        insideRef.current.pos[2] += dy;
+        pulseRef.current.lastX = e.clientX;
+        pulseRef.current.lastY = e.clientY;
+      }
     }
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -689,6 +761,10 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
   };
   const handleUp = () => { pulseRef.current.dragging = false; };
   const handleClick = (e) => {
+    if (viewMode === 'inside' && !insideRef.current.pointerLocked) {
+      canvasRef.current?.requestPointerLock();
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -742,17 +818,22 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
               <Layers className="w-4 h-4 text-violet-400" />
               {getLocalizedTempleName(temple)} — {cfg.label}
             </h3>
-            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{cfg.facts[0].value} · {CORE_CFG[templeId] ? cfg.facts[1].label + ': ' + cfg.facts[1].value : ''}</p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[9px] font-mono text-slate-300">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500/90" /> CLEAR</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500/90" /> MODERATE</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500/90" /> HIGH LOAD</span>
-              <span className="text-slate-500">gauge + red ring = gate bottleneck</span>
-              <span className="text-slate-500">cyan dots = pilgrims moving in</span>
-            </div>
-            <p className="text-[10px] text-slate-500 font-mono mt-1">PURPOSE: Simulate footfall & gates on the real 3D structure → predict entry wait & how many extra gates are needed.</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-900/50 border border-white/10 rounded-lg p-1">
+              {Object.entries(VIEW_MODES).map(([key, meta]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setViewMode(key); if (key === 'inside') { insideRef.current.pos = [0, 1.6, 2.5]; insideRef.current.yaw = 0; insideRef.current.pitch = 0; } else if (key === 'floorplan') { insideRef.current.pos = [0, 1.6, 2.5]; } }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono rounded-md transition-all ${viewMode === key ? 'bg-violet-500/30 text-violet-300 border border-violet-500/50' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  title={meta.desc}
+                >
+                  <meta.icon className="w-3.5 h-3.5" />
+                  {meta.label}
+                </button>
+              ))}
+            </div>
             <div className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-mono">
               <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: crowdColor }} />
               <span className="text-slate-300">Live {liveCap}%</span>
@@ -770,7 +851,10 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
               <button
                 key={sym}
                 type="button"
-                onClick={() => setZoom((z) => Math.max(0.65, Math.min(1.8, z + delta)))}
+                onClick={() => setZoom((z) => {
+                  if (viewMode === 'floorplan') return Math.max(0.3, Math.min(3, z + delta * 2));
+                  return Math.max(0.65, Math.min(1.8, z + delta));
+                })}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
                 aria-label={`Zoom ${sym}`}
               >
@@ -779,7 +863,12 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
             ))}
             <button
               type="button"
-              onClick={() => { pulseRef.current.yaw = -0.55; pulseRef.current.pitch = 0.42; setZoom(1); }}
+              onClick={() => {
+                setZoom(viewMode === 'floorplan' ? 1 : 1);
+                if (viewMode === 'dollhouse') { pulseRef.current.yaw = -0.55; pulseRef.current.pitch = 0.42; }
+                if (viewMode === 'inside') { insideRef.current.pos = [0, 1.6, 2.5]; insideRef.current.yaw = 0; insideRef.current.pitch = 0; }
+                if (viewMode === 'floorplan') { insideRef.current.pos = [0, 1.6, 5]; }
+              }}
               className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
               aria-label="Reset view"
             >
@@ -788,11 +877,33 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
           </div>
 
           <div className="absolute top-2 right-2 z-10 flex flex-wrap gap-1.5 text-[9px] font-mono text-slate-300 justify-end pointer-events-none">
-            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: cfg.stoneTop }} /> Shikhara</span>
-            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><MapPin className="w-2.5 h-2.5 text-cyan-400" /> Gates</span>
-            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-white" /> Drag = orbit</span>
-            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" /> pilgrims</span>
-            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-red-400" /> overload</span>
+            {viewMode === 'dollhouse' && (
+              <>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: cfg.stoneTop }} /> Shikhara</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><MapPin className="w-2.5 h-2.5 text-cyan-400" /> Gates</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-white" /> Drag = orbit</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" /> pilgrims</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-red-400" /> overload</span>
+              </>
+            )}
+            {viewMode === 'inside' && (
+              <>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-emerald-500" /> Ground</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-amber-500" /> Walls</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><MousePointer className="w-2.5 h-2.5 text-cyan-400" /> Click to lock</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" /> pilgrims</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-red-400" /> bottleneck</span>
+              </>
+            )}
+            {viewMode === 'floorplan' && (
+              <>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: cfg.stoneTop }} /> Shrine</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><MapPin className="w-2.5 h-2.5 text-cyan-400" /> Gates</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-amber-500" /> Pavilions</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" /> flow</span>
+                <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1">Drag pan · Scroll zoom</span>
+              </>
+            )}
           </div>
 
           <canvas
@@ -809,7 +920,9 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
 
           {!selectedFeature && (
             <div className="absolute bottom-2 left-2 bg-slate-950/70 border border-white/10 px-3 py-1.5 rounded-lg text-[10px] text-slate-400 font-mono pointer-events-none">
-              ▾ Click a feature to inspect · drag = orbit · sliders = simulate
+              {viewMode === 'dollhouse' && '▾ Click feature to inspect · drag = orbit · scroll = zoom'}
+              {viewMode === 'inside' && '▾ Click to lock mouse · WASD = walk · Mouse = look · Esc = release'}
+              {viewMode === 'floorplan' && '▾ Click feature to inspect · drag = pan · scroll = zoom'}
             </div>
           )}
 
@@ -903,11 +1016,6 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
                   <p className="text-lg font-black text-slate-200 font-mono">{result.throughputRate}<span className="text-[10px] text-slate-500 font-normal">/hr</span></p>
                 </div>
               </div>
-            )}
-            {result && (
-              <p className="text-xs leading-relaxed px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300">
-                {result.recommendation}
-              </p>
             )}
           </div>
 

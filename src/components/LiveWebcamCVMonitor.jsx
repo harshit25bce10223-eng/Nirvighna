@@ -203,7 +203,7 @@ export const LiveWebcamCVMonitor = () => {
           <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ minHeight: 300 }}>
             {/* Backend trained-YOLO MJPEG feed (REAL boxes drawn by the model) */}
             <img
-              src={`${DRISHTI_URL}/video_feed?t=${Date.now()}`}
+              src={`${DRISHTI_URL}/video_feed`}
               className="w-full h-auto max-h-[360px] object-contain mx-auto block rounded-lg border border-amber-900/40"
               alt="Trained YOLO model - real webcam detection feed"
             />

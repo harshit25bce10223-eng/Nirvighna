@@ -72,7 +72,7 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
 
   useEffect(() => {
     pollBackend();
-    const iv = setInterval(pollBackend, 10000);
+    const iv = setInterval(pollBackend, 4000);
     return () => clearInterval(iv);
   }, [pollBackend]);
 

@@ -922,10 +922,6 @@ export const CommandCentre = () => {
                   </div>
                 </div>
               )}
-              <div className="p-3 bg-slate-900 rounded-xl">
-                <p className="text-xs text-slate-400 font-medium mb-1">Recommendation</p>
-                <p className="text-xs text-slate-300 leading-relaxed">{digitalTwinResult.recommendation}</p>
-              </div>
             </div>
           )}
         </Card>
@@ -1198,10 +1194,6 @@ export const CommandCentre = () => {
                   <p className="text-[10px] text-slate-400 uppercase font-medium">Throughput Rate</p>
                   <p className="text-xl font-black text-slate-200 font-mono">{digitalTwinResult.throughputRate} <span className="text-xs font-normal text-slate-500">/hr/gate</span></p>
                 </div>
-              </div>
-
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200 leading-relaxed">
-                {digitalTwinResult.recommendation}
               </div>
             </div>
           )}

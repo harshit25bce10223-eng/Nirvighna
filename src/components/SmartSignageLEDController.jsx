@@ -171,31 +171,6 @@ export const SmartSignageLEDController = ({ templeId = 'tmp_somnath' }) => {
           ))}
         </div>
       </div>
-
-      {/* API Webhook Output Inspector */}
-      {lastWebhookPayload && (
-        <div className="bg-slate-900 border border-white/10 p-4 rounded-xl space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-indigo-300 flex items-center gap-1.5">
-              <Send className="w-3.5 h-3.5 text-indigo-400" />
-              API Webhook Dispatch Log (JSON Payload)
-            </span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
-              webhookStatus?.ok
-                ? 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30'
-                : webhookStatus
-                  ? 'text-red-400 bg-red-500/20 border-red-500/30'
-                  : 'text-amber-400 bg-amber-500/20 border-amber-500/30'
-            }`}>
-              {isBroadcasting ? 'SENDING...' : webhookStatus?.ok ? 'HTTP 200 OK' : webhookStatus ? 'BACKEND OFFLINE' : 'STANDBY'}
-            </span>
-          </div>
-
-          <pre className="bg-black p-3 rounded-lg text-[10px] font-mono text-slate-300 overflow-x-auto border border-white/5">
-            {JSON.stringify(webhookStatus?.detail || lastWebhookPayload, null, 2)}
-          </pre>
-        </div>
-      )}
     </div>
   );
 };

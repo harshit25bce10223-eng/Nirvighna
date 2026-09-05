@@ -596,15 +596,6 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
             <Layers className="w-4 h-4 text-amber-400" />
             {getLocalizedTempleName(temple)}
           </h3>
-          <p className="text-[11px] text-slate-400 font-mono mt-0.5">{targetHints[templeId] || targetHints.tmp_somnath}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[9px] font-mono text-slate-300">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500/90" /> CLEAR</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500/90" /> MODERATE</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500/90" /> HIGH</span>
-            <span className="text-slate-500">halo = live density/m²</span>
-            <span className="text-slate-500">cyan flow = pilgrims</span>
-          </div>
-          <p className="text-[10px] text-slate-500 font-mono mt-1">PURPOSE: Spot overcrowded gates & zones before darshan blocks — tap any gate/zone/landmark for live load.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-mono">
