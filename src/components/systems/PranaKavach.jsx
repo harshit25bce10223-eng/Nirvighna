@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Thermometer, Droplets, Wind, AlertTriangle, ShieldCheck, Activity, Zap, ArrowUpRight, Sun, Info } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Thermometer, Droplets, Wind, AlertTriangle, ShieldCheck, Activity, Zap, ArrowUpRight, Sun, WifiOff } from 'lucide-react';
 import { getTempleById } from '../../lib/templeRegistry';
 import { templeAIConfigEngine } from '../../lib/templeAIConfigEngine';
+
+const DRISHTI_URL = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
 
 const EnterpriseCard = ({ children, className = '' }) => (
   <div className={`bg-[#1C1617] border border-amber-950/40 rounded-xl shadow-xs transition-all ${className}`}>
@@ -9,14 +11,24 @@ const EnterpriseCard = ({ children, className = '' }) => (
   </div>
 );
 
+function resolveInitialOccupancy(shrineId) {
+  if (shrineId === 'tmp_dwarka') return 310;
+  if (shrineId === 'tmp_ambaji') return 2450;
+  if (shrineId === 'tmp_pavagadh') return 410;
+  return 890;
+}
+
 export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
   const shrine = getTempleById(templeId);
   const pranaConfig = templeAIConfigEngine.getConfig(templeId, 'prana_kavach').config;
 
   const [compositeRiskScore, setCompositeRiskScore] = useState(68);
   const [liveOccupancy, setLiveOccupancy] = useState(resolveInitialOccupancy(templeId));
+  const [forecastOccupancy30Min, setForecastOccupancy30Min] = useState(0);
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [dataSource, setDataSource] = useState('LIVE_CV_DETECTOR');
+  const [forecastPct, setForecastPct] = useState(18);
   const safeCapacity = pranaConfig.safeThreshold || 1200;
-  const forecastOccupancy30Min = Math.round(liveOccupancy * 1.18);
 
   // Dynamic CO2 based on occupancy • uses ASHRAE formula from templeAIConfigEngine
   const co2Data = templeAIConfigEngine.calculateCO2SuffocationRisk(
@@ -28,26 +40,58 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
   const temp = (28.5 + (liveOccupancy / safeCapacity) * 6.5).toFixed(1);
   const humidity = Math.round(55 + (liveOccupancy / safeCapacity) * 20);
 
-  function resolveInitialOccupancy(shrineId) {
-    if (shrineId === 'tmp_dwarka') return 310;
-    if (shrineId === 'tmp_ambaji') return 2450;
-    if (shrineId === 'tmp_pavagadh') return 410;
-    return 890;
-  }
+  // Poll the REAL Drishti backend occupancy every 10s (demo crowd source or live webcam)
+  const pollBackend = useCallback(async () => {
+    try {
+      const res = await fetch(`${DRISHTI_URL}/api/predict`, { method: 'GET' });
+      if (!res.ok) {
+        setBackendConnected(false);
+        return;
+      }
+      const data = await res.json();
+      const occ = Number(data.current_occupancy) || 0;
+      if (occ > 0) {
+        setLiveOccupancy(Math.round(occ));
+        setDataSource(data.source === 'SIMULATED_FOR_DEMO' ? 'SIMULATED_CROWD_DEMO' : 'LIVE_CV_DETECTOR');
+        const preds = data.forecast?.predictions || [];
+        if (preds.length >= 2) {
+          const nowVal = preds[0];
+          const nextVal = preds[1];
+          const pct = nowVal > 0 ? Math.round(((nextVal - nowVal) / nowVal) * 100) : 0;
+          setForecastPct(pct);
+          setForecastOccupancy30Min(nextVal);
+        } else {
+          setForecastOccupancy30Min(Math.round(occ * 1.18));
+        }
+      }
+      setBackendConnected(true);
+    } catch (e) {
+      setBackendConnected(false);
+    }
+  }, []);
 
   useEffect(() => {
+    pollBackend();
+    const iv = setInterval(pollBackend, 10000);
+    return () => clearInterval(iv);
+  }, [pollBackend]);
+
+  // Risk score derives from occupancy/CO2 (not random) — small drift for live feel
+  useEffect(() => {
     const riskInterval = setInterval(() => {
-      setCompositeRiskScore(prev => {
-        const delta = Math.floor(Math.random() * 7) - 3;
-        return Math.max(25, Math.min(95, prev + delta));
-      });
-      setLiveOccupancy(prev => {
-        const delta = Math.floor(Math.random() * 15) - 5;
-        return Math.max(50, prev + delta);
-      });
+      const occPct = Math.min(100, (liveOccupancy / safeCapacity) * 100);
+      let base = Math.round(occPct * 0.55 + (co2Data.co2Ppm >= pranaConfig.criticalPpm ? 30 : co2Data.co2Ppm >= pranaConfig.warningPpm ? 22 : 12));
+      const delta = (Math.random() - 0.5) * 5;
+      setCompositeRiskScore(prev => Math.max(15, Math.min(98, Math.round(base + delta))));
+      if (!backendConnected) {
+        setLiveOccupancy(prev => {
+          const d = Math.floor(Math.random() * 15) - 5;
+          return Math.max(50, prev + d);
+        });
+      }
     }, 5000);
     return () => clearInterval(riskInterval);
-  }, []);
+  }, [liveOccupancy, co2Data, backendConnected, pranaConfig.warningPpm, pranaConfig.criticalPpm, safeCapacity]);
 
   const gaugeDashOffset = 440 - (440 * compositeRiskScore) / 100;
   const riskTextColor = compositeRiskScore >= 80 ? 'text-red-400' : compositeRiskScore >= 60 ? 'text-amber-300' : 'text-emerald-400';
@@ -76,8 +120,19 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
             </div>
           </div>
           <div className="px-3 py-1.5 rounded-lg bg-[#140F10] border border-white/[0.08] text-xs flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span className="text-slate-300 font-medium">Environmental Safety Monitor Active</span>
+            {backendConnected ? (
+              <>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span className="text-slate-300 font-medium">
+                  {dataSource === 'SIMULATED_CROWD_DEMO' ? 'Synced to Drishti AI (Demo Crowd)' : 'Synced to Live Drishti AI Detector'}
+                </span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4 text-slate-500" />
+                <span className="text-slate-500 font-medium">Drishti backend offline — local estimate</span>
+              </>
+            )}
           </div>
         </div>
       </EnterpriseCard>
@@ -117,9 +172,9 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
             </EnterpriseCard>
             <EnterpriseCard className="p-4">
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">30-Min Forecast</p>
-              <p className="text-2xl font-bold text-amber-300 mt-1 tabular-nums">{forecastOccupancy30Min}</p>
+              <p className="text-2xl font-bold text-amber-300 mt-1 tabular-nums">{forecastOccupancy30Min.toLocaleString()}</p>
               <p className="text-[11px] text-amber-400 font-medium mt-1 flex items-center gap-1">
-                <ArrowUpRight className="w-3.5 h-3.5" /> +18% Inflow
+                <ArrowUpRight className="w-3.5 h-3.5" /> {forecastPct > 0 ? `+${forecastPct}` : forecastPct}% Inflow
               </p>
             </EnterpriseCard>
           </div>

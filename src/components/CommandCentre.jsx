@@ -302,15 +302,8 @@ const NAV_ITEMS = [
   { id: 'dhwani_rakshak',   label: 'DHWANI RAKSHAK',    icon: Radio,     tag: 'Audio' },
   { id: 'sanjeevani_path',  label: 'SANJEEVANI PATH',   icon: HeartPulse,tag: 'Medical' },
   { id: 'digital_twin',     label: 'DIGITAL TWIN',      icon: Sparkles,  tag: 'Sim' },
-  { id: 'crowd_prediction', label: 'AI PREDICTION',     icon: TrendingUp,tag: 'Forecast' },
-  { id: 'offline_counter',  label: 'COUNTER KIOSK',     icon: Ticket,    tag: 'Staff' },
-  { id: 'ndma_compliance',  label: 'NDMA SOP Audit',    icon: ShieldCheck, tag: 'Govt' },
   { id: 'panic',            label: 'Panic Alerts',      icon: AlertTriangle },
-  { id: 'lost_persons',     label: 'Lost Persons',      icon: Users },
   { id: 'volunteers',       label: 'Duty Roster',       icon: UserCheck },
-  { id: 'capacity',         label: 'Temple Capacity',   icon: Activity },
-  { id: 'shuttle',          label: 'Shuttles',          icon: Bus },
-  { id: 'parking',          label: 'Parking',           icon: ParkingCircle },
 ];
 
 

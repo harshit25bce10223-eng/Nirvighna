@@ -66,6 +66,6 @@
     "high_noise_duration_sec": 5.0
   },
   "demo": {
-    "simulated_crowd": true
+    "simulated_crowd": false
   }
 }

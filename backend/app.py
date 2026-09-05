@@ -467,7 +467,19 @@ async def predict_footfall(request: Optional[dict] = None):
             "source": "SIMULATED_FOR_DEMO",
         }
 
-    current_occupancy = person_detector.total_entries - person_detector.total_exits
+    # People visible in the camera right now = active YOLO tracks (drishti_person.pt).
+    # Only when a real webcam feeds the backend; heuristic/synthetic mode keeps cumulative diff.
+    if not camera_mgr.using_simulation:
+        # Force a fresh YOLO pass so the count reflects the real camera frame right now.
+        frame = camera_mgr.get_frame()
+        if frame is not None:
+            try:
+                person_detector.process_frame(frame)
+            except Exception:
+                pass
+    current_occupancy = len(person_detector.active_tracks) if not camera_mgr.using_simulation else (
+        person_detector.total_entries - person_detector.total_exits
+    )
     forecast = footfall_forecaster.predict_next_3_hours(max(0, current_occupancy))
     return {
         "status": "OK",

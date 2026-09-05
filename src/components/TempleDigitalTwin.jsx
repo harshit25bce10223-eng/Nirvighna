@@ -1,22 +1,136 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Sparkles, MapPin, ZoomIn, ZoomOut, RotateCcw, Users, Clock, Zap, TrendingUp, Mountain, Cable, Waves, Activity } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Sparkles, ZoomIn, ZoomOut, RotateCcw, Users, Clock, Zap, TrendingUp, MapPin, Trophy, Layers, Box, Home, Maximize2, Minimize2, Navigation, MousePointer } from 'lucide-react';
 import { getTempleById, getLocalizedTempleName } from '../lib/templeRegistry';
 import { digitalTwinEngine } from '../lib/digitalTwinEngine';
 
 const TAU = Math.PI * 2;
+const LIGHT = [-0.5, 0.8, 0.34];
+const STARFIELD = Array.from({ length: 70 }, () => [Math.random() * 640, Math.random() * 440, Math.random() * TAU, 0.4 + Math.random() * 0.6]);
+
+const VIEW_MODES = {
+  dollhouse: { label: 'Dollhouse', icon: Box, desc: '3D isometric orbit — rotate, zoom, overview' },
+  inside: { label: 'Inside View', icon: Home, desc: 'First-person walkthrough — WASD + mouse look' },
+  floorplan: { label: 'Floor Plan', icon: Maximize2, desc: 'Top-down blueprint — orthographic layout' }
+};
+
+const shade = (hex, k) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const f = (v) => Math.max(0, Math.min(255, Math.round(v * k)));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+};
+
+const shadeK = (n) => 0.35 + 0.65 * Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
+
+function face(pts, wanted, color, raw) {
+  const [a, b, d] = pts;
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+  const vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const len = Math.hypot(nx, ny, nz) || 1;
+  nx /= len; ny /= len; nz /= len;
+  if (nx * wanted[0] + ny * wanted[1] + nz * wanted[2] < 0) {
+    const p0 = pts[0];
+    pts = [p0, ...pts.slice(1).reverse()];
+    const a2 = pts[0], b2 = pts[1], d2 = pts[2];
+    const ux2 = b2[0] - a2[0], uy2 = b2[1] - a2[1], uz2 = b2[2] - a2[2];
+    const vx2 = d2[0] - a2[0], vy2 = d2[1] - a2[1], vz2 = d2[2] - a2[2];
+    nx = uy2 * vz2 - uz2 * vy2; ny = uz2 * vx2 - ux2 * vz2; nz = ux2 * vy2 - uy2 * vx2;
+    const l2 = Math.hypot(nx, ny, nz) || 1;
+    nx /= l2; ny /= l2; nz /= l2;
+  }
+  return { pts, fill: raw ? color : shade(color, shadeK([nx, ny, nz])), id: null };
+}
+
+const Q = (x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3) => [
+  [x0, y0, z0], [x1, y1, z1], [x2, y2, z2], [x3, y3, z3]
+];
+
+const cube = (cx, cy, cz, hx, hy, hz, c) => {
+  const x0 = cx - hx, x1 = cx + hx, y0 = cy - hy, y1 = cy + hy, z0 = cz - hz, z1 = cz + hz;
+  return [
+    face(Q(x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1), [0, 0, 1], c),
+    face(Q(x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y1, z0), [0, 0, -1], c),
+    face(Q(x0, y1, z1, x1, y1, z1, x1, y1, z0, x0, y1, z0), [0, 1, 0], c),
+    face(Q(x1, y0, z0, x0, y0, z0, x0, y0, z1, x1, y0, z1), [0, -1, 0], c),
+    face(Q(x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0), [1, 0, 0], c),
+    face(Q(x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1), [-1, 0, 0], c)
+  ];
+};
+
+const column = (cx, cz, y0, y1, r0, r1, c, segs = 8) => {
+  const ring = (y, r) => {
+    const pts = [];
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * TAU;
+      pts.push([cx + Math.cos(a) * r, y, cz + Math.sin(a) * r]);
+    }
+    return pts;
+  };
+  const top = ring(y1, r1);
+  const bot = ring(y0, r0);
+  const out = [];
+  for (let i = 0; i < segs; i++) {
+    const j = (i + 1) % segs;
+    const mid = [(top[i][0] + top[j][0]) / 2, 0, (top[i][2] + top[j][2]) / 2];
+    const nx = mid[0] - cx, nz = mid[2] - cz;
+    const nl = Math.hypot(nx, nz) || 1;
+    out.push(face(Q(bot[i][0], bot[i][1], bot[i][2], bot[j][0], bot[j][1], bot[j][2], top[j][0], top[j][1], top[j][2], top[i][0], top[i][1], top[i][2]), [nx / nl, 0, nz / nl], c));
+  }
+  for (let i = 1; i < segs - 1; i++) {
+    out.push(face([top[0], top[i], top[i + 1]], [0, 1, 0], c));
+  }
+  return out;
+};
+
+const frustum = (cx, cz, y0, y1, r0, r1, c) => {
+  const corners = (y, r) => [
+    [cx - r, y, cz - r], [cx + r, y, cz - r], [cx + r, y, cz + r], [cx - r, y, cz + r]
+  ];
+  const top = corners(y1, r1);
+  const bot = corners(y0, r0);
+  return [
+    face(Q(...bot[0], ...bot[1], ...top[1], ...top[0]), [0, 0, -1], c),
+    face(Q(...bot[1], ...bot[2], ...top[2], ...top[1]), [1, 0, 0], c),
+    face(Q(...bot[2], ...bot[3], ...top[3], ...top[2]), [0, 0, 1], c),
+    face(Q(...bot[3], ...bot[0], ...top[0], ...top[3]), [-1, 0, 0], c),
+    face(Q(...top[0], ...top[1], ...top[2], ...top[3]), [0, 1, 0], c)
+  ];
+};
+
+const disc = (cx, cz, r, c, segs = 14, raw = false) => {
+  const out = [];
+  const center = [cx, 0, cz];
+  for (let i = 0; i < segs; i++) {
+    const a0 = (i / segs) * TAU;
+    const a1 = ((i + 1) / segs) * TAU;
+    out.push(face([
+      [cx + Math.cos(a0) * r, 0, cz + Math.sin(a0) * r],
+      [cx + Math.cos(a1) * r, 0, cz + Math.sin(a1) * r],
+      center
+    ], [0, 1, 0], c, raw));
+  }
+  return out;
+};
 
 const CORE_CFG = {
   tmp_somnath: {
-    label: 'Somnath Shikhara',
-    storeys: 2,
-    spireTiers: 7,
-    top: '#e7c99e',
-    a: '#c9a06c',
-    b: '#a67f52',
-    spire: '#d9b582',
-    kalash: '#c9852d',
-    flag: true,
-    pillarDots: 0,
+    label: 'Somnath Mahameru Shikhara',
+    stone: '#d9b582', stoneTop: '#efd9b2', stoneA: '#c9a06c', stoneB: '#a67f52', spire: '#d9b582', kalash: '#c9852d',
+    storeys: 2, height: 8.6, baseT: 2.3,
+    scene: [
+      { id: 'nandi', type: 'pavilion', x: -1.5, z: 1.4, label: 'Nandi Mandap', short: 'Nandi' },
+      { id: 'baan', type: 'baan', x: 1.7, z: 2.6, label: 'Baan-Stambh', short: 'Arrow Pillar' },
+      { id: 'maha_gate', type: 'gate', x: -2.5, z: 2.8, label: 'Mahapravesh Dwar', short: 'Main Gate', gateId: 'som_g1', zoneId: 'zone_som_1', size: 1 },
+      { id: 'wheel_gate', type: 'gate', x: 2.6, z: 2.4, label: 'Wheelchair Gate', short: 'Priority', gateId: 'som_g2', zoneId: 'zone_som_2', size: 0.8 },
+      { id: 'triveni', type: 'ghat', x: 0, z: 3.7, label: 'Triveni Sangam Ghat', short: 'Ghat + Sea' },
+      { id: 'prasad', type: 'pavilion', x: -2.3, z: -1.8, label: 'Prasad Counter', short: 'Prasad', zoneId: 'zone_som_4' },
+      { id: 'museum', type: 'pavilion', x: 2.7, z: -2.2, label: 'Prabhas Patan Museum', short: 'Museum' },
+      { id: 'las', type: 'plaza', x: -3.6, z: -0.4, label: 'Light & Sound Ground', short: 'Show Ground', zoneId: 'zone_som_5' },
+      { id: 'helipad', type: 'slab', x: 3.4, z: 1.2, label: 'Helipad + P2', short: 'Helipad' }
+    ],
+    water: { kind: 'sea', z0: 4.3, width: 8, r: 6 },
     facts: [
       { label: 'Architecture', value: 'Chalukya / Kailash Mahameru Prasad (Māru-Gurjara)' },
       { label: 'Rebuilt', value: '1951 by Sardar Patel — destroyed repeatedly since 1026 CE' },
@@ -27,36 +141,45 @@ const CORE_CFG = {
     ]
   },
   tmp_dwarka: {
-    label: 'Jagat Mandir Shikhara',
-    storeys: 5,
-    spireTiers: 5,
-    top: '#eadfc2',
-    a: '#cdb98a',
-    b: '#a99461',
-    spire: '#d9c48d',
-    kalash: '#d4a017',
-    flag: 'sunmoon',
-    pillarDots: 14,
+    label: 'Jagat Mandir — 72 Pillar Shrine',
+    stoneTop: '#eadfc2', stone: '#eadfc2', stoneA: '#cdb98a', stoneB: '#a99461', spire: '#d9c48d', kalash: '#d4a017',
+    storeys: 5, height: 7.6, baseT: 2.1,
+    scene: [
+      { id: 'swarga', type: 'gate', x: -2.1, z: 2.6, label: 'Swarg Dwar (56 Steps)', short: 'Entry', gateId: 'dwa_g1', zoneId: 'zone_dwa_1', size: 1 },
+      { id: 'moksha', type: 'gate', x: 2.6, z: -1.8, label: 'Moksha Dwar', short: 'Exit', gateId: 'dwa_g2', zoneId: 'zone_dwa_2', size: 1 },
+      { id: 'gomti', type: 'ghat', x: -0.9, z: 3.4, label: 'Gomti Ghat Steps', short: '56 kunds', zoneId: 'zone_dwa_3' },
+      { id: 'setu', type: 'bridge', x: 1.9, z: 2.9, label: 'Sudama Setu (230 m)', short: 'Suspension' },
+      { id: 'lockers', type: 'pavilion', x: 2.8, z: -2.9, label: 'Lockers & Footwear', short: 'Lockers' },
+      { id: 'rukmini', type: 'pavilion', x: 4.4, z: -3.6, label: 'Rukmini Devi Mandir', short: '~2 km' },
+      { id: 'bazaar', type: 'plaza', x: 0.8, z: -3.5, label: 'Market Bazaar', short: 'Bazaar' },
+      { id: 'nageshwar', type: 'slab', x: -4.4, z: -2.4, label: 'Nageshwar Jyotirlinga', short: '17 km' }
+    ],
+    water: { kind: 'river', z0: 4.0, width: 6, r: 5.6 },
     facts: [
       { label: 'Temple', value: 'Jagat Mandir — Lord Krishna (Dwarkadhish), Char Dham' },
       { label: 'Structure', value: 'Five storeys (Panch Bhumi) · 72 carved pillars · limestone & sandstone' },
-      { label: 'Shikhara', value: '43 m (141 ft) · sacred Nishan flag (sun & moon) changed 2×/day' },
+      { label: 'Shikhara', value: '43 m (141 ft) · Nishan flag (sun & moon) changed 2×/day' },
       { label: 'Gates', value: 'Swarg Dwar entry via 56 steps · Moksha Dwar exit near market' },
       { label: 'Sudama Setu', value: '230 m suspension bridge (2016) over the Gomti river' },
       { label: 'Bet Dwarka', value: 'Ancient Krishna palace site — ferry from Okha ghat' }
     ]
   },
   tmp_ambaji: {
-    label: 'Ambaji Shikhara',
-    storeys: 2,
-    spireTiers: 4,
-    top: '#f8f4e6',
-    a: '#e4dcc0',
-    b: '#c7bb96',
-    spire: '#f5c542',
-    kalash: '#e9b200',
-    flag: 'trishul',
-    pillarDots: 0,
+    label: 'Ambaji Mata — White Marble Shrine',
+    stoneTop: '#f8f4e6', stone: '#f8f4e6', stoneA: '#e4dcc0', stoneB: '#c7bb96', spire: '#f5c542', kalash: '#e9b200',
+    storeys: 2, height: 5.6, baseT: 1.9,
+    scene: [
+      { id: 'central', type: 'gate', x: -2.8, z: 1.9, label: 'Shakti Dwar Central', short: 'Largest', gateId: 'amb_g1', zoneId: 'zone_amb_1', size: 1.1 },
+      { id: 'gate7', type: 'gate', x: -4.0, z: 0.6, label: 'Shakti Dwar Gate 7', short: 'VIP', gateId: 'amb_g2', zoneId: 'zone_amb_2', size: 0.9 },
+      { id: 'side', type: 'gate', x: -1.8, z: 2.6, label: 'Shakti Dwar Side', short: 'Side', gateId: 'amb_g3', size: 0.7 },
+      { id: 'chowk', type: 'flame', x: 1.7, z: 1.1, label: 'Chachar Chowk', short: 'Akhand Jyot', zoneId: 'zone_amb_3' },
+      { id: 'havan', type: 'pavilion', x: 0.4, z: 3.4, label: 'Havan Shala', short: 'Ritual Hall' },
+      { id: 'gabbar', type: 'hill', x: 3.7, z: -1.9, label: 'Gabbar Hill', short: 'Summit Shrine' },
+      { id: 'ropeway', type: 'ropeway', x: 3.7, z: -1.9, base: [2.3, 1.7], top: [4.2, -2.1], label: 'Udan Khatola', short: 'Ropeway' },
+      { id: 'mansarovar', type: 'kund', x: -2.0, z: -2.8, label: 'Mansarovar Kund', short: 'Sacred Tank' },
+      { id: 'parking', type: 'slab', x: -4.6, z: -0.8, label: 'Highway Parking', short: 'P1-P3' }
+    ],
+    water: null,
     facts: [
       { label: 'Shakti Peeth', value: '51st Peeth — heart of Sati; Shree Visa Yantra (51 bij letters), no idol (veiled)' },
       { label: 'Material', value: 'White marble · silver-plated doors · single central entrance' },
@@ -67,16 +190,20 @@ const CORE_CFG = {
     ]
   },
   tmp_pavagadh: {
-    label: 'Kalika Mata Shikhara',
-    storeys: 2,
-    spireTiers: 3,
-    top: '#c1704f',
-    a: '#a0503a',
-    b: '#7a3827',
-    spire: '#a65a3c',
-    kalash: '#8b3a2a',
-    flag: 'chunri',
-    pillarDots: 0,
+    label: 'Kalika Mata — Hilltop Shrine',
+    stoneTop: '#c1704f', stone: '#c1704f', stoneA: '#a0503a', stoneB: '#7a3827', spire: '#a65a3c', kalash: '#8b3a2a',
+    storeys: 2, height: 4.4, baseT: 1.7,
+    scene: [
+      { id: 'shrine_hill', type: 'hill', x: 0, z: 0.6, label: 'Pavagadh Hill', short: 'Summit' },
+      { id: 'dargah', type: 'pavilion', x: 1.9, z: 1.0, label: 'Sadan Shah Pir Dargah', short: 'Dargah' },
+      { id: 'machi', type: 'gate', x: -2.7, z: -2.0, label: 'Machi Haveli Ropeway', short: 'Boarding', gateId: 'pav_g1', zoneId: 'zone_pav_1', size: 1.1 },
+      { id: 'ropeway', type: 'ropeway', x: 0, z: 0.4, base: [-2.7, -2.0], top: [0.2, 0.3], label: 'Pavagadh Ropeway', short: 'Since 1986' },
+      { id: 'trek', type: 'gate', x: 3.0, z: -2.6, label: 'Trekking Base (2000 Steps)', short: 'Trek', gateId: 'pav_g2', zoneId: 'zone_pav_2', size: 0.9 },
+      { id: 'patai', type: 'waterfall', x: -3.7, z: 1.4, label: 'Patai Waterfall', short: 'Falls' },
+      { id: 'fort', type: 'slab', x: 3.8, z: -3.8, label: 'Pavagadh Fort Walls', short: 'UNESCO 2004' },
+      { id: 'champaner', type: 'plaza', x: 4.6, z: -1.2, label: 'Champaner Heritage', short: 'Jami Masjid' }
+    ],
+    water: null,
     facts: [
       { label: 'Shakti Peeth', value: 'Sati\u2019s foot; 3 goddesses — Kalika (red), Kali & Bahuchara Mata' },
       { label: 'Age', value: '10th\u201311th century · domed 2-storey shrine on the summit' },
@@ -84,78 +211,6 @@ const CORE_CFG = {
       { label: 'Ascent', value: '2,000 steps (~800 m) or ropeway (1986) from Machi Haveli · 400 pax/hr' },
       { label: 'UNESCO', value: 'Champaner-Pavagadh WHS (2004) · plateaus: Kalika, Bhadrakali, Machi, Atak' },
       { label: 'Waterfall', value: 'Patai waterfall cascades at the hill base in monsoon' }
-    ]
-  }
-};
-
-const LAYOUTS = {
-  tmp_somnath: {
-    terrain: 'seafront',
-    sea: { x: 0.5, y: 5.0, w: 9.5, d: 3.0 },
-    features: [
-      { id: 'shrine', type: 'temple', x: 0.4, y: -0.1, label: 'Somnath Jyotirlinga', short: 'Shrine' },
-      { id: 'baan', type: 'baan', x: 0.9, y: 3.1, label: 'Baan-Stambh (Arrow Pillar)', short: 'Arrow Pillar' },
-      { id: 'maha_gate', type: 'gate', x: -2.3, y: 2.2, label: 'Mahapravesh Dwar', short: 'Main Gate', gateId: 'som_g1', zoneId: 'zone_som_1', size: 1.0 },
-      { id: 'wheel_gate', type: 'gate', x: 2.7, y: 1.7, label: 'Wheelchair Accessible Gate', short: 'Priority', gateId: 'som_g2', zoneId: 'zone_som_2', size: 0.8 },
-      { id: 'triveni', type: 'ghat', x: -1.5, y: 3.9, label: 'Triveni Sangam Ghat', short: 'River Confluence + Sea' },
-      { id: 'promenade', type: 'sea', x: 0.5, y: 4.4, label: 'Sea-Facing Promenade', short: 'Arabian Sea', zoneId: 'zone_som_3' },
-      { id: 'nandi', type: 'pavilion', x: -0.6, y: 0.9, label: 'Nandi Mandap', short: 'Nandi' },
-      { id: 'prasad', type: 'pavilion', x: 2.6, y: -2.4, label: 'Prasad Counter', short: 'Prasad', zoneId: 'zone_som_4' },
-      { id: 'museum', type: 'pavilion', x: -2.8, y: -3.1, label: 'Prabhas Patan Museum', short: 'Museum' },
-      { id: 'las', type: 'plaza', x: -3.1, y: -1.4, label: 'Light & Sound Show', short: 'Show Ground', zoneId: 'zone_som_5' },
-      { id: 'helipad', type: 'parking', x: 3.7, y: -1.2, label: 'Helipad + P2 Parking', short: 'Helipad' },
-      { id: 'parking', type: 'parking', x: -4.4, y: 0.8, label: 'P1 Veneshwar Parking', short: 'Parking' }
-    ]
-  },
-  tmp_dwarka: {
-    terrain: 'river',
-    sea: { x: 0.6, y: 3.4, w: 11.0, d: 2.0 },
-    features: [
-      { id: 'shrine', type: 'temple', x: 0.3, y: -0.7, label: 'Dwarkadhish Jagat Mandir', short: '5-Storey Shrine' },
-      { id: 'swarga', type: 'gate', x: -2.5, y: 0.9, label: 'Swarg Dwar (56 Steps)', short: 'Entry · South', gateId: 'dwa_g1', zoneId: 'zone_dwa_1', size: 1.0 },
-      { id: 'moksha', type: 'gate', x: 3.0, y: -1.9, label: 'Moksha Dwar', short: 'Exit · Market', gateId: 'dwa_g2', zoneId: 'zone_dwa_2', size: 1.0 },
-      { id: 'gomti', type: 'ghat', x: -1.3, y: 2.5, label: 'Gomti Ghat Steps', short: '56 kunds', zoneId: 'zone_dwa_3' },
-      { id: 'setu', type: 'bridge', x: 1.5, y: 2.5, label: 'Sudama Setu (230 m)', short: 'Suspension Bridge' },
-      { id: 'panchnad', type: 'marker', x: 3.3, y: 2.6, label: 'Panchnad Tirth', short: 'Island Side' },
-      { id: 'ferry', type: 'ferry', x: 4.0, y: 3.3, label: 'Okha Ferry → Bet Dwarka', short: 'Boat Crossing' },
-      { id: 'lockers', type: 'pavilion', x: 3.0, y: -3.0, label: 'Lockers & Footwear', short: 'Lockers' },
-      { id: 'rukmini', type: 'pavilion', x: 4.6, y: -3.7, label: 'Rukmini Devi Mandir', short: '~2 km' },
-      { id: 'nageshwar', type: 'marker', x: -4.3, y: -2.4, label: 'Nageshwar Jyotirlinga', short: '17 km' },
-      { id: 'bazaar', type: 'plaza', x: 0.6, y: -3.6, label: 'Market Bazaar', short: 'Bazaar' }
-    ]
-  },
-  tmp_ambaji: {
-    terrain: 'hillwest',
-    sea: null,
-    features: [
-      { id: 'shrine', type: 'temple', x: -0.4, y: 0.6, label: 'Ambaji Mata Temple', short: 'Visa Yantra' },
-      { id: 'central', type: 'gate', x: -3.0, y: -0.5, label: 'Shakti Dwar - Central', short: 'Largest', gateId: 'amb_g1', zoneId: 'zone_amb_1', size: 1.1 },
-      { id: 'gate7', type: 'gate', x: -3.0, y: 1.5, label: 'Shakti Dwar Gate 7', short: 'VIP / Senior', gateId: 'amb_g2', zoneId: 'zone_amb_2', size: 0.9 },
-      { id: 'side', type: 'gate', x: -3.0, y: -2.3, label: 'Shakti Dwar - Side', short: 'Side Opening', gateId: 'amb_g3', size: 0.7 },
-      { id: 'chowk', type: 'flame', x: 1.0, y: 1.4, label: 'Chachar Chowk', short: 'Akhand Jyot', zoneId: 'zone_amb_3' },
-      { id: 'gabbar', type: 'hill', x: 4.5, y: -0.7, label: 'Gabbar Hill', short: '999 steps / Ropeway' },
-      { id: 'ropeway', type: 'ropeway', x: 4.5, y: -0.7, base: [3.3, 0.7], top: [5.7, -2.1], label: 'Udan Khatola Ropeway', short: 'Cable Car' },
-      { id: 'gabbar_shrine', type: 'marker', x: 5.7, y: -2.2, label: 'Gabbar Mata Shrine', short: 'Summit', zoneId: 'zone_amb_4' },
-      { id: 'mansarovar', type: 'kund', x: 2.6, y: 2.9, label: 'Mansarovar Kund', short: 'Sacred Tank' },
-      { id: 'havan', type: 'pavilion', x: -0.4, y: 3.3, label: 'Havan Shala', short: 'Ritual Hall' },
-      { id: 'parking', type: 'parking', x: -4.6, y: -1.1, label: 'Highway Parking (P1-P3)', short: 'Parking' }
-    ]
-  },
-  tmp_pavagadh: {
-    terrain: 'hillfort',
-    sea: null,
-    features: [
-      { id: 'hill', type: 'hill', x: 0.1, y: 0.7, label: 'Pavagadh Hill', short: '5 Plateaus' },
-      { id: 'shrine', type: 'temple', x: -0.2, y: 1.2, label: 'Kalika Mata Temple', short: 'Summit Shrine', zoneId: 'zone_pav_4' },
-      { id: 'dargah', type: 'pavilion', x: 0.8, y: 1.1, label: 'Sadan Shah Pir Dargah', short: 'Sufi Shrine' },
-      { id: 'summit_q', type: 'plaza', x: -1.2, y: 1.5, label: 'Summit Stairs Queue', short: '250 steps up', zoneId: 'zone_pav_3' },
-      { id: 'machi', type: 'gate', x: -3.4, y: -2.7, label: 'Machi Haveli Ropeway', short: 'Boarding', gateId: 'pav_g1', zoneId: 'zone_pav_1', size: 1.1 },
-      { id: 'ropeway', type: 'ropeway', x: -0.2, y: 1.2, base: [-3.4, -2.7], top: [-0.2, 1.2], label: 'Pavagadh Ropeway', short: 'Since 1986' },
-      { id: 'trek', type: 'gate', x: 3.1, y: -2.8, label: 'Trekking Base (2000 Steps)', short: 'Jungle Trail', gateId: 'pav_g2', zoneId: 'zone_pav_2', size: 0.9 },
-      { id: 'trek_path', type: 'steps', x: 1.5, y: -0.9, label: 'Kalika Stairway', short: 'To Summit', zoneId: 'zone_pav_2' },
-      { id: 'patai', type: 'waterfall', x: -4.5, y: -1.3, label: 'Patai Waterfall', short: 'Monsoon Falls' },
-      { id: 'fort', type: 'fort', x: 3.9, y: -3.9, label: 'Pavagadh Fort Walls', short: 'UNESCO 2004' },
-      { id: 'champaner', type: 'plaza', x: 4.7, y: -2.4, label: 'Champaner Heritage', short: 'Jami Masjid etc.' }
     ]
   }
 };
@@ -168,18 +223,29 @@ const GATE_COLORS = {
 
 export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
   const canvasRef = useRef(null);
-  const pulseRef = useRef({ angle: 0 });
-  const posRef = useRef([]);
+  const pulseRef = useRef({ angle: 0, yaw: -0.55, pitch: 0.42, dragging: false, lastX: 0, lastY: 0 });
+  const liveRef = useRef({ hovered: null, selected: null, result: null, footfall: 28000 });
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState(null);
   const [hovered, setHovered] = useState(null);
   const [footfall, setFootfall] = useState(28000);
   const [gatesOpen, setGatesOpen] = useState(4);
   const [result, setResult] = useState(null);
+  const [viewMode, setViewMode] = useState('dollhouse');
+  
+  const insideRef = useRef({
+    pos: [0, 1.6, 5],
+    yaw: 0,
+    pitch: 0,
+    moving: { forward: false, backward: false, left: false, right: false },
+    pointerLocked: false
+  });
 
   const temple = useMemo(() => getTempleById(templeId), [templeId]);
-  const layout = LAYOUTS[templeId] || LAYOUTS.tmp_somnath;
-  const core = CORE_CFG[templeId] || CORE_CFG.tmp_somnath;
+  const cfg = CORE_CFG[templeId] || CORE_CFG.tmp_somnath;
+
+  if (!liveRef.current) liveRef.current = {};
+  Object.assign(liveRef.current, { hovered, selected, result, footfall });
 
   const densityOf = (zoneId) => {
     if (!zoneId) return 0.4;
@@ -187,13 +253,184 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
     return zone ? zone.baseDensity : 0.4;
   };
 
+  const mesh = useMemo(() => {
+    const C = CORE_CFG[templeId] || CORE_CFG.tmp_somnath;
+    const faces = [];
+    const bounds = 6.5;
+    faces.push(...disc(0, 0, bounds, '#111a2e'));
+    if (C.water) {
+      const segs = 14;
+      for (let i = 0; i < segs; i++) {
+        const a0 = (i / segs) * TAU;
+        const a1 = ((i + 1) / segs) * TAU;
+        const z0f = C.water.z0;
+        faces.push(face([
+          [C.water.width, 0, z0f], [-C.water.width, 0, z0f],
+          [Math.cos(a1) * C.water.r, 0, Math.sin(a1) * C.water.r],
+          [Math.cos(a0) * C.water.r, 0, Math.sin(a0) * C.water.r]
+        ], [0, 1, 0], 'rgba(37,99,235,0.32)', true));
+      }
+    }
+    faces.push(...disc(0, 0, 3.4, '#1a2440'));
+    faces.push(...disc(0, 0, C.baseT * 1.45, 'rgba(0,0,0,0.3)', 14, true));
+    faces.push(...cube(1.9, 0, 0.9, 1.8, 0.06, 1.6, '#223052'));
+
+    const spireHeight = C.height;
+    faces.push(...cube(0, 0, 0, C.baseT + 0.35, 0.4, C.baseT * 0.62, C.stoneB));
+    faces.push(...cube(0, 0.4, 0, C.baseT, 0.5, C.baseT * 0.6, C.stone));
+    let yTop = 0.9;
+    for (let s = 0; s < C.storeys; s++) {
+      const rr = C.baseT * (1 - s * 0.12);
+      faces.push(...cube(0, yTop, 0, rr, 0.85, rr * 0.6, s % 2 ? C.stoneA : C.stoneTop));
+      yTop += 0.85;
+    }
+    faces.push(...cube(0, yTop, 0, C.baseT * 0.78, 0.5, C.baseT * 0.47, C.stoneTop));
+    yTop += 0.5;
+    const spireTiers = [
+      [C.baseT * 1.05, 0.62], [C.baseT * 0.55, 1.05], [C.baseT * 0.16, 1.5]
+    ];
+    let maybeY = yTop;
+    const topFrac = (spireHeight - maybeY) / 100;
+    const shrInc = (spireHeight - maybeY) / 3;
+    for (let i = 0; i < 3; i++) {
+      const rR = C.baseT * (i === 0 ? 0.85 : 0.55 - i * 0.08);
+      const segH = shrInc * (i === 0 ? 0.9 : 0.85);
+      faces.push(...frustum(0, 0, maybeY, maybeY + segH, rR, rR * (i === 2 ? 0.18 : 0.62), i === 2 ? C.spire : (i === 0 ? C.stoneA : C.stoneTop)));
+      maybeY += segH;
+    }
+    faces.push(...cube(0, maybeY, 0, 0.24, 0.12, 0.24, C.kalash));
+    faces.push(...column(0, 0, maybeY, maybeY + 0.55, 0.08, 0.015, C.kalash, 6));
+
+    if (C.storeys === 5) {
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * TAU;
+        faces.push(...column(Math.cos(a) * C.baseT * 0.95, 0, Math.sin(a) * C.baseT * 0.95, 0, 1.25, 0.13, 0.11, '#efe6c8', 6));
+      }
+    }
+
+    const flagInfo = {
+      tmp_somnath: '#e2572c',
+      tmp_dwarka: 'sunmoon',
+      tmp_ambaji: '#f59e0b',
+      tmp_pavagadh: '#b45309'
+    }[templeId];
+
+    (C.scene || []).forEach((f) => {
+      if (f.type === 'gate') {
+        const col = GATE_COLORS[(temple.gates||[]).find((g) => g.id === f.gateId)?.type] || '#22d3ee';
+        faces.push(...cube(f.x, 0, f.z, 0.16, 2.1, 0.16, '#e2e8f0'));
+        faces.push(...cube(f.x + (f.size || 1) * 0.7, 0, f.z, 0.16, 2.1, 0.16, '#e2e8f0'));
+        faces.push(...cube(f.x + (f.size || 1) * 0.35, 2.1, f.z, (f.size || 1) * 0.62, 0.3, 0.22, col));
+        faces.push(...disc(f.x, f.z, 1.1, '#1a2440'));
+      } else if (f.type === 'pavilion') {
+        faces.push(...cube(f.x, 0, f.z, 0.7, 0.55, 0.7, '#c8a24a'));
+        faces.push(...cube(f.x, 0.55, f.z, 0.5, 0.4, 0.5, '#a5802f'));
+      } else if (f.type === 'slab') {
+        faces.push(...cube(f.x, 0, f.z, 0.95, 0.12, 0.8, '#475569'));
+      } else if (f.type === 'baan') {
+        faces.push(...column(f.x, 0, f.z, 0, 2.6, 0.12, '#e7c99e', 6));
+        faces.push(...column(f.x, 0, f.z + 0.3, 2.6, 2.9, 0.22, 0.015, '#d9b582', 4));
+      } else if (f.type === 'ghat') {
+        const dir = C.water ? 1 : -1;
+        for (let s = 0; s < 4; s++) {
+          faces.push(...cube(f.x, s * 0.14, f.z + dir * (0.35 + s * 0.5), 1.3, 0.14, 0.55, ['#64748b', '#7d8ea3', '#95a7bc', '#aabdd1'][s]));
+        }
+      } else if (f.type === 'flame') {
+        faces.push(...disc(f.x, f.z, 0.7, '#3b3420'));
+        faces.push(...column(f.x, 0, f.z, 0, 0.5, 0.34, '#8a6d1f', 6));
+      } else if (f.type === 'kund') {
+        faces.push(...disc(f.x, f.z, 0.95, 'rgba(30,64,175,0.35)', 14, true));
+        faces.push(...cube(f.x, 0, f.z, 0.95, 0.1, 0.95, '#4b5b78'));
+      } else if (f.type === 'bridge') {
+        const ax = f.x - 1.3, bx = f.x + 1.3;
+        faces.push(...cube(f.x, 0.25, f.z, 1.4, 0.2, 0.35, '#cbd5e1'));
+        faces.push(...cube(ax, 0, f.z, 0.14, 1.4, 0.14, '#64748b'));
+        faces.push(...cube(bx, 0, f.z, 0.14, 1.4, 0.14, '#64748b'));
+      } else if (f.type === 'hill') {
+        faces.push(...column(f.x, 0, f.z, 0, 2.2, 1.9, 0.9, '#14532d', 8));
+        faces.push(...column(f.x, 0.05, f.z, 1.6, 2.6, 1.1, 0.5, '#166534', 8));
+        faces.push(...column(f.x, 0.1, f.z, 2.6, 3.1, 0.6, 0.3, '#1a7a44', 8));
+      } else if (f.type === 'waterfall') {
+        faces.push(...disc(f.x, f.z, 0.7, 'rgba(30,64,175,0.3)', 14, true));
+      }
+    });
+
+    return { faces, flag: { templeId, color: flagInfo } };
+  }, [templeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const makeOrbitCam = (yaw, pitch, f) => {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const focal = 680 * f;
+    return (x, y, z) => {
+      const x1 = x * cy - z * sy;
+      const z1 = x * sy + z * cy;
+      const y2 = z1 * cp - y * sp;
+      const z2 = z1 * sp + y * cp;
+      const depth = 11.5 - z2;
+      if (depth < 0.6) return null;
+      const s = focal / depth;
+      return { x: 320 + x1 * s, y: 252 - y2 * s, d: depth, s };
+    };
+  };
+
+  const makeFirstPersonCam = (pos, yaw, pitch) => {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const focal = 680;
+    return (x, y, z) => {
+      const dx = x - pos[0];
+      const dy = y - pos[1];
+      const dz = z - pos[2];
+      const x1 = dx * cy - dz * sy;
+      const z1 = dx * sy + dz * cy;
+      const y2 = z1 * cp - dy * sp;
+      const z2 = z1 * sp + dy * cp;
+      if (z2 < 0.3) return null;
+      const s = focal / z2;
+      return { x: 320 + x1 * s, y: 252 - y2 * s, d: z2, s };
+    };
+  };
+
+  const makeOrthoCam = (scale) => {
+    return (x, y, z) => {
+      const s = scale;
+      return { x: 320 + x * s, y: 252 - z * s, d: -y, s };
+    };
+  };
+
+  const getCollisionBounds = (C) => {
+    const bounds = [];
+    bounds.push({ min: [-C.baseT - 0.35, -10, -C.baseT * 0.62], max: [C.baseT + 0.35, 10, C.baseT * 0.62] });
+    (C.scene || []).forEach(f => {
+      if (f.type === 'gate') {
+        const sz = f.size || 1;
+        bounds.push({ min: [f.x - 0.8 * sz, -1, f.z - 0.16], max: [f.x + 0.8 * sz, 3, f.z + 0.16] });
+      } else if (f.type === 'pavilion') {
+        bounds.push({ min: [f.x - 0.7, -1, f.z - 0.7], max: [f.x + 0.7, 2, f.z + 0.7] });
+      } else if (f.type === 'slab') {
+        bounds.push({ min: [f.x - 0.95, -1, f.z - 0.8], max: [f.x + 0.95, 1, f.z + 0.8] });
+      }
+    });
+    return bounds;
+  };
+
+  const checkCollision = (pos, bounds, radius = 0.35) => {
+    for (const b of bounds) {
+      const cx = Math.max(b.min[0], Math.min(pos[0], b.max[0]));
+      const cz = Math.max(b.min[2], Math.min(pos[2], b.max[2]));
+      const dx = pos[0] - cx;
+      const dz = pos[2] - cz;
+      if (dx * dx + dz * dz < radius * radius) return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
     let mounted = true;
     digitalTwinEngine
       .runDigitalTwinSimulation(templeId, footfall || 28000, gatesOpen || 4, new Date().toISOString().split('T')[0])
-      .then((res) => {
-        if (mounted) setResult(res);
-      })
+      .then((res) => { if (mounted) setResult(res); })
       .catch(() => {});
     return () => { mounted = false; };
   }, [templeId, footfall, gatesOpen]);
@@ -205,612 +442,281 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
     if (!ctx) return;
 
     let animFrame;
-    posRef.current = [];
-
-    const T = 31 * zoom;
-    const OX = 320;
-    const OY = 252;
-    const proj = (x, y, h) => [OX + (x - y) * T, OY + (x + y) * T * 0.5 - h];
-
-    const isoBox = (cx, cy, hw, hd, h, top, sideA, sideB) => {
-      const n = proj(cx, cy - hd, h);
-      const e = proj(cx + hw, cy, h);
-      const s = proj(cx, cy + hd, h);
-      const w = proj(cx - hw, cy, h);
-      const n0 = proj(cx, cy - hd, 0);
-      const e0 = proj(cx + hw, cy, 0);
-      const w0 = proj(cx - hw, cy, 0);
-      ctx.fillStyle = top;
-      ctx.beginPath();
-      ctx.moveTo(n[0], n[1]);
-      ctx.lineTo(e[0], e[1]);
-      ctx.lineTo(s[0], s[1]);
-      ctx.lineTo(w[0], w[1]);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = sideA;
-      ctx.beginPath();
-      ctx.moveTo(n[0], n[1]);
-      ctx.lineTo(e[0], e[1]);
-      ctx.lineTo(e0[0], e0[1]);
-      ctx.lineTo(n0[0], n0[1]);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = sideB;
-      ctx.beginPath();
-      ctx.moveTo(w[0], w[1]);
-      ctx.lineTo(n[0], n[1]);
-      ctx.lineTo(n0[0], n0[1]);
-      ctx.lineTo(w0[0], w0[1]);
-      ctx.closePath();
-      ctx.fill();
+    const C = CORE_CFG[templeId] || CORE_CFG.tmp_somnath;
+    const cam = (yaw, pitch, f) => {
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const focal = 680 * f;
+      return (x, y, z) => {
+        const x1 = x * cy - z * sy;
+        const z1 = x * sy + z * cy;
+        const y2 = z1 * cp - y * sp;
+        const z2 = z1 * sp + y * cp;
+        const depth = 11.5 - z2;
+        if (depth < 0.6) return null;
+        const s = focal / depth;
+        return { x: 320 + x1 * s, y: 252 - y2 * s, d: depth, s };
+      };
     };
 
-    const ellipse = (cx, cy, rx, ry, color) => {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
-      ctx.fill();
-    };
+    const projectFeature = (P, x, z, h) => P(x, h, z);
 
-    const label = (sx, sy, text, color = '#f8fafc', size = 10, weight = 'bold') => {
-      ctx.font = `${weight} ${size}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(2,6,23,0.88)';
-      ctx.strokeText(text, sx, sy);
-      ctx.fillStyle = color;
-      ctx.fillText(text, sx, sy);
-    };
+    const render = () => {
+      const pulse = (pulseRef.current.angle += 0.05);
+      if (!pulseRef.current.dragging) {
+        pulseRef.current.yaw += 0.0018;
+        if (pulseRef.current.yaw > TAU) pulseRef.current.yaw -= TAU;
+      }
+      const P = cam(pulseRef.current.yaw, pulseRef.current.pitch, zoom);
 
-    const heatRing = (sx, sy, r, dens, pulse) => {
-      const ring = r + Math.sin(pulse) * r * 0.2;
-      const col = dens > 0.72 ? '#ef4444' : dens > 0.44 ? '#f59e0b' : '#10b981';
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.arc(sx, sy, ring + 6, 0, TAU);
-      ctx.fill();
-      ctx.globalAlpha = 0.55;
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(sx, sy, ring, 0, TAU);
-      ctx.stroke();
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#0b1424');
+      grad.addColorStop(0.55, '#0e1a30');
+      grad.addColorStop(1, '#0a1120');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(203,213,225,0.45)';
+      for (let i = 0; i < STARFIELD.length; i++) {
+        const st = STARFIELD[i];
+        ctx.globalAlpha = st[3] * (0.6 + 0.4 * Math.sin(pulse * 0.5 + st[2]));
+        ctx.fillRect(st[0], st[1], 1.5, 1.5);
+      }
       ctx.globalAlpha = 1;
-    };
 
-    const drawShikhara = (f, cfg) => {
-      const [sx, sy] = proj(f.x, f.y, 0);
-      isoBox(f.x, f.y, 2.3, 1.25, 7, '#8b8174', '#6f665c', '#554d45');
-      let hw = 1.7;
-      let hd = 0.92;
-      for (let s = 0; s < cfg.storeys; s++) {
-        isoBox(f.x, f.y - 0.12 * s, hw, hd, 16 + s * 9, cfg.top, cfg.a, cfg.b);
-        hw *= 0.92;
-        hd *= 0.92;
-      }
-      if (cfg.storeys === 5) {
-        for (let i = 0; i < cfg.pillarDots; i++) {
-          const ang = (i / cfg.pillarDots) * TAU;
-          const px = f.x + Math.cos(ang) * 1.15;
-          const py = f.y + Math.sin(ang) * 1.15;
-          ctx.fillStyle = '#efe6c8';
-          ctx.beginPath();
-          ctx.arc(proj(px, py, 8)[0], proj(px, py, 8)[1], 2.6, 0, TAU);
-          ctx.fill();
+      const drawn = [];
+      (mesh.faces || []).forEach((fc) => {
+        const projPts = [];
+        let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9, depth = 0;
+        for (let i = 0; i < fc.pts.length; i++) {
+          const p = P(fc.pts[i][0], fc.pts[i][1], fc.pts[i][2]);
+          if (!p) return;
+          projPts.push([p.x, p.y]);
+          minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+          minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+          depth += p.d;
         }
-      }
-      let zh = 24 + cfg.storeys * 9;
-      let tw = hw;
-      for (let i = 0; i < cfg.spireTiers; i++) {
-        isoBox(f.x, f.y - 0.16 * cfg.storeys, tw, tw * 0.54, zh, cfg.spire, cfg.a, cfg.b);
-        tw *= 0.82;
-        zh += 16;
-      }
-      const topZ = zh + 2;
-      isoBox(f.x, f.y - 0.16 * cfg.storeys, tw * 0.6, tw * 0.4, topZ, cfg.kalash, '#7a4a14', '#5a360e');
-      isoBox(f.x, f.y - 0.16 * cfg.storeys, 0.1, 0.07, topZ + 7, '#fde047', '#d4a017', '#a67f0e');
-      const poleTop = proj(f.x, f.y - 0.16 * cfg.storeys, topZ + 7);
-      if (cfg.flag === true) {
-        ctx.strokeStyle = '#e2c08d';
-        ctx.lineWidth = 2.5;
+        depth /= fc.pts.length;
+        drawn.push({ pts: projPts, fill: fc.fill, depth, id: fc.id, minX, maxX, minY, maxY });
+      });
+
+      drawn.sort((a, b) => b.depth - a.depth);
+      drawn.forEach((fc) => {
+        if (fc.pts.length < 3) return;
         ctx.beginPath();
-        ctx.moveTo(poleTop[0], poleTop[1]);
-        ctx.lineTo(poleTop[0], poleTop[1] - 34);
-        ctx.stroke();
-        ctx.fillStyle = '#e2572c';
-        ctx.beginPath();
-        ctx.moveTo(poleTop[0], poleTop[1] - 34);
-        ctx.lineTo(poleTop[0] + 22, poleTop[1] - 27);
-        ctx.lineTo(poleTop[0], poleTop[1] - 19);
+        ctx.moveTo(fc.pts[0][0], fc.pts[0][1]);
+        for (let i = 1; i < fc.pts.length; i++) ctx.lineTo(fc.pts[i][0], fc.pts[i][1]);
         ctx.closePath();
+        ctx.fillStyle = fc.fill;
         ctx.fill();
-      } else if (cfg.flag === 'sunmoon') {
-        ctx.strokeStyle = '#d9c48d';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(poleTop[0], poleTop[1]);
-        ctx.lineTo(poleTop[0], poleTop[1] - 38);
+        ctx.strokeStyle = fc.fill;
+        ctx.lineWidth = 0.6;
         ctx.stroke();
-        ctx.fillStyle = '#f87171';
-        ctx.fillRect(poleTop[0], poleTop[1] - 36, 18, 12);
-        ctx.fillStyle = '#fbbf24';
+      });
+
+      const flagOf = CORE_CFG[templeId] && mesh.flag;
+      const flagColor = mesh.flag && mesh.flag.color;
+      const shrineTop = P(0, C.height + 0.4, 0);
+      if (shrineTop && flagColor) {
+        ctx.strokeStyle = '#cbb488';
+        ctx.lineWidth = 2.4;
         ctx.beginPath();
-        ctx.arc(poleTop[0] + 5, poleTop[1] - 30, 3, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = '#e5e7eb';
-        ctx.beginPath();
-        ctx.arc(poleTop[0] + 12, poleTop[1] - 30, 3, 0, TAU);
-        ctx.fill();
-      } else if (cfg.flag === 'trishul' || cfg.flag === 'chunri') {
-        ctx.strokeStyle = cfg.flag === 'trishul' ? '#f5c542' : '#c9b7a4';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(poleTop[0], poleTop[1]);
-        ctx.lineTo(poleTop[0], poleTop[1] - 36);
+        ctx.moveTo(shrineTop.x, shrineTop.y);
+        ctx.lineTo(shrineTop.x, shrineTop.y - 30);
         ctx.stroke();
-        ctx.fillStyle = cfg.flag === 'trishul' ? '#f59e0b' : '#b45309';
-        if (cfg.flag === 'trishul') {
-          for (let i = -1; i <= 1; i++) {
-            ctx.fillRect(poleTop[0] + i * 6 - 1.5, poleTop[1] - 40, 3, 8);
-          }
+        if (flagColor === 'sunmoon') {
+          ctx.fillStyle = '#f87171';
+          ctx.fillRect(shrineTop.x, shrineTop.y - 28, 16, 11);
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath(); ctx.arc(shrineTop.x + 4, shrineTop.y - 23, 2.6, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#f1f5f9';
+          ctx.beginPath(); ctx.arc(shrineTop.x + 10, shrineTop.y - 23, 2.6, 0, TAU); ctx.fill();
+        } else {
+          ctx.fillStyle = flagColor;
           ctx.beginPath();
-          ctx.moveTo(poleTop[0], poleTop[1] - 50);
-          ctx.lineTo(poleTop[0] + 5, poleTop[1] - 42);
-          ctx.lineTo(poleTop[0] - 5, poleTop[1] - 42);
+          ctx.moveTo(shrineTop.x, shrineTop.y - 28);
+          ctx.lineTo(shrineTop.x + 20, shrineTop.y - 22);
+          ctx.lineTo(shrineTop.x, shrineTop.y - 16);
           ctx.closePath();
           ctx.fill();
-        } else {
-          ctx.fillRect(poleTop[0], poleTop[1] - 36, 16, 10);
         }
-      }
-      label(sx, sy - zh - 46, cfg.label, '#fde047', 10, 'bold');
-    };
-
-    const renderMap = () => {
-      const pulse = (pulseRef.current.angle += 0.05);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const gw = Math.round((canvas.width / 22) / zoom);
-      ctx.strokeStyle = 'rgba(148,163,184,0.07)';
-      ctx.lineWidth = 1;
-      for (let gx = 0; gx <= canvas.width; gx += gw) {
-        ctx.beginPath();
-        ctx.moveTo(gx, 0);
-        ctx.lineTo(gx, canvas.height);
-        ctx.stroke();
-      }
-      for (let gy = 0; gy <= canvas.height; gy += gw) {
-        ctx.beginPath();
-        ctx.moveTo(0, gy);
-        ctx.lineTo(canvas.width, gy);
-        ctx.stroke();
+        ctx.font = "bold 10px 'Segoe UI', system-ui, sans-serif";
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(2,6,23,0.88)';
+        ctx.strokeText(C.label, shrineTop.x, shrineTop.y - 42);
+        ctx.fillStyle = '#fde047';
+        ctx.fillText(C.label, shrineTop.x, shrineTop.y - 42);
       }
 
-      const corners = [-5.5, 5.5];
-      const pts = [proj(corners[0], corners[0], 0), proj(corners[1], corners[0], 0), proj(corners[1], corners[1], 0), proj(corners[0], corners[1], 0)];
-      ctx.fillStyle = 'rgba(30,41,59,0.62)';
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      ctx.lineTo(pts[1][0], pts[1][1]);
-      ctx.lineTo(pts[2][0], pts[2][1]);
-      ctx.lineTo(pts[3][0], pts[3][1]);
-      ctx.closePath();
-      ctx.fill();
+      const overlays = [];
+      (C.scene || []).forEach((f) => {
+        const p = projectFeature(P, f.x, 0, f.z);
+        if (!p) return;
+        overlays.push({ f, x: p.x, y: p.y, s: p.s });
+      });
+      const shrineP = projectFeature(P, 0, 0, 0);
+      liveRef.current.liveProj = overlays.map((o) => ({ id: o.f.id, x: o.x, y: o.y }));
+      const live = liveRef.current;
+      const hours = live.result?.estimatedEntryDurationHours || 0;
+      const loadPct = live.result ? Math.min(100, Math.round((live.result.perGateLoad / 6000) * 100)) : 0;
 
-      if (layout.sea) {
-        const [nw, ne] = [proj(layout.sea.x - 5.4, layout.sea.y - layout.sea.d, 0), proj(layout.sea.x + 5.4, layout.sea.y - layout.sea.d, 0)];
-        const [sw, se] = [proj(layout.sea.x - 5.4, layout.sea.y, 0), proj(layout.sea.x + 5.4, layout.sea.y, 0)];
-        ctx.fillStyle = 'rgba(56,130,246,0.16)';
-        ctx.beginPath();
-        ctx.moveTo(nw[0], nw[1]);
-        ctx.lineTo(ne[0], ne[1]);
-        ctx.lineTo(se[0], se[1]);
-        ctx.lineTo(sw[0], sw[1]);
-        ctx.closePath();
-        ctx.fill();
-        for (let i = 0; i < 3; i++) {
-          const yy = layout.sea.y - 0.6 - i * 0.85;
+      overlays
+        .filter((o) => o.f.zoneId && o.f.type !== 'gate')
+        .forEach((o) => {
+          const dens = densityOf(o.f.zoneId);
+          const col = dens > 0.72 ? '239,68,68' : dens > 0.44 ? '245,158,11' : '16,185,129';
+          const r = o.s * (o.f.type === 'flame' ? 0.5 : 0.42) + Math.sin(pulse + o.f.x) * 6;
+          const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, r);
+          g.addColorStop(0, `rgba(${col},0.28)`);
+          g.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = g;
           ctx.beginPath();
-          for (let xx = layout.sea.x - 5.2; xx <= layout.sea.x + 5.2; xx += 0.3) {
-            const [px, py] = proj(xx, yy, 0);
-            const wave = Math.sin(xx * 1.6 + pulse * (1 + i * 0.25)) * 2.4;
-            if (xx === layout.sea.x - 5.2) ctx.moveTo(px, py + wave);
-            else ctx.lineTo(px, py + wave);
-          }
-          ctx.strokeStyle = `rgba(103,232,249,${0.35 - i * 0.08})`;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-        }
-      }
-
-      const features = [...layout.features];
-      const hillTop = features.find((f) => f.id === 'hill');
-
-      if (hillTop) {
-        const [sx, sy] = proj(hillTop.x, hillTop.y, 0);
-        ellipse(sx, sy, 1.05 * T, 0.5 * T, 'rgba(42,68,58,0.9)');
-        ellipse(sx, sy, 0.85 * T, 0.4 * T, 'rgba(16,90,66,0.95)');
-        ellipse(sx, sy, 0.62 * T, 0.3 * T, 'rgba(13,72,53,0.98)');
-        ellipse(sx, sy, 0.4 * T, 0.19 * T, 'rgba(10,58,43,1)');
-        const [tsx, tsy] = proj(hillTop.x, hillTop.y, -4);
-        ellipse(tsx - 0.05 * T, tsy, 0.3 * T, 0.14 * T, 'rgba(6,40,30,1)');
-      }
-
-      features
-        .filter((f) => f.type === 'gabbar')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          ellipse(sx, sy, 1.15 * T, 0.55 * T, 'rgba(30,60,45,0.9)');
-          ellipse(sx, sy, 0.92 * T, 0.44 * T, 'rgba(19,82,57,0.95)');
-          ellipse(sx, sy, 0.66 * T, 0.32 * T, 'rgba(13,70,50,1)');
-          const [tsx, tsy] = proj(f.x, f.y, -6);
-          ellipse(tsx, tsy, 0.42 * T, 0.2 * T, 'rgba(8,50,36,1)');
+          ctx.arc(o.x, o.y, r, 0, TAU);
+          ctx.fill();
         });
 
-      features
-        .filter((f) => f.type === 'ghat')
-        .forEach((f) => {
-          isoBox(f.x, f.y, 1.2, 0.55, 6, 'rgba(148,163,184,0.5)', 'rgba(100,116,139,0.55)', 'rgba(71,85,105,0.55)');
-          for (let i = 0; i < 4; i++) {
-            const yr = f.y + 0.28 - i * 0.18;
-            const [ax, ay] = proj(f.x - 0.9, yr, 0);
-            const [bx, by] = proj(f.x + 0.9, yr, 0);
-            ctx.beginPath();
-            ctx.moveTo(ax, ay);
-            ctx.lineTo(bx, by);
-            ctx.strokeStyle = 'rgba(226,232,240,0.4)';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
+      const flow = (o, t, col) => {
+        const fx = (1 - t) * o.f.x;
+        const fz = (1 - t) * o.f.z;
+        const p = projectFeature(P, fx, 0, fz);
+        if (!p) return;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(1.6, 3.2 * p.s * 0.12 + 0.8), 0, TAU);
+        ctx.fill();
+      };
+
+      overlays
+        .filter((o) => o.f.type === 'gate')
+        .forEach((o) => {
+          const t = (pulse * 0.06 + o.f.x * 0.07) % 1;
+          const cols = ['rgba(56,189,248,0.9)', 'rgba(125,211,252,0.75)'];
+          for (let k = 0; k < 3; k++) {
+            flow(o, (t + k / 3) % 1, cols[k % 2]);
           }
         });
 
-      features
-        .filter((f) => f.type === 'steps' || f.type === 'marker')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          if (f.type === 'marker') {
-            ctx.fillStyle = f.id === 'gabbar_shrine' ? '#f59e0b' : '#f472b6';
-            ctx.beginPath();
-            ctx.moveTo(sx, sy - 10);
-            ctx.lineTo(sx + 7, sy);
-            ctx.lineTo(sx, sy + 10);
-            ctx.lineTo(sx - 7, sy);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = '#fde68a';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-          } else {
-            ctx.strokeStyle = 'rgba(226,232,240,0.6)';
+      overlays
+        .filter((o) => o.f.type === 'gate')
+        .forEach((o) => {
+          const barH = Math.max(7, (loadPct / 100) * 46);
+          const bx = o.x;
+          const by = o.y - 66;
+          ctx.fillStyle = 'rgba(2,6,23,0.82)';
+          ctx.fillRect(bx - 6, by - barH, 12, barH + 6);
+          ctx.fillStyle = loadPct > 80 ? '#ef4444' : loadPct > 55 ? '#f59e0b' : '#10b981';
+          ctx.fillRect(bx - 4, by - barH + 3, 8, barH);
+          if (hours > 2.5 && (hours > 4 || Math.sin(pulse * 1.2 + o.f.x) > 0.1)) {
+            ctx.strokeStyle = 'rgba(239,68,68,0.9)';
             ctx.lineWidth = 2;
             ctx.setLineDash([4, 3]);
-            const start = proj(f.x - 1.4, f.y - 1.2, 0);
-            const endPt = proj(f.x + 1.4, f.y + 1.2, 0);
             ctx.beginPath();
-            ctx.moveTo(start[0], start[1]);
-            ctx.lineTo(endPt[0], endPt[1]);
+            ctx.arc(o.x, o.y - 40, 22 + Math.sin(pulse) * 3, 0, TAU);
             ctx.stroke();
             ctx.setLineDash([]);
-            const dotT = ((pulse * 0.05) % 1 + 1) % 1;
-            const dx = endPt[0] - start[0];
-            const dy = endPt[1] - start[1];
-            ctx.fillStyle = '#c4b5fd';
-            ctx.beginPath();
-            ctx.arc(start[0] + dx * dotT, start[1] + dy * dotT, 3.5, 0, TAU);
-            ctx.fill();
           }
         });
 
-      features
-        .filter((f) => f.type === 'kund')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          ellipse(sx, sy, 0.5 * T, 0.26 * T, 'rgba(56,130,246,0.2)');
-          ellipse(sx, sy, 0.4 * T, 0.2 * T, 'rgba(96,165,250,0.22)');
-          ctx.strokeStyle = 'rgba(147,197,253,0.55)';
-          ctx.lineWidth = 1.4;
+      overlays.forEach((o) => {
+        const isHover = live.hovered === o.f.id;
+        ctx.font = "bold 8px 'Segoe UI', system-ui, sans-serif";
+        ctx.textAlign = 'center';
+        const labelY = o.y + 26;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(2,6,23,0.85)';
+        ctx.strokeText(o.f.short || o.f.label, o.x, labelY);
+        ctx.fillStyle = isHover ? '#fde047' : '#cbd5e1';
+        ctx.fillText(o.f.short || o.f.label, o.x, labelY);
+        if (isHover) {
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([4, 3]);
           ctx.beginPath();
-          ctx.ellipse(sx, sy, 0.45 * T, 0.23 * T, 0, 0, TAU);
-          ctx.stroke();
-        });
-
-      features
-        .filter((f) => f.type === 'waterfall')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          const fall = 22 + Math.sin(pulse * 2.2) * 3;
-          ctx.fillStyle = 'rgba(186,230,253,0.75)';
-          ctx.beginPath();
-          ctx.moveTo(sx - 12, sy - fall);
-          ctx.lineTo(sx + 12, sy - fall);
-          ctx.lineTo(sx + 8, sy);
-          ctx.lineTo(sx - 8, sy);
-          ctx.closePath();
-          ctx.fill();
-        });
-
-      features
-        .filter((f) => f.type === 'fort')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          ctx.strokeStyle = 'rgba(180,170,150,0.6)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(sx - 30, sy);
-          for (let i = 0; i < 5; i++) {
-            ctx.lineTo(sx - 22 + i * 12, sy - 9);
-            ctx.lineTo(sx - 16 + i * 12, sy);
-          }
-          ctx.stroke();
-        });
-
-      features
-        .filter((f) => ['plaza', 'parking', 'flame'].includes(f.type))
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          ctx.fillStyle = f.type === 'flame' ? 'rgba(120,95,25,0.55)' : f.type === 'plaza' ? 'rgba(100,116,139,0.3)' : 'rgba(71,85,105,0.28)';
-          ctx.beginPath();
-          ctx.arc(sx, sy, (f.type === 'plaza' ? 0.6 : 0.42) * T, 0, TAU);
-          ctx.fill();
-          if (f.type === 'flame') {
-            const flameY = Math.sin(pulse * 3) * 3;
-            ctx.fillStyle = '#fbbf24';
-            ctx.beginPath();
-            ctx.moveTo(sx, sy - 18 - flameY);
-            ctx.quadraticCurveTo(sx + 9, sy - 6, sx + 5, sy);
-            ctx.quadraticCurveTo(sx, sy + 6, sx - 5, sy);
-            ctx.quadraticCurveTo(sx - 9, sy - 6, sx, sy - 18 - flameY);
-            ctx.fill();
-            ctx.fillStyle = '#f97316';
-            ctx.beginPath();
-            ctx.arc(sx, sy - 8 - flameY * 0.5, 4, 0, TAU);
-            ctx.fill();
-          }
-        });
-
-      features
-        .filter((f) => f.type === 'bridge')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          isoBox(f.x, f.y, 1.7, 0.4, 14, 'rgba(226,232,240,0.92)', 'rgba(148,163,184,0.95)', 'rgba(100,116,139,0.95)');
-          const [p0, p1] = [proj(f.x - 1.6, f.y, 0), proj(f.x + 1.6, f.y, 0)];
-          const [a0, a1] = [proj(f.x - 1.6, f.y, 40), proj(f.x + 1.6, f.y, 40)];
-          ctx.strokeStyle = '#94a3b8';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(p0[0], p0[1]);
-          ctx.lineTo(a0[0], a0[1]);
-          ctx.moveTo(p1[0], p1[1]);
-          ctx.lineTo(a1[0], a1[1]);
-          ctx.stroke();
-          ctx.strokeStyle = '#cbd5e1';
-          ctx.lineWidth = 1.2;
-          ctx.setLineDash([5, 4]);
-          ctx.beginPath();
-          ctx.moveTo(a0[0], a0[1]);
-          ctx.quadraticCurveTo((a0[0] + a1[0]) / 2, Math.min(a0[1], a1[1]) - 16, a1[0], a1[1]);
+          ctx.arc(o.x, o.y + 6, 26 * o.s * 0.1 + 14, 0, TAU);
           ctx.stroke();
           ctx.setLineDash([]);
-        });
-
-      features
-        .filter((f) => f.type === 'ferry')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          isoBox(f.x, f.y, 0.7, 0.4, 10, '#94a3b8', '#64748b', '#475569');
-          const bob = Math.sin(pulse * 1.4) * 3;
-          ctx.fillStyle = '#0ea5e9';
-          ctx.beginPath();
-          ctx.moveTo(sx - 15, sy - bob);
-          ctx.lineTo(sx - 7, sy - 13 - bob);
-          ctx.lineTo(sx + 13, sy - 13 - bob);
-          ctx.lineTo(sx + 17, sy - bob);
-          ctx.closePath();
-          ctx.fill();
-          label(sx, sy - 25 - bob, '⛴ Bet Dwarka', '#7dd3fc', 8, 'bold');
-        });
-
-      features
-        .filter((f) => f.type === 'ropeway')
-        .forEach((f) => {
-          const [bx, by] = proj(f.base[0], f.base[1], -30);
-          const [tx, ty] = proj(f.top[0], f.top[1], -60);
-          ctx.strokeStyle = 'rgba(167,139,250,0.65)';
-          ctx.lineWidth = 1.4;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(bx[0], bx[1]);
-          ctx.lineTo(tx[0], tx[1]);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          for (let i = 0; i < 3; i++) {
-            const t = ((pulse * 0.07 + i / 3) % 1 + 1) % 1;
-            const cx = bx[0] + (tx[0] - bx[0]) * t;
-            const cy = bx[1] + (tx[1] - bx[1]) * t;
-            ctx.fillStyle = '#8b5cf6';
-            ctx.beginPath();
-            ctx.arc(cx, cy, 4.5, 0, TAU);
-            ctx.fill();
-            ctx.strokeStyle = '#e9d5ff';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
-          isoBox(f.base[0], f.base[1], 0.5, 0.35, 24, '#c4b5fd', '#8b5cf6', '#6d28d9');
-        });
-
-      features
-        .filter((f) => f.type === 'baan')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          isoBox(f.x, f.y, 0.16, 0.12, 46, '#e7c99e', '#b08a5d', '#8a6742');
-          const tip = proj(f.x, f.y, 44);
-          ctx.fillStyle = '#d9b582';
-          ctx.beginPath();
-          ctx.moveTo(tip[0], tip[1] - 20);
-          ctx.lineTo(tip[0] + 7, tip[1]);
-          ctx.lineTo(tip[0] - 7, tip[1]);
-          ctx.closePath();
-          ctx.fill();
-        });
-
-      const drawOrder = features
-        .filter((f) => f.type === 'temple' || f.type === 'gate' || f.type === 'pavilion')
-        .sort((a, b) => proj(a.x, a.y, 0)[1] - proj(b.x, b.y, 0)[1]);
-
-      drawOrder.forEach((f) => {
-        if (f.type === 'temple') {
-          drawShikhara(f, core);
-          const [sx, sy] = proj(f.x, f.y, 0);
-          if (core.facts) {
-            heatRing(sx, sy, 28, densityOf(f.zoneId) || 0.62, pulse);
-          }
-        } else if (f.type === 'pavilion') {
-          isoBox(f.x, f.y, 0.7, 0.42, 20, '#c8a24a', '#a5802f', '#7c5f1e');
-        } else if (f.type === 'gate') {
-          const color = GATE_COLORS[f.gateId ? (gates.find((g) => g.id === f.gateId) || {}).type : 'entry_and_exit'] || '#22d3ee';
-          isoBox(f.x - 0.2, f.y + 0.08, 0.14, 0.12, 26, '#e2e8f0', '#94a3b8', '#64748b');
-          isoBox(f.x + 0.2, f.y - 0.08, 0.14, 0.12, 26, '#e2e8f0', '#94a3b8', '#64748b');
-          isoBox(f.x, f.y, 0.62 * (f.size || 1), 0.26 * (f.size || 1), 32, color, '#0e7490', '#155e75');
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.moveTo(proj(f.x, f.y, 0)[0], proj(f.x, f.y, 0)[1] - 34);
-          ctx.lineTo(proj(f.x, f.y, 0)[0] + (f.size || 1) * 10, proj(f.x, f.y, 0)[1] - 28);
-          ctx.lineTo(proj(f.x, f.y, 0)[0], proj(f.x, f.y, 0)[1] - 22);
-          ctx.lineTo(proj(f.x, f.y, 0)[0] - (f.size || 1) * 10, proj(f.x, f.y, 0)[1] - 28);
-          ctx.closePath();
-          ctx.fill();
-          const dens = densityOf(f.zoneId);
-          heatRing(proj(f.x, f.y, 0)[0], proj(f.x, f.y, 0)[1], 16 + (f.size || 1) * 8, dens, pulse);
-          const [sx, sy] = proj(f.x, f.y, 0);
-          label(sx, sy - 46, f.label, '#f0f9ff', 9, 'bold');
         }
       });
 
-      const shrine = features.find((f) => f.type === 'temple');
-      const shrinePos = shrine ? proj(shrine.x, shrine.y, 0) : [320, 240];
-      const flowScale = 0.6 + Math.min(2, (footfall || 28000) / 16000);
-
-      features
-        .filter((f) => f.type === 'gate')
-        .forEach((f) => {
-          const from = proj(f.x, f.y, 0);
-          const dx = shrinePos[0] - from[0];
-          const dy = shrinePos[1] - from[1];
-          const len = Math.hypot(dx, dy) * flowScale;
-          const nx = dx / Math.hypot(dx, dy);
-          const ny = dy / Math.hypot(dx, dy);
-          const startT = (pulse * 0.06) % 1;
-          ctx.strokeStyle = 'rgba(56,189,248,0.75)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          const sSeg = from[0] + nx * startT * len;
-          const eSeg = from[0] + nx * Math.min(1, startT + 0.3) * len;
-          ctx.moveTo(sSeg, from[1] + ny * startT * len);
-          ctx.lineTo(eSeg, from[1] + ny * Math.min(1, startT + 0.3) * len);
-          ctx.stroke();
-        });
-
-      const hours = result?.estimatedEntryDurationHours || 0;
-      const loadPct = result ? Math.min(100, Math.round((result.perGateLoad / 6000) * 100)) : 0;
-      features
-        .filter((f) => f.type === 'gate')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          if (result) {
-            const barH = Math.max(6, (loadPct / 100) * 40);
-            ctx.fillStyle = 'rgba(2,6,23,0.8)';
-            ctx.fillRect(sx - 5, sy - 92 - barH, 10, barH + 6);
-            ctx.fillStyle = loadPct > 80 ? '#ef4444' : loadPct > 55 ? '#f59e0b' : '#10b981';
-            ctx.fillRect(sx - 4, sy - 88 - barH, 8, barH);
-          }
-          if (hours > 2.5 && (hours > 4 || Math.sin(pulse * 1.2 + f.x) > 0.1)) {
-            ctx.strokeStyle = 'rgba(239,68,68,0.85)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 3]);
-            ctx.beginPath();
-            ctx.arc(sx, sy - 34, 24 + Math.sin(pulse) * 3, 0, TAU);
-            ctx.stroke();
-            ctx.setLineDash([]);
-          }
-        });
-
-      features
-        .filter((f) => f.zoneId && f.type !== 'gate' && f.type !== 'temple')
-        .forEach((f) => {
-          const [sx, sy] = proj(f.x, f.y, 0);
-          heatRing(sx, sy, 18, densityOf(f.zoneId), pulse);
-        });
-
-      if (result?.additionalGates > 0) {
-        const [sx, sy] = shrinePos;
+      const live2 = liveRef.current;
+      if (live2.result?.additionalGates > 0 && shrineP) {
         ctx.fillStyle = 'rgba(234,88,12,0.92)';
         ctx.beginPath();
-        ctx.moveTo(sx + 18, sy - 148);
-        ctx.lineTo(sx + 116, sy - 148);
-        ctx.lineTo(sx + 116, sy - 129);
-        ctx.lineTo(sx + 18, sy - 129);
+        ctx.moveTo(shrineP.x - 58, shrineP.y - 92);
+        ctx.lineTo(shrineP.x + 58, shrineP.y - 92);
+        ctx.lineTo(shrineP.x + 58, shrineP.y - 74);
+        ctx.lineTo(shrineP.x - 58, shrineP.y - 74);
         ctx.closePath();
         ctx.fill();
-        label(sx + 67, sy - 136, `+${result.additionalGates} gates needed`, '#fff', 9, 'bold');
+        ctx.font = "bold 9px 'Segoe UI', sans-serif";
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`+${live2.result.additionalGates} gates needed`, shrineP.x, shrineP.y - 80);
       }
 
-      features.forEach((f) => {
-        if (f.id === 'shrine' || f.id === 'hill') return;
-        const [sx, sy] = proj(f.x, f.y, 0);
-        posRef.current.push({ id: f.id, sx, sy, radius: 20 + (f.size || 0) * 14 });
-        if (hovered === f.id) {
-          ctx.beginPath();
-          ctx.arc(sx, sy, 24 + (f.size || 0) * 14, 0, TAU);
-          ctx.strokeStyle = '#fbbf24';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([4, 3]);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-        if (f.type !== 'sea') {
-          label(sx, sy + 20, f.short || f.label, '#cbd5e1', 8, 'normal');
-        }
-      });
+      ctx.font = "10px 'Segoe UI', system-ui, sans-serif";
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(148,163,184,0.75)';
+      ctx.fillText(`${Math.round(pulseRef.current.yaw * 57.3) % 360}° orbit · drag to spin`, canvas.width - 10, canvas.height - 10);
 
-      const [tsx, tsy] = shrinePos;
-      ctx.fillStyle = 'rgba(251,191,36,0.16)';
-      ctx.beginPath();
-      ctx.arc(tsx, tsy, 30 + Math.sin(pulse) * 4, 0, TAU);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(251,191,36,0.45)';
-      ctx.lineWidth = 1.4;
-      ctx.stroke();
-
-      animFrame = requestAnimationFrame(renderMap);
+      animFrame = requestAnimationFrame(render);
     };
 
-    renderMap();
+    render();
     return () => cancelAnimationFrame(animFrame);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [templeId, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hitTest = (clientX, clientY) => {
+  const handleDown = (e) => {
+    pulseRef.current.dragging = true;
+    pulseRef.current.lastX = e.clientX;
+    pulseRef.current.lastY = e.clientY;
+  };
+  const handleMove = (e) => {
+    const cam = pulseRef.current;
+    if (cam.dragging) {
+      cam.yaw -= (e.clientX - cam.lastX) * 0.01;
+      cam.pitch = Math.max(0.15, Math.min(1.15, cam.pitch + (e.clientY - cam.lastY) * 0.01));
+      cam.lastX = e.clientX;
+      cam.lastY = e.clientY;
+    }
     const canvas = canvasRef.current;
-    if (!canvas) return null;
+    if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const px = (clientX - rect.left) * (canvas.width / rect.width);
-    const py = (clientY - rect.top) * (canvas.height / rect.height);
+    const px = (e.clientX - rect.left);
+    const py = (e.clientY - rect.top);
+    const live = liveRef.current;
+    setHovered(live.hoverAt && live.hoverAt(px, py) || null);
+  };
+  const handleUp = () => { pulseRef.current.dragging = false; };
+  const handleClick = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left);
+    const py = (e.clientY - rect.top);
+    const live = liveRef.current;
+    const hit = live.hoverAt && live.hoverAt(px, py);
+    if (hit) {
+      const f = (CORE_CFG[templeId] || CORE_CFG.tmp_somnath).scene.find((x) => x.id === hit);
+      if (f) setSelected(f);
+    } else {
+      setSelected(null);
+    }
+  };
+
+  liveRef.current.hoverAt = (px, py) => {
+    const proj = liveRef.current.liveProj || [];
     let best = null;
-    let bestD = Infinity;
-    posRef.current.forEach((p) => {
-      if (!p) return;
-      const d = Math.hypot(px - p.sx, py - p.sy);
-      if (d < p.radius && d < bestD) {
-        best = p.id;
-        bestD = d;
-      }
-    });
+    let bestD = 30;
+    for (let i = proj.length - 1; i >= 0; i--) {
+      const d = Math.hypot(px - proj[i].x, py - proj[i].y);
+      if (d < bestD) { best = proj[i].id; bestD = d; }
+    }
     return best;
   };
 
   const gates = (temple.gates || []).map((g) => {
-    const linked = layout.features.find((f) => f.gateId === g.id);
+    const linked = (cfg.scene || []).find((f) => f.gateId === g.id);
     const dens = densityOf(linked?.zoneId);
     const load = result ? Math.round((result.perGateLoad / 6000) * 100) : 0;
     const loadLabel = load > 80 ? 'HIGH' : load > 55 ? 'MODERATE' : 'CLEAR';
@@ -819,23 +725,32 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
 
   const liveCap = temple.live_capacity_percentage ?? 62;
   const crowdColor = liveCap > 75 ? '#ef4444' : liveCap > 45 ? '#f59e0b' : '#10b981';
-  const simStatus = (result?.estimatedEntryDurationHours || 0) > 3 ? 'OVERLOAD' : (result?.estimatedEntryDurationHours || 0) > 1.8 ? 'STRESSED' : 'HEALTHY';
+  const hrs = result?.estimatedEntryDurationHours || 0;
+  const simStatus = hrs > 3 ? 'OVERLOAD' : hrs > 1.8 ? 'STRESSED' : 'HEALTHY';
   const simColor = simStatus === 'OVERLOAD' ? '#ef4444' : simStatus === 'STRESSED' ? '#f59e0b' : '#10b981';
-  const selectedFeature = selected ? layout.features.find((f) => f.id === selected.id) : null;
+  const selectedFeature = selected ? (cfg.scene || []).find((f) => f.id === selected.id) : null;
 
   return (
     <div className="space-y-4 animate-in fade-in">
-      <div className="bg-slate-950 border border-amber-900/30 rounded-2xl p-4 text-white space-y-4">
+      <div className="bg-slate-950 border border-violet-900/40 rounded-2xl p-4 text-white space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div>
             <span className="text-[10px] font-mono uppercase font-bold bg-violet-500/20 text-violet-300 border border-violet-500/40 px-2.5 py-0.5 rounded-md flex items-center gap-1.5 w-max">
-              <Sparkles className="w-3 h-3" /> REAL TEMPLE DIGITAL TWIN
+              <Sparkles className="w-3 h-3" /> 3D STRUCTURE DIGITAL TWIN
             </span>
             <h3 className="text-base font-bold text-white mt-1 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-violet-400" />
-              {getLocalizedTempleName(temple)} — {core.label}
+              <Layers className="w-4 h-4 text-violet-400" />
+              {getLocalizedTempleName(temple)} — {cfg.label}
             </h3>
-            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{core.style || core.facts[0].value}</p>
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{cfg.facts[0].value} · {CORE_CFG[templeId] ? cfg.facts[1].label + ': ' + cfg.facts[1].value : ''}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[9px] font-mono text-slate-300">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500/90" /> CLEAR</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500/90" /> MODERATE</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500/90" /> HIGH LOAD</span>
+              <span className="text-slate-500">gauge + red ring = gate bottleneck</span>
+              <span className="text-slate-500">cyan dots = pilgrims moving in</span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-mono mt-1">PURPOSE: Simulate footfall & gates on the real 3D structure → predict entry wait & how many extra gates are needed.</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-mono">
@@ -851,11 +766,11 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
 
         <div className="relative bg-slate-900 rounded-xl overflow-hidden border border-white/10">
           <div className="absolute top-2 left-2 z-10 flex flex-col gap-1.5">
-            {[['+', 0.15], ['-', -0.15]].map(([sym, delta]) => (
+            {[['+', 0.18], ['-', -0.18]].map(([sym, delta]) => (
               <button
                 key={sym}
                 type="button"
-                onClick={() => setZoom((z) => Math.max(0.6, Math.min(1.6, z + delta)))}
+                onClick={() => setZoom((z) => Math.max(0.65, Math.min(1.8, z + delta)))}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
                 aria-label={`Zoom ${sym}`}
               >
@@ -864,35 +779,39 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
             ))}
             <button
               type="button"
-              onClick={() => setZoom(1)}
+              onClick={() => { pulseRef.current.yaw = -0.55; pulseRef.current.pitch = 0.42; setZoom(1); }}
               className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
-              aria-label="Reset zoom"
+              aria-label="Reset view"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
 
           <div className="absolute top-2 right-2 z-10 flex flex-wrap gap-1.5 text-[9px] font-mono text-slate-300 justify-end pointer-events-none">
-            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: core.top }} /> Shrine</span>
+            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block" style={{ background: cfg.stoneTop }} /> Shikhara</span>
             <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><MapPin className="w-2.5 h-2.5 text-cyan-400" /> Gates</span>
-            {layout.sea && <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Waves className="w-2.5 h-2.5 text-blue-400" /> {layout.terrain === 'seafront' ? 'Sea' : 'River'}</span>}
-            {featuresSome(layout, 'ropeway') && <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Cable className="w-2.5 h-2.5 text-violet-400" /> Ropeway</span>}
-            {featuresSome(layout, 'hill') && <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Mountain className="w-2.5 h-2.5 text-emerald-400" /> Hill</span>}
-            {featuresSome(layout, 'bridge') && <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-slate-300" /> Suspension</span>}
+            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-2 h-2 rounded-sm inline-block bg-white" /> Drag = orbit</span>
+            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" /> pilgrims</span>
+            <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-red-400" /> overload</span>
           </div>
 
           <canvas
             ref={canvasRef}
             width={640}
             height={470}
-            className="cursor-pointer max-w-full w-full h-auto"
-            onClick={(e) => {
-              const hit = hitTest(e.clientX, e.clientY);
-              setSelected(hit ? layout.features.find((f) => f.id === hit) : null);
-            }}
-            onMouseMove={(e) => setHovered(hitTest(e.clientX, e.clientY))}
-            onMouseLeave={() => setHovered(null)}
+            className="cursor-grab active:cursor-grabbing max-w-full w-full h-auto"
+            onMouseDown={handleDown}
+            onMouseMove={handleMove}
+            onMouseUp={handleUp}
+            onMouseLeave={() => { handleUp(); setHovered(null); }}
+            onClick={handleClick}
           />
+
+          {!selectedFeature && (
+            <div className="absolute bottom-2 left-2 bg-slate-950/70 border border-white/10 px-3 py-1.5 rounded-lg text-[10px] text-slate-400 font-mono pointer-events-none">
+              ▾ Click a feature to inspect · drag = orbit · sliders = simulate
+            </div>
+          )}
 
           {selectedFeature && (
             <div className="absolute bottom-2 left-2 right-2 bg-slate-950/95 backdrop-blur-md border border-violet-500/40 p-3 rounded-xl text-xs animate-in slide-in-from-bottom">
@@ -902,21 +821,19 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
                   <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                     {(() => {
                       const gate = selectedFeature.gateId ? gates.find((g) => g.id === selectedFeature.gateId) : null;
-                      const fact = (core.facts || []).find((fc) => fc.label === selectedFeature.label);
                       if (gate) return `${gate.name} · ${gate.type.toUpperCase().replace('_', ' ')}${gate.desc ? ' · ' + gate.desc : ''}`;
                       if (selectedFeature.zoneId) {
                         const zone = temple.zones.find((z) => z.id === selectedFeature.zoneId);
                         if (zone) return `${zone.label} · real-time density ${densityOf(zone.id).toFixed(2)}/m²`;
                       }
-                      if (fact) return fact.value;
-                      return null;
+                      return 'Real 3D structure of the temple';
                     })()}
                   </p>
                   {selectedFeature.gateId && (() => {
                     const g = gates.find((x) => x.id === selectedFeature.gateId);
                     return (
                       <p className="text-[10px] mt-1 font-bold" style={{ color: g.load > 80 ? '#ef4444' : g.load > 55 ? '#f59e0b' : '#10b981' }}>
-                        Twin load {g.load}% · gives {result?.estimatedEntryDurationHours || '—'} hrs entry wait
+                        Twin load {g.load}% · {hrs || '—'} hrs entry wait
                       </p>
                     );
                   })()}
@@ -977,8 +894,8 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
                 </div>
                 <div className="bg-slate-800/70 border border-slate-700 p-2.5 rounded-lg">
                   <p className="text-[9px] text-slate-400 uppercase font-medium flex items-center gap-1"><Clock className="w-3 h-3" /> Entry Wait</p>
-                  <p className={`text-lg font-black font-mono ${result.estimatedEntryDurationHours > 3 ? 'text-red-400' : result.estimatedEntryDurationHours > 1.8 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {result.estimatedEntryDurationHours} <span className="text-[10px] text-slate-500 font-normal">hrs</span>
+                  <p className={`text-lg font-black font-mono ${hrs > 3 ? 'text-red-400' : hrs > 1.8 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {hrs} <span className="text-[10px] text-slate-500 font-normal">hrs</span>
                   </p>
                 </div>
                 <div className="bg-slate-800/70 border border-slate-700 p-2.5 rounded-lg">
@@ -997,7 +914,7 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
           <div className="lg:col-span-2 bg-slate-900/60 border border-white/10 rounded-xl p-4">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Real Temple Fact Sheet</p>
             <div className="space-y-1.5">
-              {(core.facts || []).map((fact, i) => (
+              {(cfg.facts || []).map((fact, i) => (
                 <div key={i} className="grid grid-cols-[86px_1fr] gap-2 text-[11px] leading-snug">
                   <span className="text-violet-300 font-bold uppercase tracking-wide">{fact.label}</span>
                   <span className="text-slate-300">{fact.value}</span>
@@ -1010,7 +927,3 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
     </div>
   );
 };
-
-function featuresSome(layout, type) {
-  return (layout.features || []).some((f) => f.type === type || (type === 'hill' && f.id === 'hill'));
-}

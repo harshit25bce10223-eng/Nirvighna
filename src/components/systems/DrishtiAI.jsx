@@ -53,6 +53,10 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
   const [webcamLoading, setWebcamLoading] = useState(false);
   const [webcamError, setWebcamError] = useState('');
   const [realFaceCount, setRealFaceCount] = useState(0);
+  // Backend trained-YOLO mode: true when the backend owns the physical webcam
+  const [backendWebcam, setBackendWebcam] = useState(false);
+  const [backendCount, setBackendCount] = useState(0);
+  const backendPollRef = useRef(null);
 
   // General Telemetry state (defaults per channel, enriched by backend if live)
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -115,24 +119,30 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
 
   const currentPreset = CAM_PRESETS[activeCam] || CAM_PRESETS.cam1;
 
-  // Active metrics: for webcam we use realFaceCount, for cam1-4 we use preset
+  // webcam count = real backend YOLO tracks (trained drishti_person.pt on physical webcam),
+  // or in-browser detection if the browser owns the camera.
+  const webcamCount = backendWebcam ? backendCount : realFaceCount;
+
+  // Active metrics: for webcam we use webcamCount, for cam1-4 we use preset
   const displayDevotees = activeCam === 'webcam'
-    ? (realFaceCount > 0 ? realFaceCount : (webcamActive ? 1 : 0))
+    ? (webcamActive ? webcamCount : 0)
     : currentPreset.devotees;
 
   const displayDensity = activeCam === 'webcam'
-    ? (webcamActive ? (realFaceCount * 0.7 + 0.4).toFixed(2) : '0.00')
+    ? (webcamActive ? (webcamCount * 0.7 + 0.4).toFixed(2) : '0.00')
     : currentPreset.density.toFixed(2);
 
   const displayOccupancy = activeCam === 'webcam'
-    ? (webcamActive ? Math.min(100, Math.max(8, realFaceCount * 18)) : 0)
+    ? (webcamActive ? Math.min(100, Math.max(8, webcamCount * 18)) : 0)
     : currentPreset.occupancy;
 
   const displayEntry = activeCam === 'webcam' ? (webcamActive ? 14 : 0) : currentPreset.entry;
   const displayExit = activeCam === 'webcam' ? (webcamActive ? 12 : 0) : currentPreset.exit;
   const displayAdvisory = activeCam === 'webcam'
     ? (webcamActive
-        ? `Physical Hardware Webcam active. Real-time in-browser face detection tracking ${realFaceCount} devotee face(s) in local camera frame.`
+        ? (backendWebcam
+            ? `Backend trained YOLO model (drishti_person.pt) is processing the physical webcam feed live - predicting ${webcamCount} devotee(s) in camera now.`
+            : `Physical Hardware Webcam active. Real-time in-browser face detection tracking ${webcamCount} devotee face(s) in local camera frame.`)
         : "Physical Hardware Webcam ready. Click 'Start Live Webcam' below to stream from your computer's live camera.")
     : currentPreset.advisory;
 
@@ -142,7 +152,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
     { id: 'cam2', label: 'CAM 2', name: 'Gate 1 North', zone: 'Holding Ramp (82% High)', load: '82%', isHot: true, isDemo: true },
     { id: 'cam3', label: 'CAM 3', name: 'Gate 2 South', zone: 'Priority Fast-Track (24%)', load: '24%', isHot: false, isDemo: true },
     { id: 'cam4', label: 'CAM 4', name: 'Courtyard', zone: 'Sea-Face Parikrama (48%)', load: '48%', isHot: false, isDemo: true },
-    { id: 'webcam', label: 'USB/WEBCAM', name: 'Physical Camera', zone: 'Actual Live Webcam', load: webcamActive ? 'LIVE' : 'READY', isHardware: true }
+    { id: 'webcam', label: 'USB/WEBCAM', name: 'Physical Camera', zone: backendWebcam ? 'Trained YOLO on Real Webcam' : 'Actual Live Webcam', load: backendWebcam ? 'REAL YOLO' : webcamActive ? 'LIVE' : 'READY', isHardware: true }
   ];
 
   // Refs for rendering
@@ -477,6 +487,43 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
     setWebcamLoading(true);
     setWebcamError('');
 
+    // Does the backend own the physical webcam for its trained YOLO model?
+    let backendOwnsCam = false;
+    try {
+      const stRes = await fetch(`${DRISHTI_URL}/api/status`, { method: 'GET' });
+      if (stRes.ok) {
+        const st = await stRes.json();
+        backendOwnsCam = Boolean(st?.hardware?.webcam) && String(st.hardware.webcam).includes('VideoCapture');
+      }
+    } catch (_) {}
+
+    if (backendOwnsCam) {
+      // Backend trained model (drishti_person.pt) is running on the real camera.
+      // Show its live MJPEG feed + real detection count (no second client can grab the same webcam).
+      setBackendWebcam(true);
+      setWebcamActive(true);
+      setWebcamLoading(false);
+      setActionFeedback('📹 Backend Trained YOLO active on physical webcam — real detections streaming.');
+      setTimeout(() => setActionFeedback(''), 3800);
+
+      // Poll real active-track count from backend
+      if (backendPollRef.current) clearInterval(backendPollRef.current);
+      const updateCount = async () => {
+        try {
+          const pr = await fetch(`${DRISHTI_URL}/api/predict`, { method: 'GET' });
+          if (pr.ok) {
+            const pd = await pr.json();
+            if (pd.source !== 'SIMULATED_FOR_DEMO') setBackendCount(Number(pd.current_occupancy) || 0);
+          }
+        } catch (_) {}
+      };
+      updateCount();
+      backendPollRef.current = setInterval(updateCount, 2000);
+      return;
+    }
+
+    // Otherwise try the browser's own getUserMedia (in-browser BlazeFace/COCO-SSD cross-check)
+    setBackendWebcam(false);
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Webcam API not supported in this browser. Please use Google Chrome, Edge, or Firefox over localhost/HTTPS.');
@@ -525,10 +572,32 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
 
             try {
               const res = await drishtiPipeline.detectFacesInVideo(video, overlay);
-              const count = res?.count || (res?.faces?.length ?? 0);
+              const personRes = await drishtiPipeline.processVideoFrameCOCOSSD(video);
+              const persons = personRes?.activeTracksCount || 0;
+              const count = Math.max(res?.count || 0, persons);
               setRealFaceCount(count);
 
-              // Draw Live Face Bounding Boxes
+              // Draw Live Bounding Boxes: persons (COCO-SSD) then faces (BlazeFace)
+              if (personRes?.tracks?.length > 0) {
+                personRes.tracks.forEach((t) => {
+                  const bx = (t.x / 100) * W;
+                  const by = (t.y / 100) * H;
+                  const bw = (t.w / 100) * W;
+                  const bh = (t.h / 100) * H;
+
+                  ctx.strokeStyle = '#f59e0b';
+                  ctx.lineWidth = 3;
+                  ctx.strokeRect(bx, by, bw, bh);
+                  ctx.fillStyle = 'rgba(245, 158, 11, 0.14)';
+                  ctx.fillRect(bx, by, bw, bh);
+                  ctx.fillStyle = '#f59e0b';
+                  ctx.fillRect(bx, Math.max(0, by - 22), Math.min(bw, 190), 22);
+                  ctx.fillStyle = '#090d16';
+                  ctx.font = 'bold 11px sans-serif';
+                  ctx.fillText(`DEVOTEE [${t.confidence || 98}%]`, bx + 4, Math.max(15, by - 6));
+                });
+              }
+
               if (res && res.faces && res.faces.length > 0) {
                 res.faces.forEach((f) => {
                   const fx = (f.x / 100) * W;
@@ -581,7 +650,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setWebcamError('No physical webcam hardware was detected on this device. Please plug in a USB camera and try again.');
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        setWebcamError('Camera hardware is currently in use by another application. Please close it and click Retry.');
+        setWebcamError('Camera hardware is currently in use by the backend trained YOLO model (drishti_person.pt on /video_feed). That feed IS the correct live prediction. Restarting local in-browser detection is not required.');
       } else {
         setWebcamError(`Unable to start camera: ${err.message || 'Unknown device error'}`);
       }
@@ -592,6 +661,10 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
     if (detectionAnimRef.current) {
       cancelAnimationFrame(detectionAnimRef.current);
     }
+    if (backendPollRef.current) {
+      clearInterval(backendPollRef.current);
+      backendPollRef.current = null;
+    }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
@@ -600,7 +673,9 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
       videoLocalRef.current.srcObject = null;
     }
     setWebcamActive(false);
+    setBackendWebcam(false);
     setRealFaceCount(0);
+    setBackendCount(0);
   }, []);
 
   // When switching away from webcam, stop webcam to save resources; when switching to webcam, auto-start
@@ -737,7 +812,11 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
 
           <div className="flex items-center gap-2">
             {activeCam === 'webcam' ? (
-              webcamActive ? (
+              backendWebcam ? (
+                <span className="text-xs px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> BACKEND TRAINED YOLO ACTIVE — REAL WEBCAM
+                </span>
+              ) : webcamActive ? (
                 <span className="text-xs px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1.5 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> ACTUAL LIVE HARDWARE WEBCAM ACTIVE
                 </span>
@@ -900,7 +979,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
                 {activeCam === 'cam2' && `82% (${currentPreset.devotees} Devotees)`}
                 {activeCam === 'cam3' && `24% (${currentPreset.devotees} Devotees)`}
                 {activeCam === 'cam4' && `48% (${currentPreset.devotees} Devotees)`}
-                {activeCam === 'webcam' && (webcamActive ? `${realFaceCount} Active Faces Detected` : 'Camera Offline')}
+                {activeCam === 'webcam' && (backendWebcam ? `${backendCount} Real YOLO Tracks in Camera` : webcamActive ? `${webcamCount} Active Faces Detected` : 'Camera Offline')}
               </strong>
             </div>
           </div>
@@ -911,6 +990,39 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
           {activeCam === 'webcam' ? (
             /* ACTUAL PHYSICAL WEBCAM CONTAINER */
             <div className="relative w-full h-full min-h-[360px] sm:min-h-[440px] flex items-center justify-center bg-slate-950 overflow-hidden">
+              {backendWebcam && webcamActive ? (
+                /* Backend trained-YOLO live MJPEG feed (real camera, real boxes drawn by drishti_person.pt) */
+                <>
+                  <img
+                    src={`${DRISHTI_URL}/video_feed?t=${Date.now()}`}
+                    className="w-full h-auto max-h-[460px] object-contain mx-auto block"
+                    alt="Backend trained YOLO model - real webcam detection stream"
+                  />
+                  <div className="absolute top-2 left-2 z-30 flex items-center gap-2 pointer-events-none">
+                    <span className="text-[10px] font-mono font-bold bg-black/80 text-emerald-300 px-2.5 py-1 rounded border border-emerald-500/40 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      BACKEND YOLO • drishti_person.pt • REAL WEBCAM
+                    </span>
+                  </div>
+                  <div className="absolute bottom-2 left-2 z-30 pointer-events-none">
+                    <span className="text-xs font-bold bg-emerald-600/90 text-white px-2.5 py-1 rounded flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5" />
+                      {backendCount} People in Camera Now
+                    </span>
+                  </div>
+                  <div className="absolute top-14 right-3 z-30 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={stopHardwareWebcam}
+                      className="px-3 py-1 bg-red-900/80 hover:bg-red-800 text-red-200 text-xs font-bold rounded-lg border border-red-500/40 flex items-center gap-1.5 shadow-md backdrop-blur-md cursor-pointer transition-all"
+                    >
+                      <VideoOff className="w-3.5 h-3.5" />
+                      <span>Stop Feed</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+              <>
               <video
                 ref={videoLocalRef}
                 autoPlay
@@ -990,6 +1102,8 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
                     <span>Restart</span>
                   </button>
                 </div>
+              )}
+              </>
               )}
             </div>
           ) : (

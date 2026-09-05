@@ -36,9 +36,11 @@ class CameraFeedManager:
         logger.info(f"[{self.current_cam_name}] Camera feed thread started.")
 
     def _init_camera(self):
-        # By default leave the physical webcam free for the browser frontend
+        # Backend grabs the physical webcam by default so the trained YOLO model
+        # (drishti_person.pt) runs on REAL camera frames. Set RELEASE_WEBCAM_FOR_BROWSER=true
+        # only when the browser must own the camera (e.g. in-browser cross-check).
         import os
-        if os.environ.get("RELEASE_WEBCAM_FOR_BROWSER", "true").lower() == "true":
+        if os.environ.get("RELEASE_WEBCAM_FOR_BROWSER", "false").lower() == "true":
             logger.info(f"[{self.current_cam_name}] Physical webcam left free for browser frontend. Running high-fidelity AI simulated CCTV feed.")
             self.using_simulation = True
             return

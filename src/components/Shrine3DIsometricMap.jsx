@@ -248,7 +248,11 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
         proj(corners[1], corners[1], 0),
         proj(corners[0], corners[1], 0)
       ];
-      ctx.fillStyle = 'rgba(30,41,59,0.6)';
+      const gGrad = ctx.createLinearGradient(0, pts[0][1], 0, pts[2][1]);
+      gGrad.addColorStop(0, 'rgba(71,85,105,0.5)');
+      gGrad.addColorStop(0.5, 'rgba(30,41,59,0.6)');
+      gGrad.addColorStop(1, 'rgba(15,23,42,0.66)');
+      ctx.fillStyle = gGrad;
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       ctx.lineTo(pts[1][0], pts[1][1]);
@@ -284,6 +288,22 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
       }
 
       const features = [...layout.features];
+
+      const shadowEl = (f, rw, rd) => {
+        const [sx, sy] = proj(f.x, f.y, 0);
+        const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, rw);
+        g.addColorStop(0, 'rgba(0,0,0,0.36)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, rw, rd, 0, 0, TAU);
+        ctx.fill();
+      };
+      const plinth = features.find((f) => f.type === 'plinth');
+      if (plinth) shadowEl(plinth, 2.25 * T, 1.2 * T);
+      features
+        .filter((f) => ['pavilion', 'gate', 'bridge'].includes(f.type))
+        .forEach((f) => shadowEl(f, (1.05 * T) * (f.size || 1), 0.55 * T));
 
       features
         .filter((f) => f.type === 'hill' && f.id !== 'gabbar')
@@ -436,6 +456,14 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
           const meta = DENSITY_META(dens);
           const [sx, sy] = proj(f.x, f.y, 0);
           heatRing(sx, sy, 16 + (f.size || 1) * 8, dens, pulse);
+          const chip = `${meta.pct}% ${meta.label}`;
+          ctx.font = "bold 8px 'Segoe UI', system-ui, sans-serif";
+          ctx.textAlign = 'center';
+          const cw = ctx.measureText(chip).width + 10;
+          ctx.fillStyle = 'rgba(2,6,23,0.8)';
+          ctx.fillRect(sx - cw / 2, sy - 68, cw, 14);
+          ctx.fillStyle = meta.color;
+          ctx.fillText(chip, sx, sy - 57);
           label(sx, sy - 46, f.label, meta.label === 'HIGH' ? '#fca5a5' : '#f0f9ff', 9, 'bold');
         }
       });
@@ -477,6 +505,13 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
       });
 
       const [tsx, tsy] = proj(shrine?.x ?? 0, shrine?.y ?? 0, 0);
+      const glow = ctx.createRadialGradient(tsx, tsy, 4, tsx, tsy, 74 + Math.sin(pulse) * 7);
+      glow.addColorStop(0, 'rgba(251,191,36,0.13)');
+      glow.addColorStop(1, 'rgba(251,191,36,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(tsx, tsy, 74, 0, TAU);
+      ctx.fill();
       ctx.fillStyle = 'rgba(251,191,36,0.18)';
       ctx.beginPath();
       ctx.arc(tsx, tsy, 34 + Math.sin(pulse) * 5, 0, TAU);
@@ -484,6 +519,41 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
       ctx.strokeStyle = 'rgba(251,191,36,0.5)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
+
+      const barW = 46 * zoom;
+      const bx2 = canvas.width - 22;
+      const by2 = canvas.height - 14;
+      ctx.font = "8px 'Segoe UI', system-ui, sans-serif";
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(148,163,184,0.8)';
+      ctx.fillText('200 m', bx2, by2);
+      ctx.fillText('0 m', bx2 - barW - 26, by2);
+      ctx.strokeStyle = 'rgba(148,163,184,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(bx2 - barW, by2 - 4);
+      ctx.lineTo(bx2, by2 - 4);
+      ctx.moveTo(bx2 - barW, by2 - 7);
+      ctx.lineTo(bx2 - barW, by2 - 1);
+      ctx.moveTo(bx2, by2 - 7);
+      ctx.lineTo(bx2, by2 - 1);
+      ctx.stroke();
+
+      const cpx = 26;
+      const cpy = canvas.height - 20;
+      ctx.fillStyle = 'rgba(148,163,184,0.85)';
+      ctx.font = "bold 9px 'Segoe UI', system-ui, sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText('N', cpx, cpy - 14);
+      ctx.beginPath();
+      ctx.moveTo(cpx, cpy - 9);
+      ctx.lineTo(cpx - 5, cpy + 5);
+      ctx.lineTo(cpx + 5, cpy + 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(148,163,184,0.6)';
+      ctx.font = "7px 'Segoe UI', system-ui, sans-serif";
+      ctx.fillText('SE', cpx, cpy + 14);
 
       animFrame = requestAnimationFrame(renderMap);
     };
@@ -527,6 +597,14 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
             {getLocalizedTempleName(temple)}
           </h3>
           <p className="text-[11px] text-slate-400 font-mono mt-0.5">{targetHints[templeId] || targetHints.tmp_somnath}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[9px] font-mono text-slate-300">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500/90" /> CLEAR</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500/90" /> MODERATE</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500/90" /> HIGH</span>
+            <span className="text-slate-500">halo = live density/m²</span>
+            <span className="text-slate-500">cyan flow = pilgrims</span>
+          </div>
+          <p className="text-[10px] text-slate-500 font-mono mt-1">PURPOSE: Spot overcrowded gates & zones before darshan blocks — tap any gate/zone/landmark for live load.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-mono">
@@ -587,6 +665,12 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
           onMouseMove={(e) => setHovered(hitTest(e.clientX, e.clientY))}
           onMouseLeave={() => setHovered(null)}
         />
+
+        {!selected && (
+          <div className="absolute bottom-2 left-2 bg-slate-950/70 border border-white/10 px-3 py-1.5 rounded-lg text-[10px] text-slate-400 font-mono pointer-events-none">
+            ▾ Tap any gate · zone · landmark to inspect live load
+          </div>
+        )}
 
         {selected && (
           <div className="absolute bottom-2 left-2 right-2 bg-slate-950/95 backdrop-blur-md border border-amber-500/40 p-3 rounded-xl text-xs animate-in slide-in-from-bottom">

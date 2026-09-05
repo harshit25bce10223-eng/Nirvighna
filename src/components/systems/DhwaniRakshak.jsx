@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Volume2, AlertTriangle, ShieldCheck, Activity, User, Phone, Radio } from 'lucide-react';
+import { Mic, MicOff, Volume2, AlertTriangle, ShieldCheck, Activity, User, Phone, Radio, Siren } from 'lucide-react';
 import { templeAIConfigEngine } from '../../lib/templeAIConfigEngine';
 import { acousticPanicEngine } from '../../lib/acousticPanicEngine';
+
+const DRISHTI_URL = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
 
 const EnterpriseCard = ({ children, className = '' }) => (
   <div className={`bg-[#1C1617] border border-amber-950/40 rounded-xl shadow-xs transition-all ${className}`}>
@@ -135,6 +137,23 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
 
   const handleSetBaseline = () => { baselineRef.current = currentDecibels; setRollingBaselineDb(currentDecibels); };
 
+  const handleDemoPanic = async () => {
+    if (isLiveMic) { await handleMicToggle(); }
+    setCurrentDecibels(93);
+    setPanicScore(92);
+    setAcousticState('CRITICAL');
+    setLastPanicEvent({
+      time: new Date().toLocaleTimeString('en-IN'),
+      dB: 93,
+      confidence: 92,
+      screamRatio: '1.42',
+    });
+    acousticPanicEngine.playPanicSiren();
+    try {
+      await fetch(`${DRISHTI_URL}/api/panic/simulate`, { method: 'POST' });
+    } catch (_) {}
+  };
+
   return (
     <div className="space-y-5 text-slate-100 font-sans">
       <EnterpriseCard className="p-5">
@@ -170,6 +189,10 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
                 <Radio className="w-3.5 h-3.5" /> Calibrate Baseline
               </button>
             )}
+            <button type="button" onClick={handleDemoPanic}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide bg-red-600/20 text-red-300 border border-red-500/40 hover:bg-red-600/30 transition-all shadow-sm shadow-red-500/10">
+              <Siren className="w-4 h-4 animate-pulse" /> Test Panic Demo
+            </button>
             <button type="button" onClick={handleMicToggle}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${isLiveMic ? 'bg-red-500/10 text-red-300 border border-red-500/30 hover:bg-red-500/20' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>
               {isLiveMic ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
