@@ -302,7 +302,6 @@ const NAV_ITEMS = [
   { id: 'dhwani_rakshak',   label: 'DHWANI RAKSHAK',    icon: Radio,     tag: 'Audio' },
   { id: 'sanjeevani_path',  label: 'SANJEEVANI PATH',   icon: HeartPulse,tag: 'Medical' },
   { id: 'digital_twin',     label: 'DIGITAL TWIN',      icon: Sparkles,  tag: 'Sim' },
-  { id: 'panic',            label: 'Panic Alerts',      icon: AlertTriangle },
   { id: 'volunteers',       label: 'Duty Roster',       icon: UserCheck },
 ];
 

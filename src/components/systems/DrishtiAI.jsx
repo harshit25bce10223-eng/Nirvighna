@@ -529,7 +529,7 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
           }
           const W = overlay.width;
           const H = overlay.height;
-          const ctx = overlay.getContext('2d');
+          const ctx = overlay.getContext('2d', { willReadFrequently: true });
 
           if (ctx && !isProcessing) {
             isProcessing = true;
