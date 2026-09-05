@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Camera, Play, Pause, RefreshCw, ShieldCheck, VideoOff, Smile, UserCheck, Cpu, CheckCircle2, Users } from 'lucide-react';
 import { drishtiPipeline } from '../lib/drishtiVisionPipeline';
 
+const DRISHTI_URL = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
+
 /**
  * Live Camera & Crowd Vision Monitor
  * Handles face detection overlay and dense crowd headcount tracking.
@@ -419,7 +421,7 @@ export const LiveWebcamCVMonitor = () => {
           ) : (
             <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               <img
-                src="http://localhost:8001/video_feed"
+                src={`${DRISHTI_URL}/video_feed`}
                 className="w-full h-auto max-h-[360px] object-contain mx-auto block rounded-lg border border-amber-900/40"
                 alt="Live Drishti AI CCTV Feed"
                 onError={(e) => {

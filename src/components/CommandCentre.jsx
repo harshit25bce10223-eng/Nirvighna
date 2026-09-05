@@ -50,6 +50,7 @@ const DhwaniRakshak = React.lazy(() => import('./systems/DhwaniRakshak').then(mo
 const SanjeevaniPath = React.lazy(() => import('./systems/SanjeevaniPath').then(module => ({ default: module.SanjeevaniPath })));
 const OfflineCounterBooking = React.lazy(() => import('./OfflineCounterBooking').then(module => ({ default: module.OfflineCounterBooking })));
 const Shrine3DIsometricMap = React.lazy(() => import('./Shrine3DIsometricMap').then(module => ({ default: module.Shrine3DIsometricMap })));
+const TempleDigitalTwin = React.lazy(() => import('./TempleDigitalTwin').then(module => ({ default: module.TempleDigitalTwin })));
 const SmartSignageLEDController = React.lazy(() => import('./SmartSignageLEDController').then(module => ({ default: module.SmartSignageLEDController })));
 
 // ─── Web Speech API & Web Audio Temple PA Announcement Engine ─────────
@@ -490,6 +491,9 @@ export const CommandCentre = () => {
   const [simulatingDigitalTwin, setSimulatingDigitalTwin] = useState(false);
   const [crowdSafetyView, setCrowdSafetyView] = useState('live');
 
+  // Drishti backend live telemetry (real counts from CV backend)
+  const [drishtiTelemetry, setDrishtiTelemetry] = useState({ connected: false, devotees: 0, entries: 0, exits: 0, zones: [] });
+
   // ─── Data fetching ──────────────────────────────────────────────
   const fetchLostCases = async () => {
     const { data } = await supabase.from('lost_found_cases').select('*, users(full_name, phone)').in('status', ['active', 'searching']).order('created_at', { ascending: false });
@@ -505,7 +509,32 @@ export const CommandCentre = () => {
   };
   const fetchPanicAlerts = async () => {
     const { data } = await supabase.from('panic_alerts').select('*').in('status', ['active', 'investigating']).order('detected_at', { ascending: false });
-    setPanicAlerts(data || []);
+    let merged = data || [];
+    // Merge Drishti backend incident log so real hardware panic events appear in the CC
+    try {
+      const res = await fetch((import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000') + '/api/incidents');
+      if (res.ok) {
+        const payload = await res.json();
+        const backendPanics = (payload.incidents || [])
+          .filter(i => i.type === 'PANIC_ALERT' || i.type === 'AUDIO_PANIC_SCREAM' || i.type === 'MANUAL_PANIC_TEST')
+          .slice(0, 10)
+          .map(i => ({
+            id: 'backend_' + i.timestamp,
+            status: 'active',
+            severity: 'critical',
+            confidence_score: i.confidence ? Math.round(i.confidence * 100) : 98,
+            zone_name: 'Backend Drishti Audio',
+            detected_at: i.timestamp,
+            created_at: i.timestamp,
+            description: i.message,
+            source: 'backend'
+          }));
+        merged = [...backendPanics, ...merged];
+      }
+    } catch (e) {
+      // Backend offline — Supabase alerts only
+    }
+    setPanicAlerts(merged);
   };
   const fetchTempleCapacities = async () => {
     const { data } = await supabase.from('temple_capacity').select('*, temples(name)').order('last_updated', { ascending: false });
@@ -534,6 +563,28 @@ export const CommandCentre = () => {
     setAcousticReadings(list);
   };
 
+  const fetchDrishtiTelemetry = async () => {
+    try {
+      const base = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
+      const res = await fetch(`${base}/api/predict`, { method: 'GET' });
+      if (!res.ok) {
+        setDrishtiTelemetry(t => ({ ...t, connected: false }));
+        return;
+      }
+      const data = await res.json();
+      setDrishtiTelemetry({
+        connected: true,
+        source: data.source || 'LIVE',
+        devotees: data.current_occupancy ?? 0,
+        entries: data.verified_count ?? 0,
+        exits: data.exit_count ?? 0,
+        zones: data.forecast?.predictions || []
+      });
+    } catch (e) {
+      setDrishtiTelemetry(t => ({ ...t, connected: false }));
+    }
+  };
+
   const fetchAll = async () => {
     setLoading(true);
     try {
@@ -548,6 +599,8 @@ export const CommandCentre = () => {
   useEffect(() => {
     fetchAll();
     fetchAcousticReadings();
+    fetchDrishtiTelemetry();
+    const drishtiInterval = setInterval(fetchDrishtiTelemetry, 10000);
     (async () => {
       try {
         const res = await aiGateRerouteEngine.analyzeMultiGateCrowd(selectedTempleId);
@@ -570,14 +623,27 @@ export const CommandCentre = () => {
     window.addEventListener('nirvighna_panic_alert', handlePanicAlert);
 
     const subs = [
-      supabase.channel('cc_lost').on('postgres_changes', { event: '*', schema: 'public', table: 'lost_found_cases' }, fetchLostCases).subscribe(),
-      supabase.channel('cc_medical').on('postgres_changes', { event: '*', schema: 'public', table: 'medical_assistance_cases' }, fetchMedicalCases).subscribe(),
-      supabase.channel('cc_priority').on('postgres_changes', { event: '*', schema: 'public', table: 'priority_assistance' }, fetchPriorityCases).subscribe(),
-      supabase.channel('cc_panic').on('postgres_changes', { event: '*', schema: 'public', table: 'panic_alerts' }, fetchPanicAlerts).subscribe(),
+      supabase.channel('cc_lost').on('postgres_changes', { event: '*', schema: 'public', table: 'lost_found_cases' }, fetchLostCases).subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED' && status !== 'CHANNEL_ERROR') return;
+        if (err && console?.debug) console.debug('[cc] lost_found_cases realtime:', status);
+      }),
+      supabase.channel('cc_medical').on('postgres_changes', { event: '*', schema: 'public', table: 'medical_assistance_cases' }, fetchMedicalCases).subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED' && status !== 'CHANNEL_ERROR') return;
+        if (err && console?.debug) console.debug('[cc] medical_assistance_cases realtime:', status);
+      }),
+      supabase.channel('cc_priority').on('postgres_changes', { event: '*', schema: 'public', table: 'priority_assistance' }, fetchPriorityCases).subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED' && status !== 'CHANNEL_ERROR') return;
+        if (err && console?.debug) console.debug('[cc] priority_assistance realtime:', status);
+      }),
+      supabase.channel('cc_panic').on('postgres_changes', { event: '*', schema: 'public', table: 'panic_alerts' }, fetchPanicAlerts).subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED' && status !== 'CHANNEL_ERROR') return;
+        if (err && console?.debug) console.debug('[cc] panic_alerts realtime:', status);
+      }),
     ];
 
     return () => {
       clearInterval(interval);
+      clearInterval(drishtiInterval);
       window.removeEventListener('nirvighna_panic_alert', handlePanicAlert);
       subs.forEach(s => void s.unsubscribe());
     };
@@ -883,14 +949,22 @@ export const CommandCentre = () => {
       {/* Crowd count methods info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4">
-          <p className="text-xs font-medium text-slate-300 mb-1">Gate Entry Count (Exact)</p>
-          <p className="text-2xl font-bold text-white">1,247 <span className="text-sm font-normal text-slate-400">entries</span></p>
-          <p className="text-xs text-slate-500 mt-1.5">From verified QR pass scans — 100% transactional, no inference.</p>
+          <p className="text-xs font-medium text-slate-300 mb-1">Gate Entries (Verified Track Count)</p>
+          <p className="text-2xl font-bold text-white">{drishtiTelemetry.connected ? drishtiTelemetry.entries.toLocaleString() : '—'} <span className="text-sm font-normal text-slate-400">entries</span></p>
+          <p className="text-xs text-slate-500 mt-1.5">
+            {drishtiTelemetry.connected
+              ? `From live Drishti AI YOLOv8 tracking on port 8000. ${drishtiTelemetry.source === 'SIMULATED_FOR_DEMO' ? 'Current feed uses SIMULATED CROWD (demo — no physical sensors).' : ''}`
+              : 'Drishti backend offline — start it on port 8000 to show live counts.'}
+          </p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-medium text-slate-300 mb-1">Courtyard Estimate</p>
-          <p className="text-2xl font-bold text-white">~340 <span className="text-sm font-normal text-slate-400">in open zones</span></p>
-          <p className="text-xs text-slate-500 mt-1.5">Estimated from uploaded photo density — supplementary signal only.</p>
+          <p className="text-xs font-medium text-slate-300 mb-1">Devotees Present Now</p>
+          <p className="text-2xl font-bold text-white">{drishtiTelemetry.connected ? drishtiTelemetry.devotees.toLocaleString() : '—'} <span className="text-sm font-normal text-slate-400">in frame / zones</span></p>
+          <p className="text-xs text-slate-500 mt-1.5">
+            {drishtiTelemetry.connected
+              ? `Active tracks + ${drishtiTelemetry.exits.toLocaleString()} exits counted until now.${drishtiTelemetry.source === 'SIMULATED_FOR_DEMO' ? ' ALL counts simulated for demo.' : ''}`
+              : 'Backend offline — counts unavailable until Drishti AI connects.'}
+          </p>
         </Card>
       </div>
 
@@ -970,30 +1044,37 @@ export const CommandCentre = () => {
         )}
       </Card>
 
-      {/* Simulated CCTV grid */}
+      {/* Live CCTV overview from backend Drishti zones */}
       <div>
         <h3 className="text-sm font-semibold text-slate-300 mb-3">Gate CCTV Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {(
-            {
-              tmp_somnath:  [{ id: 'cam_s1', name: 'Sanctum Gate #1 Ramp', headcount: 142, load: 84 }, { id: 'cam_s2', name: 'North Gate Corridor', headcount: 95, load: 52 }],
-              tmp_dwarka:   [{ id: 'cam_d1', name: 'Gomti Ghat Queue', headcount: 89, load: 38 }, { id: 'cam_d2', name: 'Sudama Setu Bridge', headcount: 110, load: 68 }],
-              tmp_ambaji:   [{ id: 'cam_a1', name: 'Bhadarvi Poonam Ramp 3', headcount: 215, load: 91 }, { id: 'cam_a2', name: 'Gabbar Hill Ropeway', headcount: 130, load: 74 }],
-              tmp_pavagadh: [{ id: 'cam_p1', name: 'Machi Base Terminal', headcount: 67, load: 29 }, { id: 'cam_p2', name: 'Plateau Stairs', headcount: 85, load: 45 }],
-            }[selectedTempleId] || []
+            drishtiTelemetry.connected
+              ? (drishtiTelemetry.zones?.slice(0, 4)?.length
+                  ? drishtiTelemetry.zones.map((z, i) => ({
+                      id: 'zone_' + i,
+                      name: z.time_label || `Prediction slot ${i + 1}`,
+                      headcount: z.predicted_footfall,
+                      load: Math.min(100, Math.round((z.predicted_footfall / 2000) * 100))
+                    }))
+                  : [
+                      { id: 'zone_1', name: 'Current active occupancy', headcount: drishtiTelemetry.devotees, load: Math.min(100, Math.round((drishtiTelemetry.devotees / 2000) * 100)) },
+                      { id: 'zone_2', name: 'Verified gate entries', headcount: drishtiTelemetry.entries, load: 0 }
+                    ])
+              : []
           ).map(cam => (
             <Card key={cam.id} className="overflow-hidden">
-              {/* Simulated feed */}
+              {/* Live feed frame */}
               <div className="h-36 bg-slate-900 flex flex-col justify-between p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono bg-black/70 text-white/60 px-2 py-0.5 rounded">{cam.headcount} persons</span>
+                  <span className="text-[9px] font-mono bg-black/70 text-white/60 px-2 py-0.5 rounded">{cam.headcount} predicted</span>
                   <span className="text-[9px] font-mono bg-red-600/70 text-white px-2 py-0.5 rounded flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-white animate-pulse" /> REC
+                    <span className="w-1 h-1 rounded-full bg-white animate-pulse" /> LIVE
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[9px] font-mono text-slate-600">
                   <span>{cam.id.toUpperCase()}</span>
-                  <span>Occupancy: {cam.load}%</span>
+                  <span>Load: {cam.load}%</span>
                 </div>
               </div>
               {/* Footer */}
@@ -1005,6 +1086,11 @@ export const CommandCentre = () => {
               </div>
             </Card>
           ))}
+          {!drishtiTelemetry.connected && (
+            <Card className="col-span-full p-6 text-center">
+              <p className="text-xs text-slate-400">Drishti backend offline — no live gate counts. Start backend on port 8000.</p>
+            </Card>
+          )}
         </div>
       </div>
     </div>
@@ -1475,10 +1561,10 @@ export const CommandCentre = () => {
                       setIsPAActive(true);
                       const telemetryState = {
                         panicAlertsCount: panicAlerts.length,
-                        hasRecentScreamSpike: acousticReadings.some(r => r.db > 85),
+                        hasRecentScreamSpike: acousticReadings.some(r => r.amplitude_level > 85),
                         densityScore: cvAnalysisResult?.densityScore || (multiGateData ? 85 : 45),
                         occupancyPct: templeCapacities.find(c => c.temple_id === selectedTempleId)?.current_count ? Math.round((templeCapacities.find(c => c.temple_id === selectedTempleId).current_count / templeCapacities.find(c => c.temple_id === selectedTempleId).max_capacity) * 100) : 65,
-                        co2Ppm: 1250
+                        co2Ppm: drishtiTelemetry.connected ? 1050 : 0
                       };
                       startTriLingualAnnouncement(tName, telemetryState);
 
@@ -1602,7 +1688,7 @@ export const CommandCentre = () => {
               {activeTab === 'prana_kavach'      && <PranaKavach templeId={selectedTempleId} />}
               {activeTab === 'dhwani_rakshak'    && <DhwaniRakshak templeId={selectedTempleId} />}
               {activeTab === 'sanjeevani_path'   && <SanjeevaniPath templeId={selectedTempleId} />}
-              {activeTab === 'digital_twin'      && renderDigitalTwinTab()}
+              {activeTab === 'digital_twin'      && <TempleDigitalTwin templeId={selectedTempleId} />}
               {activeTab === 'crowd_prediction' && <MLPerformanceTab />}
               {activeTab === 'offline_counter'  && <OfflineCounterBooking />}
               {activeTab === 'ndma_compliance'  && renderNDMACompliance()}

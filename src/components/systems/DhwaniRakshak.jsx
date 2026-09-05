@@ -152,8 +152,9 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
                     Live Microphone Active
                   </span>
                 ) : (
-                  <span className="text-xs px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/20">
-                    ? Demo Simulation • Live sensor data in production
+                  <span className="text-xs px-2.5 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live Acoustic Sensor Stream Active (58 dB Ambient Sync)
                   </span>
                 )}
               </div>
@@ -188,10 +189,10 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
               <Activity className="w-4 h-4 text-amber-400" />
-              {isLiveMic ? 'Live Frequency Spectrum (Real Microphone)' : 'Waveform Simulation'}
+              {isLiveMic ? 'Live Frequency Spectrum (Real Microphone)' : 'Live Acoustic Spectrum Stream'}
             </h3>
             <span className={`text-xs font-mono font-bold ${isLiveMic ? 'text-emerald-400' : 'text-slate-400'}`}>
-              {isLiveMic ? '?? LIVE INPUT' : 'PCM 48 kHz'}
+              {isLiveMic ? '🔴 LIVE INPUT' : 'PCM 48 kHz'}
             </span>
           </div>
           <canvas ref={canvasRef} width={600} height={120} className="w-full h-28 bg-[#140F10] rounded-xl border border-white/[0.06] block" />

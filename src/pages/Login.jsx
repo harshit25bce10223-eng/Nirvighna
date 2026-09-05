@@ -48,6 +48,14 @@ const translations = {
 
 export const Login = () => {
   const navigate = useNavigate();
+  
+  // Redirect to command centre login if pathname contains command-centre
+  React.useEffect(() => {
+    const pathname = window.location.pathname;
+    if (pathname.includes('/command-centre')) {
+      window.location.hash = '#/command-centre/login';
+    }
+  }, []);
   const { currentUser, isLoggedIn, login } = useAuth();
   const { currentLanguage, setLanguage } = useLanguage();
   const t = translations[currentLanguage] || translations.en;

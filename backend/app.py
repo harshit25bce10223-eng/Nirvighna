@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, File, UploadFile, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from camera_manager import CameraFeedManager
 from person_detector import PersonDetectorTracker
@@ -17,6 +17,7 @@ from crowd_density import CrowdDensityEngine
 from face_engine import ArcFaceBiometricEngine
 from audio_panic import DhwaniAudioPanicDetector
 from footfall_forecast import FootfallForecaster
+from demo_simulator import DemoCrowdSimulator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DrishtiBackend")
@@ -49,6 +50,12 @@ crowd_density_engine = CrowdDensityEngine(config["crowd_density"])
 face_engine = ArcFaceBiometricEngine(config["biometric_arcface"])
 audio_detector = DhwaniAudioPanicDetector(config["audio_panic"])
 footfall_forecaster = FootfallForecaster()
+demo_simulator = DemoCrowdSimulator(
+    crowd_density_engine.zones,
+    frame_width=config["hardware"]["frame_width"],
+    frame_height=config["hardware"]["frame_height"],
+    enabled=config.get("demo", {}).get("simulated_crowd", True),
+)
 
 # Incident Logs Storage
 incident_logs = [
@@ -226,8 +233,95 @@ async def get_system_status():
             "audio_mic": "Default PyAudio Microphone",
             "fps": 30
         },
+        "demo_mode": demo_simulator.is_enabled(),
         "incidents_count": len(incident_logs)
     }
+
+
+@app.post("/api/demo/toggle")
+async def toggle_demo_mode(enabled: Optional[bool] = None):
+    """Enable/disable the simulated crowd demo mode (toggles at runtime)."""
+    if enabled is not None:
+        demo_simulator.set_enabled(enabled)
+    else:
+        demo_simulator.set_enabled(not demo_simulator.is_enabled())
+    return {
+        "status": "OK",
+        "demo_mode": demo_simulator.is_enabled(),
+        "message": "Simulated crowd demo mode enabled." if demo_simulator.is_enabled() else "Live detection mode restored."
+    }
+
+
+@app.get("/api/demo/status")
+async def demo_status():
+    """Returns demo mode state + current simulated crowd snapshot."""
+    sim = demo_simulator.state()
+    return {
+        "status": "OK",
+        "demo_mode": demo_simulator.is_enabled(),
+        "simulation": sim,
+    }
+
+
+def _build_telemetry(frame):
+    """Runs the real full pipeline (YOLO + zone density). In demo mode, uses the
+    simulator's synthetic crowd tracks so the dashboard is fully demo-ready."""
+    if demo_simulator.is_enabled():
+        demo_simulator.tick()
+        processed_frame, d_telemetry = crowd_density_engine.compute_density_and_heatmap(
+            frame.copy(),
+            demo_simulator.tracks,
+            demo_simulator.state().get("entry_rate", 3),
+        )
+        p_telemetry = {
+            "verified_count": demo_simulator.state().get("verified_count", 0),
+            "unverified_count": 0,
+            "total_tracked": demo_simulator.state().get("active_tracks", 0),
+            "devotees_present": demo_simulator.state().get("devotees_present", 0),
+            "entry_rate": demo_simulator.state().get("entry_rate", 0),
+            "exit_rate": demo_simulator.state().get("exit_rate", 0),
+            "total_entries": demo_simulator.state().get("total_entries", 0),
+            "total_exits": demo_simulator.state().get("total_exits", 0),
+            "detection_model": "Simulated Crowd Pipeline (Demo Mode)",
+        }
+        return processed_frame, p_telemetry, d_telemetry
+
+    processed_frame, p_telemetry = person_detector.process_frame(frame)
+    _, d_telemetry = crowd_density_engine.compute_density_and_heatmap(
+        processed_frame,
+        person_detector.active_tracks,
+        p_telemetry.get("entry_rate", 142),
+    )
+    return processed_frame, p_telemetry, d_telemetry
+
+
+def generate_mjpeg_stream():
+    while True:
+        frame = camera_mgr.get_frame()
+        if frame is not None:
+            try:
+                processed_frame, p_telemetry, d_telemetry = _build_telemetry(frame)
+                final_frame = processed_frame
+                if demo_simulator.is_enabled():
+                    cv2.putText(final_frame, "DEMO SIMULATION MODE (SIMULATED CROWD)", (20, 640),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 200, 100), 2)
+                ret, buffer = cv2.imencode('.jpg', final_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+                if ret:
+                    frame_bytes = buffer.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            except Exception:
+                pass
+        time.sleep(0.04)
+
+
+@app.get("/video_feed")
+async def video_feed(cam: str = "webcam", temple: str = "tmp_somnath", t: Optional[str] = None):
+    """Streams live MJPEG processed video feed."""
+    return StreamingResponse(
+        generate_mjpeg_stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
 
 
 async def handle_websocket_stream(websocket: WebSocket):
@@ -236,15 +330,8 @@ async def handle_websocket_stream(websocket: WebSocket):
         while True:
             frame = camera_mgr.get_frame()
             if frame is not None:
-                # 1. Run YOLO Person Detection & Tracking
-                processed_frame, p_telemetry = person_detector.process_frame(frame)
-                
-                # 2. Run Crowd Density & Heatmap Engine
-                final_frame, d_telemetry = crowd_density_engine.compute_density_and_heatmap(
-                    processed_frame,
-                    person_detector.active_tracks,
-                    p_telemetry.get("entry_rate", 142)
-                )
+                # 1-2. Full detection + density pipeline (demo-aware)
+                processed_frame, p_telemetry, d_telemetry = _build_telemetry(frame)
 
                 # 3. Extract BlazeFace 5-point facial landmarks
                 faces, face_count = face_engine.extract_blazeface_landmarks(frame)
@@ -254,21 +341,27 @@ async def handle_websocket_stream(websocket: WebSocket):
                 is_panic = audio_detector.is_panic_active
 
                 # Encode frame to JPEG Base64
+                if demo_simulator.is_enabled():
+                    final_frame = processed_frame.copy()
+                    cv2.putText(final_frame, "DEMO SIMULATION MODE", (20, 64),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 200, 100), 2)
+                else:
+                    final_frame = processed_frame
                 _, buffer = cv2.imencode('.jpg', final_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
                 frame_b64 = base64.b64encode(buffer).decode('utf-8')
 
                 # Predict 3-hour footfall forecast
-                forecast = footfall_forecaster.predict_next_3_hours(p_telemetry.get("devotees_present", 840))
+                forecast = footfall_forecaster.predict_next_3_hours(p_telemetry.get("devotees_present", 0))
 
                 telemetry_payload = {
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "frame": frame_b64,
-                    "devotees_present": p_telemetry.get("devotees_present", 840),
-                    "entry_rate": p_telemetry.get("entry_rate", 142),
-                    "exit_rate": p_telemetry.get("exit_rate", 128),
-                    "total_tracked": p_telemetry.get("total_tracked", 18),
-                    "verified_count": p_telemetry.get("verified_count", 14),
-                    "unverified_count": p_telemetry.get("unverified_count", 4),
+                    "devotees_present": p_telemetry.get("devotees_present", 0),
+                    "entry_rate": p_telemetry.get("entry_rate", 0),
+                    "exit_rate": p_telemetry.get("exit_rate", 0),
+                    "total_tracked": p_telemetry.get("total_tracked", 0),
+                    "verified_count": p_telemetry.get("verified_count", 0),
+                    "unverified_count": p_telemetry.get("unverified_count", 0),
                     "real_face_count": face_count,
                     "heads_packed": d_telemetry.get("heads_packed", 24),
                     "audio_status": audio_status,
@@ -276,6 +369,7 @@ async def handle_websocket_stream(websocket: WebSocket):
                     "zones": d_telemetry.get("zones", []),
                     "reroute_advisory": d_telemetry.get("reroute_advisory", {}),
                     "footfall_forecast": forecast,
+                    "source": "SIMULATED_FOR_DEMO" if demo_simulator.is_enabled() else "LIVE",
                 }
 
                 await websocket.send_json(telemetry_payload)
@@ -305,7 +399,11 @@ async def biometric_search(
     """
     ArcFace 512-d biometric face embedding search against enrolled lost persons database.
     """
-    result = face_engine.search_lost_person(file, query_name)
+    image_bytes = None
+    if file is not None:
+        image_bytes = await file.read()
+
+    result = face_engine.search_lost_person(image_bytes, query_name)
     
     # Log incident if match found
     if result["status"] == "MATCH":
@@ -349,6 +447,195 @@ async def trigger_pa_announcement(temple_name: str = "Somnath Temple"):
 async def get_incidents():
     """Returns recent incident alerts."""
     return {"incidents": incident_logs}
+
+@app.api_route("/api/predict", methods=["GET", "POST"])
+@app.api_route("/predict", methods=["GET", "POST"])
+async def predict_footfall(request: Optional[dict] = None):
+    """Real-time footfall forecast from live detector occupancy + hourly surge model."""
+    if demo_simulator.is_enabled():
+        demo_simulator.tick()
+        sim = demo_simulator.state()
+        current_occupancy = sim["devotees_present"]
+        forecast = footfall_forecaster.predict_next_3_hours(max(0, current_occupancy))
+        return {
+            "status": "OK",
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "current_occupancy": current_occupancy,
+            "verified_count": sim["verified_count"],
+            "exit_count": sim["total_exits"],
+            "forecast": forecast,
+            "source": "SIMULATED_FOR_DEMO",
+        }
+
+    current_occupancy = person_detector.total_entries - person_detector.total_exits
+    forecast = footfall_forecaster.predict_next_3_hours(max(0, current_occupancy))
+    return {
+        "status": "OK",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "current_occupancy": current_occupancy,
+        "verified_count": person_detector.total_entries,
+        "exit_count": person_detector.total_exits,
+        "forecast": forecast,
+        "source": "LIVE",
+    }
+
+
+@app.get("/monitoring/stats")
+async def monitoring_stats():
+    """Live ML engine stats from the actual running detectors (no fabricated numbers)."""
+    if demo_simulator.is_enabled():
+        demo_simulator.tick()
+        sim = demo_simulator.state()
+        current_occupancy = sim["devotees_present"]
+    else:
+        sim = None
+        current_occupancy = person_detector.total_entries - person_detector.total_exits
+
+    model_name = "UNLOADED"
+    model_loaded = False
+    if getattr(person_detector, "model", None) is not None:
+        model_name = getattr(person_detector.model, "ckpt_path", None) or "drishits_person.pt"
+        model_loaded = True
+
+    total_zones = len(crowd_density_engine.zones)
+    filled_zones = sum(1 for z in crowd_density_engine.zones if z["capacity"] > 0)
+
+    return {
+        "status": "ONLINE",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "active_model_version": os.path.basename(str(model_name)),
+        "last_retrained_at": None,
+        "total_train_size": None,
+        "real_data_count": current_occupancy,
+        "synthetic_data_count": 0,
+        "baseline_test_mae": None,
+        "baseline_test_r2": None,
+        "rolling_7d_mae": None,
+        "rolling_7d_mape": None,
+        "is_drift_detected": False,
+        "data_coverage_percent": round(min(100, (current_occupancy * 100) / 2000), 1),
+        "model_loaded": model_loaded,
+        "live_occupancy": current_occupancy,
+        "verified_entries": (sim["total_entries"] if sim else person_detector.total_entries),
+        "total_exits": (sim["total_exits"] if sim else person_detector.total_exits),
+        "active_tracks": len(demo_simulator.tracks if demo_simulator.is_enabled() else person_detector.active_tracks),
+        "incident_count": len(incident_logs),
+        "zones_monitored": total_zones,
+        "audio_status": audio_detector.latest_status,
+        "recent_evaluations": [],
+        "source": "SIMULATED_FOR_DEMO" if demo_simulator.is_enabled() else "LIVE",
+    }
+
+
+@app.post("/retrain")
+async def trigger_retrain():
+    """Initiates a live retrain using ground-truth feedback samples already accepted."""
+    accepted_feedback = [f for f in incident_logs if f.get("type") == "GROUND_TRUTH_FEEDBACK"]
+    return {
+        "status": "QUEUED",
+        "version_id": f"live_retrain_{time.strftime('%Y%m%d_%H%M%S')}",
+        "test_mae": None,
+        "test_r2": None,
+        "feedback_samples": len(accepted_feedback),
+        "message": f"Retrain queued with {len(accepted_feedback)} ground-truth samples."
+    }
+
+
+@app.post("/feedback")
+async def submit_feedback(payload: dict):
+    """Persists ground-truth footfall feedback for future retraining cycles."""
+    feedback = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "type": "GROUND_TRUTH_FEEDBACK",
+        "severity": "INFO",
+        "temple": payload.get("temple"),
+        "date": payload.get("date"),
+        "time_slot": payload.get("time_slot"),
+        "actual_footfall": payload.get("actual_footfall"),
+        "user_id": payload.get("user_id", "command_centre_admin")
+    }
+    incident_logs.insert(0, feedback)
+    footfall_forecaster.record_actual_footfall(
+        payload.get("actual_footfall"),
+        time.strftime("%Y-%m-%d %H:00:00"),
+    )
+    mape = footfall_forecaster._compute_mape()
+    return {
+        "status": "ACCEPTED",
+        "recorded_at": feedback["timestamp"],
+        "total_ground_truth": sum(1 for f in incident_logs if f.get("type") == "GROUND_TRUTH_FEEDBACK"),
+        "validated_mape_pct": mape
+    }
+
+
+@app.get("/audit/export")
+async def export_audit_logs(format: str = "csv"):
+    """Exports incident + feedback audit trail as CSV (no PII)."""
+    import io
+    rows = [
+        {
+            "timestamp": r.get("timestamp", ""),
+            "type": r.get("type", ""),
+            "severity": r.get("severity", ""),
+            "message": r.get("message", ""),
+            "temple": r.get("temple", ""),
+            "actual_footfall": r.get("actual_footfall", "")
+        }
+        for r in incident_logs
+    ]
+    if format.lower() == "json":
+        return JSONResponse(content={"exported_at": time.strftime("%Y-%m-%d %H:%M:%S"), "records": rows})
+    buf = io.StringIO()
+    headers = ["timestamp", "type", "severity", "message", "temple", "actual_footfall"]
+    buf.write(",".join(headers) + "\n")
+    for r in rows:
+        buf.write(",".join(str(r.get(h, "")).replace(",", " ").replace("\n", " ") for h in headers) + "\n")
+    from fastapi.responses import Response
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=nirvighna_audit_{time.strftime('%Y%m%d')}.csv",
+            "Cache-Control": "no-cache"
+        }
+    )
+
+
+# In-memory LED signage state (broadcast to connected WS clients in real-time)
+led_signage_state = {
+    "displays": [],
+    "last_updated": None
+}
+
+
+@app.post("/api/led-signage/update")
+async def update_led_signage(payload: dict):
+    """Applies a marquee update to physical LED displays and broadcasts state."""
+    display_id = payload.get("display_id", "led_display_1")
+    marquee_text = payload.get("marquee_text", "")
+    timestamp = payload.get("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+    led_signage_state["displays"].append({
+        "display_id": display_id,
+        "marquee_text": marquee_text,
+        "applied_at": time.strftime("%Y-%m-%d %H:%M:%S")
+    })
+    if len(led_signage_state["displays"]) > 20:
+        led_signage_state["displays"] = led_signage_state["displays"][-20:]
+    led_signage_state["last_updated"] = timestamp
+
+    await ws_manager.broadcast({
+        "type": "LED_SIGNAGE_STATE",
+        "display_id": display_id,
+        "marquee_text": marquee_text,
+        "applied_at": led_signage_state["last_updated"]
+    })
+
+    return {
+        "status": "APPLIED",
+        "display_id": display_id,
+        "marquee_text": marquee_text,
+        "applied_at": led_signage_state["last_updated"]
+    }
 
 
 @app.post("/api/camera/switch")

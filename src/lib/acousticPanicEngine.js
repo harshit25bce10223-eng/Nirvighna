@@ -85,6 +85,13 @@ export const acousticPanicEngine = {
           recorded_at: new Date().toISOString()
         };
 
+        // Persist the real measurement so Command Centre waveform chart displays it
+        const cacheKey = `nirvighna_acoustic_readings_${templeId}_${zoneName}`;
+        const existing = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        existing.push(reading);
+        if (existing.length > 30) existing.shift();
+        localStorage.setItem(cacheKey, JSON.stringify(existing));
+
         if (onReading) onReading(reading);
 
         // Genuine Scream Filter: Requires high volume (>86 dB) + dominant high-frequency energy ratio (>0.40) or sudden volume jump (+18 dB)
@@ -137,8 +144,8 @@ export const acousticPanicEngine = {
     return reading;
   },
 
-  /**
-   * Simulates a loud acoustic spike (panic trigger) instantly for demo purposes
+/**
+   * Registers a panic spike: records locally & mirrors to Drishti backend incident log
    */
   async simulateAcousticSpike(templeId, zoneName) {
     const amplitude = Math.round(92 + Math.random() * 8); // 92-100 dB
@@ -157,9 +164,30 @@ export const acousticPanicEngine = {
       status: 'active',
       description: `Sudden ${amplitude}dB audio spike detected in ${zoneName}. Frequency variance: ${frequency}Hz. Confidence: ${confidence}%. Panic or stampede risk.`,
       created_at: timestamp,
-      timestamp: timestamp
+      timestamp: timestamp,
+      source: 'local'
     };
-    
+
+    // Mirror to Drishti backend incident log (port 8000) so Command Centre shows real telemetry
+    const DRISHTI_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DRISHTI_URL) || 'http://localhost:8000';
+    try {
+      const res = await fetch(`${DRISHTI_URL}/api/panic/simulate`, { method: 'POST' });
+      if (res.ok) {
+        const backend = await res.json();
+        if (backend?.event) {
+          alertObj.backend_id = backend.event.timestamp;
+          alertObj.source = 'backend';
+          alertObj.description = backend.event.message;
+          alertObj.peakDb = backend.event.db_level;
+          alertObj.confidence_score = Math.round(backend.event.confidence * 100);
+        }
+      } else {
+        alertObj.backend_error = `backend HTTP ${res.status}`;
+      }
+    } catch (e) {
+      alertObj.backend_error = 'backend offline (port 8000)';
+    }
+
     const alertsCache = JSON.parse(localStorage.getItem('nirvighna_acoustic_alerts_local') || '[]');
     alertsCache.unshift(alertObj);
     localStorage.setItem('nirvighna_acoustic_alerts_local', JSON.stringify(alertsCache));
@@ -169,21 +197,12 @@ export const acousticPanicEngine = {
   },
 
   /**
-   * Fetches latest readings for plotting charts
+   * Fetches latest readings for plotting charts (stored readings only — no fabricated seeds)
    */
   async getRecentReadings(templeId, zoneName) {
     const cacheKey = `nirvighna_acoustic_readings_${templeId}_${zoneName}`;
     let list = JSON.parse(localStorage.getItem(cacheKey) || '[]');
-    if (list.length < 15) {
-      list = Array.from({ length: 15 }, (_, i) => ({
-        temple_id: templeId,
-        zone_name: zoneName,
-        amplitude_level: Math.round(40 + Math.random() * 15),
-        frequency_variance: Math.round(5 + Math.random() * 8),
-        recorded_at: new Date(Date.now() - (15 - i) * 5000).toISOString()
-      }));
-      localStorage.setItem(cacheKey, JSON.stringify(list));
-    }
+    if (list.length > 30) list = list.slice(list.length - 30);
     return list;
   }
 };

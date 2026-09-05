@@ -21,6 +21,7 @@ class CameraFeedManager:
         self.thread = None
         self.using_simulation = False
         self.current_cam_name = f"CAM{camera_id + 1}"
+        self.latest_frame = None
 
     def start(self):
         # Start capture thread.
@@ -35,7 +36,14 @@ class CameraFeedManager:
         logger.info(f"[{self.current_cam_name}] Camera feed thread started.")
 
     def _init_camera(self):
-        # Init webcam or fallback to simulation.
+        # By default leave the physical webcam free for the browser frontend
+        import os
+        if os.environ.get("RELEASE_WEBCAM_FOR_BROWSER", "true").lower() == "true":
+            logger.info(f"[{self.current_cam_name}] Physical webcam left free for browser frontend. Running high-fidelity AI simulated CCTV feed.")
+            self.using_simulation = True
+            return
+
+        # Init webcam or fallback to simulation if hardware requested
         try:
             self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_DSHOW if cv2.__name__ == 'cv2' and hasattr(cv2, 'CAP_DSHOW') else cv2.CAP_ANY)
             if self.cap and self.cap.isOpened():
@@ -77,6 +85,7 @@ class CameraFeedManager:
                     pass
             
             self.frame_queue.put(frame)
+            self.latest_frame = frame
 
     def _generate_simulated_frame(self, angle):
         # Generate synthetic CCTV frame.
@@ -111,6 +120,8 @@ class CameraFeedManager:
 
     def get_frame(self):
         # Get latest frame.
+        if self.latest_frame is not None:
+            return self.latest_frame.copy()
         if not self.frame_queue.empty():
             return self.frame_queue.get()
         return None

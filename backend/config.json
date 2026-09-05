@@ -14,7 +14,8 @@
     "audio_chunk_duration_sec": 1.0
   },
   "person_detection": {
-    "model": "yolov8n.pt",
+    "model": "drishti_person.pt",
+    "model_preference": ["drishti_person.pt", "yolov8s.pt", "yolov8n.pt"],
     "confidence_auto_count": 0.85,
     "confidence_unverified_min": 0.60,
     "nms_iou_threshold": 0.45,
@@ -63,5 +64,8 @@
     "scream_confidence_threshold": 0.70,
     "sound_rms_threshold": 0.085,
     "high_noise_duration_sec": 5.0
+  },
+  "demo": {
+    "simulated_crowd": true
   }
 }

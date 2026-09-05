@@ -2,7 +2,6 @@ import os
 import sys
 import subprocess
 import time
-import shutil
 import urllib.request
 import webbrowser
 
@@ -13,6 +12,8 @@ if sys.platform.startswith('win'):
         sys.stderr.reconfigure(encoding='utf-8')
     except Exception:
         pass
+
+SERVICES_PORTS = [3000, 8000]
 
 def free_port_windows(port):
     """Frees a specific port on Windows by killing the listening process."""
@@ -27,13 +28,13 @@ def free_port_windows(port):
         pass
 
 def free_all_ports():
-    """Frees all Nirvighna service ports (3000, 8000, 8001) to prevent bind collisions."""
-    print("\n[PORT CHECK] Ensuring ports 3000, 8000, and 8001 are free...")
+    """Frees all Nirvighna service ports to prevent bind collisions."""
+    print(f"[PORT CHECK] Ensuring ports {', '.join(str(p) for p in SERVICES_PORTS)} are free...")
     if sys.platform.startswith('win'):
-        for p in [3000, 8000, 8001]:
+        for p in SERVICES_PORTS:
             free_port_windows(p)
     else:
-        for p in [3000, 8000, 8001]:
+        for p in SERVICES_PORTS:
             subprocess.run(f"fuser -k {p}/tcp", shell=True, capture_output=True)
     time.sleep(1)
 
@@ -49,22 +50,25 @@ def run_command(cmd, cwd=None, description=""):
     except Exception as e:
         print(f"[WARN] Error executing {description}: {e}")
 
-def check_and_download_yolo(root_dir):
-    """Downloads yolov8n.pt weights automatically if not present."""
-    target_path = os.path.join(root_dir, "backend", "yolov8n.pt")
-    if not os.path.exists(target_path):
+def check_drishti_weights(root_dir):
+    """Ensures a model weight file is present for Drishti AI backend."""
+    target = os.path.join(root_dir, "backend", "drishti_person.pt")
+    fallback = os.path.join(root_dir, "backend", "yolov8n.pt")
+    if os.path.exists(target):
+        print("[OK] Drishti fine-tuned model found (drishti_person.pt).")
+    elif os.path.exists(fallback):
+        print("[OK] YOLOv8n weights found (Drishti will auto-fallback to yolov8n.pt).")
+    else:
         print("\n[DOWNLOAD] Downloading pre-trained YOLOv8n model weights (~6MB)...")
         url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt"
         try:
-            urllib.request.urlretrieve(url, target_path)
+            urllib.request.urlretrieve(url, fallback)
             print("[OK] Downloaded YOLOv8n weights successfully!")
         except Exception as e:
             print(f"[WARN] Failed to auto-download YOLO weights: {e}")
-    else:
-        print("[OK] YOLOv8n model weights found.")
 
 def wait_for_service(url, name, max_retries=20, delay=1):
-    """Polls a service URL until it responds with HTTP 200/300/400 or timeout."""
+    """Polls a service URL until it responds or timeout."""
     for i in range(max_retries):
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'NirvighnaLauncher/1.0'})
@@ -81,54 +85,35 @@ def main():
     os.chdir(root_dir)
 
     print("=" * 78)
-    print(" 🛕 [NIRVIGHNA] — ALL-IN-ONE MASTER UNIFIED LAUNCHER")
+    print(" NIRVIGHNA — ALL-IN-ONE MASTER LAUNCHER")
     print("=" * 78)
 
     # 0. Free busy ports
     free_all_ports()
 
-    # 1. Install / Update Python Dependencies
-    print("\n[STEP 1/4] Checking & Installing Python AI/ML dependencies...")
-    req_file_1 = os.path.join(root_dir, "backend", "requirements.txt")
-    req_file_2 = os.path.join(root_dir, "backend", "ml_engine", "requirements.txt")
-    
-    if os.path.exists(req_file_1):
-        run_command(f'"{sys.executable}" -m pip install -q -r "{req_file_1}"', description="Backend Requirements")
-    if os.path.exists(req_file_2):
-        run_command(f'"{sys.executable}" -m pip install -q -r "{req_file_2}"', description="ML Engine Requirements")
+    # 1. Check model weights
+    print("\n[STEP 2/3] Checking AI model weights...")
+    check_drishti_weights(root_dir)
 
-    # 2. Check & Install Node.js Frontend Dependencies
-    node_modules = os.path.join(root_dir, "node_modules")
-    npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
-    if not os.path.exists(node_modules):
-        print("\n[STEP 2/4] Installing Node.js frontend dependencies (npm install)...")
-        run_command(f"{npm_cmd} install", cwd=root_dir, description="NPM Package Installation")
-    else:
-        print("\n[STEP 2/4] [OK] Node.js frontend packages verified.")
-
-    # 3. Check YOLO Weights
-    print("\n[STEP 3/4] Checking AI model weights...")
-    check_and_download_yolo(root_dir)
-
-
-    # 4. Launch All Microservices Simultaneously
-    print("\n[STEP 4/4] Launching All Nirvighna Portals & Microservices Simultaneously...")
+    # 2. Launch microservices
+    print("\n[STEP 3/3] Launching Nirvighna services...")
 
     processes = []
     use_shell = sys.platform.startswith('win')
+    npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
 
-    # Service 1: Drishti AI Vision & WebSocket Backend (Port 8001)
+    # Service 1: Drishti AI Vision Backend (Port 8000)
     drishti_backend = os.path.join(root_dir, "backend", "app.py")
     if os.path.exists(drishti_backend):
-        print("  [1/2] Starting Drishti AI Vision Backend -> http://127.0.0.1:8001")
+        print("  [1/2] Starting Drishti AI Vision Backend -> http://127.0.0.1:8000")
         p1 = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+            [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"],
             cwd=os.path.join(root_dir, "backend"),
             shell=use_shell
         )
-        processes.append(("Drishti AI (Port 8001)", p1))
+        processes.append(("Drishti AI (Port 8000)", p1))
     else:
-        print("  [SKIP] Drishti AI backend not found — Drishti panel will show offline demo mode.")
+        print("  [SKIP] Drishti AI backend not found.")
         p1 = None
 
     # Service 2: React Web Portal (Port 3000)
@@ -137,27 +122,24 @@ def main():
     processes.append(("Web Portal (Port 3000)", p3))
 
     print("\n[HEALTH CHECK] Waiting for all services to initialize...")
-    s2_ok = wait_for_service("http://127.0.0.1:8001", "Drishti AI", max_retries=20) if p1 else False
+    s2_ok = wait_for_service("http://127.0.0.1:8000/api/status", "Drishti AI", max_retries=20) if p1 else False
     s3_ok = wait_for_service("http://localhost:3000", "Web Portal", max_retries=25)
 
-    print(f"  • Drishti AI (Port 8001):       {'🟢 ONLINE' if s2_ok else '⚪ NOT RUNNING (demo mode active)'}")
-    print(f"  • React Web Portal (Port 3000): {'🟢 ONLINE' if s3_ok else '🟡 STARTING'}")
+    print(f"  - Drishti AI (Port 8000):      {'ONLINE' if s2_ok else 'NOT STARTED'}")
+    print(f"  - React Web Portal (Port 3000): {'ONLINE' if s3_ok else 'STARTING'}")
 
     print("\n" + "=" * 78)
-    print(" 🎉 [SUCCESS] NIRVIGHNA IS LIVE & READY!")
+    print(" NIRVIGHNA IS LIVE & READY!")
     print("=" * 78)
-    print("  🔱 1. PILGRIM PORTAL:         http://localhost:3000/#/home")
-    print("  🛡️ 2. VOLUNTEER FIELD HUB:    http://localhost:3000/#/v/login")
-    print("        Direct Dashboard:       http://localhost:3000/#/v/dashboard")
-    print("  🛰️ 3. UNIFIED COMMAND CENTRE: http://localhost:3000/#/command-centre/login")
+    print("  1. PILGRIM PORTAL:         http://localhost:3000/#/home")
+    print("  2. VOLUNTEER FIELD HUB:    http://localhost:3000/#/v/login")
+    print("  3. UNIFIED COMMAND CENTRE: http://localhost:3000/#/command-centre/login")
     if s2_ok:
-        print("  👁️ 4. DRISHTI AI BACKEND:     http://127.0.0.1:8001")
+        print("  4. DRISHTI AI BACKEND:     http://127.0.0.1:8000")
     print("=" * 78)
-    print(" 💡 Tip: Press Ctrl+C in this terminal anytime to cleanly stop all services.")
+    print(" Tip: Press Ctrl+C in this terminal to stop all services.")
     print("=" * 78 + "\n")
 
-
-    # Automatically open the browser to the main portal
     try:
         webbrowser.open("http://localhost:3000/#/home")
     except Exception:
@@ -167,14 +149,14 @@ def main():
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\n\nStopping all Nirvighna microservices...")
+        print("\n\nStopping all Nirvighna services...")
         for name, proc in processes:
             try:
                 if sys.platform.startswith('win'):
                     subprocess.run(f"taskkill /F /T /PID {proc.pid}", shell=True, capture_output=True)
                 else:
                     proc.terminate()
-                print(f"  • Stopped {name}")
+                print(f"  - Stopped {name}")
             except Exception:
                 pass
         free_all_ports()

@@ -371,6 +371,7 @@ export const Home = () => {
   const [routeViewMode, setRouteViewMode] = useState('reordered_list'); // 'reordered_list' | 'single_shrine'
   const [activeTab, setActiveTab] = useState('all');
   const [crowdPredictions, setCrowdPredictions] = useState({});
+  const [backendOccupancy, setBackendOccupancy] = useState(null);
   const [crossTempleRecommendations, setCrossTempleRecommendations] = useState([]);
   const [prasadCounterStatus, setPrasadCounterStatus] = useState({});
   const [wishlist, setWishlist] = useState([]);
@@ -529,6 +530,35 @@ export const Home = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Poll real Drishti AI backend occupancy so crowd cards reflect live CV counts when backend is up
+  useEffect(() => {
+    let cancelled = false;
+    const fetchBackendOccupancy = async () => {
+      try {
+        const base = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
+        const res = await fetch(`${base}/api/predict`, { method: 'GET' });
+        if (!res.ok || cancelled) {
+          if (!cancelled) setBackendOccupancy(null);
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setBackendOccupancy({
+          connected: true,
+          source: data.source || 'LIVE',
+          occupancy: data.current_occupancy ?? 0,
+          verified: data.verified_count ?? 0,
+          exits: data.exit_count ?? 0,
+          predictions: data.forecast?.predictions || []
+        });
+      } catch (e) {
+        if (!cancelled) setBackendOccupancy(null);
+      }
+    };
+    fetchBackendOccupancy();
+    const interval = setInterval(fetchBackendOccupancy, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
   useEffect(() => {
     const checkMelaStatus = async () => {
       const activeName = await melaEngine.isMelaModeActive(selectedTempleId);
@@ -644,16 +674,21 @@ export const Home = () => {
     const aiLive = NirvighnaAIEngine.predictCrowdDensity(templeObj, new Date(), currentLanguage);
     const prediction = crowdPredictions[templeId];
     
+    // Live counts from Drishti backend (port 8000) when connected
+    const liveOcc = backendOccupancy?.connected ? backendOccupancy.occupancy : null;
+
     // Compute live capacity percentage
-    const capacityPercent = prediction?.densityRatio 
-      ? Math.min(99, Math.max(15, Math.round(prediction.densityRatio * 100))) 
-      : (aiLive?.densityPercentage || (templeId === 'tmp_pavagadh' ? 28 : templeId === 'tmp_ambaji' ? 48 : templeId === 'tmp_somnath' ? 76 : 92));
+    const capacityPercent = liveOcc !== null
+      ? Math.min(99, Math.max(5, Math.round((liveOcc / (templeObj?.maxCapacity || 2000)) * 100)))
+      : (prediction?.densityRatio 
+        ? Math.min(99, Math.max(15, Math.round(prediction.densityRatio * 100))) 
+        : (aiLive?.densityPercentage || (templeId === 'tmp_pavagadh' ? 28 : templeId === 'tmp_ambaji' ? 48 : templeId === 'tmp_somnath' ? 76 : 92)));
       
     const crowdLevel = prediction?.densityLevel || aiLive?.crowdLevel || (capacityPercent >= 80 ? 'high' : capacityPercent >= 45 ? 'medium' : 'low');
     const badge = getCrowdBadge(crowdLevel, capacityPercent);
     const waitTime = aiLive?.estimatedWaitTimeMins || Math.round((capacityPercent / 100) * 35 + 8);
     const maxCap = templeObj?.maxCapacity || (templeId === 'tmp_somnath' ? 2500 : templeId === 'tmp_dwarka' ? 1800 : templeId === 'tmp_ambaji' ? 2000 : 1500);
-    const predictedCount = prediction?.predictedCount || Math.round(maxCap * (capacityPercent / 100));
+    const predictedCount = liveOcc !== null ? liveOcc : (prediction?.predictedCount || Math.round(maxCap * (capacityPercent / 100)));
     
     return {
       ...prediction,
@@ -809,9 +844,13 @@ export const Home = () => {
               <span>🤖</span>
               <span>{t.aiBanner}</span>
             </span>
-            <span className="text-[10px] font-mono font-bold text-amber-300 bg-white/10 px-2 py-0.5 rounded-full border border-gold/30 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>{t.liveTelemetry || 'LIVE TELEMETRY'}</span>
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+              backendOccupancy?.connected
+                ? (backendOccupancy.source === 'SIMULATED_FOR_DEMO' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40')
+                : 'bg-white/10 text-slate-400 border-gold/30'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${backendOccupancy?.connected ? 'bg-emerald-400' : 'bg-slate-500'}`}></span>
+              <span>{backendOccupancy?.connected ? (backendOccupancy.source === 'SIMULATED_FOR_DEMO' ? 'SIMULATED CROWD DEMO' : 'LIVE CV TELEMETRY') : (t.liveTelemetry || 'LIVE TELEMETRY')}</span>
             </span>
           </div>
 
@@ -989,7 +1028,7 @@ export const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {temples.map((temple) => {
               const prediction = getPredictionForTemple(temple.id);
-              const capacityPercent = prediction?.capacityPercent || Math.floor(30 + Math.random() * 40);
+              const capacityPercent = prediction?.capacityPercent ?? 0;
               const badge = prediction?.badge || getCrowdBadge(temple.crowdLevel, capacityPercent);
               const isSelected = selectedTempleId === temple.id;
               const meta = getTempleMeta(temple.id, currentLanguage);

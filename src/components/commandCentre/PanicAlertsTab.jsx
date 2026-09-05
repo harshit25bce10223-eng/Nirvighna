@@ -122,8 +122,8 @@ export const PanicAlertsTab = ({
             <p className="text-gray-400 text-sm">All decibel levels operational. No panic spikes detected.</p>
           </div>
         ) : (
-          allPanicAlerts.map((alert) => (
-            <div key={alert.id || alert.detected_at || alert.created_at || i} className="bg-darkWarm-card rounded-xl p-4 shadow-temple border-2 border-darkWarm-rust animate-in fade-in">
+          allPanicAlerts.map((alert, index) => (
+            <div key={alert.id || alert.detected_at || alert.created_at || index} className="bg-darkWarm-card rounded-xl p-4 shadow-temple border-2 border-darkWarm-rust animate-in fade-in">
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <h3 className="font-bold text-darkWarm-rust flex items-center gap-2 text-xs">

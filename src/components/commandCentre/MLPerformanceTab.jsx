@@ -7,6 +7,7 @@ import {
 export const MLPerformanceTab = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [retraining, setRetraining] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   
@@ -24,29 +25,15 @@ export const MLPerformanceTab = () => {
       if (res.ok) {
         const data = await res.json();
         setStats(data);
+        setOffline(false);
+      } else {
+        setStats(null);
+        setOffline(true);
       }
     } catch (err) {
-      console.warn('ML Service monitoring endpoint unavailable, using local telemetry:', err);
-      // Fallback state
-      setStats({
-        active_model_version: 'ensemble_model_20260815_143000',
-        last_retrained_at: new Date().toISOString(),
-        total_train_size: 11696,
-        real_data_count: 340,
-        synthetic_data_count: 11356,
-        baseline_test_mae: 44.39,
-        baseline_test_r2: 0.9911,
-        rolling_7d_mae: 46.2,
-        rolling_7d_mape: 4.12,
-        is_drift_detected: false,
-        data_coverage_percent: 94.2,
-        recent_evaluations: [
-          { temple: 'Somnath', date: '2026-08-15', time_slot: 'Evening 4-7', predicted_footfall: 1202, actual_footfall: 1185, mae: 17, mape: 1.4 },
-          { temple: 'Dwarka', date: '2026-08-15', time_slot: 'Afternoon 10-1', predicted_footfall: 1450, actual_footfall: 1420, mae: 30, mape: 2.1 },
-          { temple: 'Ambaji', date: '2026-08-14', time_slot: 'Morning 6-9', predicted_footfall: 890, actual_footfall: 915, mae: 25, mape: 2.7 },
-          { temple: 'Pavagadh', date: '2026-08-14', time_slot: 'Evening 4-7', predicted_footfall: 1780, actual_footfall: 1710, mae: 70, mape: 4.0 }
-        ]
-      });
+      console.warn('ML monitoring endpoint unreachable:', err);
+      setStats(null);
+      setOffline(true);
     } finally {
       setLoading(false);
     }
@@ -64,8 +51,10 @@ export const MLPerformanceTab = () => {
       const res = await fetch('http://localhost:8000/retrain', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        alert(`✅ Model Retrained Successfully!\nNew Version: ${data.version_id}\nTest MAE: ${data.test_mae} | R²: ${data.test_r2}`);
+        alert(`✅ Retrain queued!\nVersion: ${data.version_id}\nFeedback samples: ${data.feedback_samples}\n${data.message}`);
         fetchMonitoringStats();
+      } else {
+        alert('Retrain endpoint rejected the request.');
       }
     } catch (err) {
       alert('Failed to connect to ML prediction service for retraining.');
@@ -166,42 +155,43 @@ export const MLPerformanceTab = () => {
 
             <div className="bg-slate-950/70 p-3 rounded-2xl border border-gold/30 space-y-1">
               <span className="text-[10px] text-amber-300 font-bold uppercase block flex items-center gap-1">
-                <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Rolling 7-Day MAE
+                <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Live Occupancy
               </span>
               <p className="text-sm font-black text-emerald-300 font-mono">
-                {stats.rolling_7d_mae} <span className="text-[10px] font-normal text-gray-400">devotees</span>
+                {stats?.live_occupancy ?? 0} <span className="text-[10px] font-normal text-gray-400">devotees</span>
               </p>
               <p className="text-[9px] text-gray-400">
-                MAPE: {stats.rolling_7d_mape}% (Test R²: {stats.baseline_test_r2})
+                Verified entries: {stats?.verified_entries ?? 0} | Exits: {stats?.total_exits ?? 0}
               </p>
             </div>
 
             <div className="bg-slate-950/70 p-3 rounded-2xl border border-gold/30 space-y-1">
               <span className="text-[10px] text-amber-300 font-bold uppercase block flex items-center gap-1">
-                <Activity className="w-3.5 h-3.5 text-blue-400" /> Concept Drift Status
+                <Activity className="w-3.5 h-3.5 text-blue-400" /> Detection Model
               </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                {stats.is_drift_detected ? (
-                  <span className="text-xs font-black text-red-400 bg-red-950 px-2 py-0.5 rounded-full border border-red-500 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3 animate-pulse" /> DRIFT DETECTED
+              <div className="flex items-center gap-1.5 mt-1">
+                {stats?.model_loaded ? (
+                  <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-500 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> MODEL LOADED
                   </span>
                 ) : (
-                  <span className="text-xs font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-500 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> HEALTHY
+                  <span className="text-[10px] font-black text-red-400 bg-red-950 px-2 py-0.5 rounded-full border border-red-500 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 animate-pulse" /> MODEL UNLOADED
                   </span>
                 )}
               </div>
+              <p className="text-[9px] text-gray-400 truncate">{stats?.active_model_version || '—'}</p>
             </div>
 
             <div className="bg-slate-950/70 p-3 rounded-2xl border border-gold/30 space-y-1">
               <span className="text-[10px] text-amber-300 font-bold uppercase block flex items-center gap-1">
-                <Database className="w-3.5 h-3.5 text-purple-400" /> Training Telemetry
+                <Database className="w-3.5 h-3.5 text-purple-400" /> Zones Monitored
               </span>
               <p className="text-xs font-black text-white font-mono">
-                {stats.total_train_size} <span className="text-[10px] font-normal text-gray-400">records</span>
+                {stats?.zones_monitored ?? 0} <span className="text-[10px] font-normal text-gray-400">zones</span>
               </p>
               <p className="text-[9px] text-gray-400">
-                Real: {stats.real_data_count} | Synthetic: {stats.synthetic_data_count}
+                Audio: {stats?.audio_status || '—'} | Incidents: {stats?.incident_count ?? 0}
               </p>
             </div>
           </div>
@@ -212,6 +202,13 @@ export const MLPerformanceTab = () => {
         <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-xs font-bold flex items-center justify-between">
           <span>{feedbackSuccess}</span>
           <span className="text-base">✓</span>
+        </div>
+      )}
+
+      {offline && (
+        <div className="p-3 bg-red-50 border border-red-300 text-red-900 rounded-2xl text-xs font-bold flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          Drishti AI backend offline — connect on port 8000 to see live monitoring stats.
         </div>
       )}
 
@@ -236,6 +233,11 @@ export const MLPerformanceTab = () => {
           </div>
 
           <div className="overflow-x-auto">
+            {(stats?.recent_evaluations?.length ?? 0) === 0 ? (
+              <div className="py-8 text-center text-[11px] text-gray-400">
+                No ground-truth evaluation records yet — ground truth appears here after staff logs feedback.
+              </div>
+            ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 font-bold uppercase text-[10px] border-b border-gray-100">
@@ -279,6 +281,7 @@ export const MLPerformanceTab = () => {
                 })}
               </tbody>
             </table>
+            )}
           </div>
         </div>
 
@@ -295,12 +298,12 @@ export const MLPerformanceTab = () => {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-gray-700">Time-Slot Telemetry Coverage</span>
-              <span className="text-maroon font-mono">{stats?.data_coverage_percent || 94.2}%</span>
+              <span className="text-maroon font-mono">{stats?.data_coverage_percent ?? 0}%</span>
             </div>
             <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full transition-all duration-500"
-                style={{ width: `${stats?.data_coverage_percent || 94.2}%` }}
+                style={{ width: `${stats?.data_coverage_percent ?? 0}%` }}
               />
             </div>
             <p className="text-[10px] text-gray-400">Percentage of total time-slots with verified actual counts</p>

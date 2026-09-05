@@ -109,7 +109,7 @@ export const crowdPredictionService = {
       densityLevel,
       densityPm2: `${densityPm2} P/m²`,
       fruinLoS,
-      confidence: '98.4% Precision (Prophet + Lunisolar AI)',
+      confidence: 'Model-driven estimate (calendar + weather factors)',
       bestDarshanWindow,
       offPeakHours,
       recommendedGate,

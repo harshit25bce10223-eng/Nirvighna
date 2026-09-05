@@ -64,10 +64,6 @@ class CrowdDensityEngine:
                 if zx1 <= cx <= zx2 and zy1 <= cy <= zy2:
                     headcount += 1
 
-            # Fallback headcount for testing
-            if headcount == 0:
-                headcount = int(capacity * 0.42) if z_id == "gate1_north" else int(capacity * 0.18)
-
             density_pm2 = round(headcount / max(1.0, area), 2)
             load_pct = min(100, int((headcount / float(capacity)) * 100))
             
@@ -121,25 +117,10 @@ class CrowdDensityEngine:
         return output_frame, telemetry
 
     def _run_mcnn_roi_counter(self, frame, zone_telemetry):
-        # Run MCNN density counter.
-        max_zone = max(zone_telemetry.values(), key=lambda z: z["load_pct"], default=None)
-        if not max_zone:
-            return 0, "MCNN Standby"
+        # Aggregated honest head count from all detected tracks across zones.
+        total_count = sum(z["headcount"] for z in zone_telemetry.values())
 
-        yolo_count = max_zone["headcount"]
-        # Simulated density estimate
-        mcnn_count = int(yolo_count * 1.04)
-
-        discrepancy_pct = abs(mcnn_count - yolo_count) / max(1, yolo_count) * 100.0
-        
-        if discrepancy_pct > self.mcnn_threshold_pct:
-            final_count = int(self.yolo_weight * yolo_count + self.mcnn_weight * mcnn_count)
-            method = f"Weighted Ensemble (YOLO {self.yolo_weight} + MCNN {self.mcnn_weight})"
-        else:
-            final_count = yolo_count
-            method = "Multi-Column CNN (MCNN Density Kernel)"
-
-        return final_count, method
+        return total_count, "YOLOv8 Detected Head Aggregation"
 
     def _compute_reroute_advisory(self, zone_telemetry, entry_rate):
         # Generate routing advisory based on zone loads.

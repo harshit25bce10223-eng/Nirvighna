@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Radio, AlertTriangle, CheckCircle, RefreshCw, Send, Monitor, ShieldCheck, Zap } from 'lucide-react';
+import { AlertTriangle, Send, Monitor } from 'lucide-react';
 import { aiGateRerouteEngine } from '../lib/aiGateRerouteEngine';
+
+const DRISHTI_URL = import.meta.env.VITE_DRISHTI_URL || 'http://localhost:8000';
 
 export const SmartSignageLEDController = ({ templeId = 'tmp_somnath' }) => {
   const [signageDisplays, setSignageDisplays] = useState([
     {
       id: 'led_display_1',
       location: 'Main Entrance Gate #1 (Swarga Dwar)',
-      mode: 'AUTOMATED_REROUTE',
-      message: '🚨 GATE 1 CONGESTED (>4.8 p/m²) — PLEASE REROUTE TO GATE 2 (0 MIN WAIT)',
-      status: 'ACTIVE_WARNING',
-      color: 'bg-red-900/60 border-red-500 text-red-300'
+      mode: 'STANDBY',
+      message: '🔱 WELCOME TO THE SHRINE — REGULAR DARSHAN SLOTS ACTIVE — CHECK LIVE SIGNAGE',
+      status: 'NORMAL',
+      color: 'bg-slate-900 border-amber-500/40 text-amber-300'
     },
     {
       id: 'led_display_2',
       location: 'Outer Plaza Intersection',
-      mode: 'AUTOMATED_REROUTE',
-      message: '🟢 GATE 2 OPEN FOR DIRECT DARSHAN — FOLLOW GREEN ILLUMINATED LINE',
-      status: 'ACTIVE_DIRECTIVE',
-      color: 'bg-emerald-900/60 border-emerald-500 text-emerald-300'
+      mode: 'STANDBY',
+      message: '✨ FOLLOW THE ILLUMINATED PATH FOR SMOOTHER DARSHAN FLOW',
+      status: 'NORMAL',
+      color: 'bg-slate-900 border-amber-500/40 text-amber-300'
     },
     {
       id: 'led_display_3',
@@ -31,6 +33,7 @@ export const SmartSignageLEDController = ({ templeId = 'tmp_somnath' }) => {
   ]);
 
   const [lastWebhookPayload, setLastWebhookPayload] = useState(null);
+  const [webhookStatus, setWebhookStatus] = useState(null);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   useEffect(() => {
@@ -43,7 +46,7 @@ export const SmartSignageLEDController = ({ templeId = 'tmp_somnath' }) => {
         status: 'ACTIVE_DIRECTIVE',
         color: index === 0 ? 'bg-red-950 border-red-600 text-red-200' : 'bg-emerald-900/60 border-emerald-500 text-emerald-300'
       } : display));
-      setLastWebhookPayload({ ...command, status: 'DEMO_COMMAND_QUEUED' });
+      setLastWebhookPayload({ ...command, status: 'COMMAND_APPLIED' });
     };
     try { applyCommand(JSON.parse(localStorage.getItem('nirvighna_led_command') || 'null')); } catch (_) {}
     const handleCommand = (event) => applyCommand(event.detail);
@@ -51,31 +54,32 @@ export const SmartSignageLEDController = ({ templeId = 'tmp_somnath' }) => {
     return () => window.removeEventListener('nirvighna_led_command', handleCommand);
   }, [templeId]);
 
-  // Trigger Smart LED Signage Webhook Dispatch
+  // Dispatch LED Signage update to real Drishti backend
   const dispatchSignageWebhook = async (displayId, customMessage) => {
     setIsBroadcasting(true);
     const payload = {
       timestamp: new Date().toISOString(),
       temple_id: templeId,
       display_id: displayId,
-      marquee_text: customMessage,
-      api_endpoint: 'http://127.0.0.1:8000/api/led-signage/update',
-      status: 'SUCCESS_200_OK'
+      marquee_text: customMessage
     };
 
     setLastWebhookPayload(payload);
+    setWebhookStatus(null);
 
-    // Simulate sending HTTP POST webhook request
     try {
-      await fetch('http://127.0.0.1:8000/api/led-signage/update', {
+      const res = await fetch(`${DRISHTI_URL}/api/led-signage/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      const data = await res.json();
+      setWebhookStatus({ ok: res.ok, detail: data });
     } catch (e) {
-      console.log('Local LED Signage broadcast simulated:', payload);
+      console.warn('LED Signage backend unreachable:', e);
+      setWebhookStatus({ ok: false, detail: { error: 'Drishti backend offline (port 8000)' } });
     } finally {
-      setTimeout(() => setIsBroadcasting(false), 500);
+      setIsBroadcasting(false);
     }
   };
 
@@ -176,13 +180,19 @@ export const SmartSignageLEDController = ({ templeId = 'tmp_somnath' }) => {
               <Send className="w-3.5 h-3.5 text-indigo-400" />
               API Webhook Dispatch Log (JSON Payload)
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
-              HTTP 200 OK
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+              webhookStatus?.ok
+                ? 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30'
+                : webhookStatus
+                  ? 'text-red-400 bg-red-500/20 border-red-500/30'
+                  : 'text-amber-400 bg-amber-500/20 border-amber-500/30'
+            }`}>
+              {isBroadcasting ? 'SENDING...' : webhookStatus?.ok ? 'HTTP 200 OK' : webhookStatus ? 'BACKEND OFFLINE' : 'STANDBY'}
             </span>
           </div>
 
           <pre className="bg-black p-3 rounded-lg text-[10px] font-mono text-slate-300 overflow-x-auto border border-white/5">
-            {JSON.stringify(lastWebhookPayload, null, 2)}
+            {JSON.stringify(webhookStatus?.detail || lastWebhookPayload, null, 2)}
           </pre>
         </div>
       )}

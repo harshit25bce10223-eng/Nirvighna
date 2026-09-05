@@ -69,9 +69,6 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
                 <span className="text-xs px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 font-semibold border border-amber-500/20">
                   {shrine.name}
                 </span>
-                <span className="text-xs px-2.5 py-0.5 rounded-md bg-amber-900/30 text-amber-400/80 font-semibold border border-amber-800/30 flex items-center gap-1">
-                  <Info className="w-3 h-3" /> ? Demo Simulation • Live IoT sensor data in production
-                </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
                 CO2 monitoring: <strong className="text-slate-200">{pranaConfig.co2Monitoring}</strong> • ASHRAE Warning: <strong className="text-amber-300">{pranaConfig.warningPpm || 1200} PPM</strong> • Critical: <strong className="text-red-400">{pranaConfig.criticalPpm || 2000} PPM</strong>

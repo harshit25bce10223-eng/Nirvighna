@@ -56,17 +56,19 @@ class PersonDetectorTracker:
         
         self.model = None
         if ULTRALYTICS_AVAILABLE:
-            try:
-                import os
-                model_name = config.get("model", "yolov8n.pt")
-                if not os.path.isabs(model_name):
-                    backend_path = os.path.join(os.path.dirname(__file__), model_name)
-                    if os.path.exists(backend_path):
-                        model_name = backend_path
-                self.model = YOLO(model_name)
-                logger.info(f"Loaded Ultralytics {model_name} model successfully.")
-            except Exception as e:
-                logger.warning(f"Could not load YOLO model: {e}")
+            candidates = config.get("model_preference") or [config.get("model", "yolov8n.pt")]
+            for model_name in candidates:
+                try:
+                    import os
+                    if not os.path.isabs(model_name):
+                        backend_path = os.path.join(os.path.dirname(__file__), model_name)
+                        if os.path.exists(backend_path):
+                            model_name = backend_path
+                    self.model = YOLO(model_name)
+                    logger.info(f"Loaded Ultralytics {model_name} model successfully.")
+                    break
+                except Exception as e:
+                    logger.warning(f"Could not load model {model_name}: {e}")
 
     def process_frame(self, frame):
         # Process frame, update tracks, check lines, and draw HUD.
@@ -126,7 +128,7 @@ class PersonDetectorTracker:
         exit_rate = len(self.exit_timestamps)
         
         verified_count = len(matched_tracks)
-        devotees_present = max(12, verified_count + self.total_entries - self.total_exits)
+        devotees_present = verified_count
 
         # Draw overlays
         output_frame = frame.copy()
