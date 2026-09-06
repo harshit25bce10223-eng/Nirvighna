@@ -232,7 +232,7 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
                 Backend Status: <strong className={backendAudioStatus.includes('Panic') || backendAudioStatus.includes('CRITICAL') ? 'text-red-300' : 'text-emerald-300'}>{backendAudioStatus}</strong>
-                • Baseline: <strong className="text-slate-200">{rollingBaselineDb} dB</strong> • Spike Trigger: <strong className="text-slate-200">+{dhwaniConfig.spikeDeltaDb || 22} dB</strong> • Scream Band: <strong className="text-slate-200">1.2°•4.5 kHz</strong>
+                | Baseline: <strong className="text-slate-200">{rollingBaselineDb} dB</strong> | Spike Trigger: <strong className="text-slate-200">+{dhwaniConfig.spikeDeltaDb || 22} dB</strong> | Scream Band: <strong className="text-slate-200">1.2 - 4.5 kHz</strong>
               </p>
             </div>
           </div>
@@ -275,7 +275,7 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
           <canvas ref={canvasRef} width={600} height={120} className="w-full h-28 bg-[#140F10] rounded-xl border border-white/[0.06] block" />
           <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
             <span>20 Hz</span>
-            <span className="text-amber-300 font-semibold">1.2°•4.5 kHz (Panic Scream Band)</span>
+            <span className="text-amber-300 font-semibold">1.2 - 4.5 kHz (Panic Scream Band)</span>
             <span>20 kHz</span>
           </div>
         </EnterpriseCard>
@@ -302,7 +302,7 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
             </div>
           </div>
           <div className={`p-2.5 rounded-lg text-center text-xs font-bold border transition-all ${acousticState === 'CRITICAL' ? 'bg-red-500/15 border-red-500/40 text-red-400 animate-pulse' : acousticState === 'SUSPICIOUS' ? 'bg-amber-500/15 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
-            {acousticState === 'CRITICAL' ? '?? PANIC DETECTED' : acousticState === 'SUSPICIOUS' ? '?? SUSPICIOUS SPIKE' : '? NORMAL AMBIENT'}
+            {acousticState === 'CRITICAL' ? 'CRITICAL PANIC DETECTED' : acousticState === 'SUSPICIOUS' ? 'SUSPICIOUS SPIKE' : 'NORMAL AMBIENT'}
           </div>
         </EnterpriseCard>
       </div>
@@ -315,7 +315,7 @@ export const DhwaniRakshak = ({ templeId = 'tmp_somnath' }) => {
           <div className="space-y-2.5 text-xs">
             {lastPanicEvent && (
               <div className="p-3 rounded-xl bg-red-900/20 border border-red-500/40 space-y-1">
-                <p className="font-bold text-red-300">?? PANIC EVENT • {lastPanicEvent.time}</p>
+                <p className="font-bold text-red-300">PANIC EVENT | {lastPanicEvent.time}</p>
                 <p className="text-[10px] text-slate-400">Peak: {lastPanicEvent.dB} dB | Scream Ratio: {lastPanicEvent.screamRatio} | Confidence: {lastPanicEvent.confidence}%</p>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-semibold">LIVE DETECTED</span>
               </div>

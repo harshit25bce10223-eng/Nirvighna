@@ -36,18 +36,16 @@ class CameraFeedManager:
         logger.info(f"[{self.current_cam_name}] Camera feed thread started.")
 
     def _init_camera(self):
-        # Backend grabs the physical webcam by default so the trained YOLO model
-        # (drishti_person.pt) runs on REAL camera frames. Set RELEASE_WEBCAM_FOR_BROWSER=true
-        # only when the browser must own the camera (e.g. in-browser cross-check).
+        # Allow browser dashboard to seamlessly use physical camera if RELEASE_WEBCAM_FOR_BROWSER is true
+        # or fallback automatically if device is busy or unreadable
         import os
         if os.environ.get("RELEASE_WEBCAM_FOR_BROWSER", "false").lower() == "true":
-            logger.info(f"[{self.current_cam_name}] Physical webcam left free for browser frontend. Running high-fidelity AI simulated CCTV feed.")
+            logger.info(f"[{self.current_cam_name}] Physical webcam released for browser frontend. Running high-fidelity AI simulated CCTV feed.")
             self.using_simulation = True
             return
 
-        # Init webcam or fallback to simulation if hardware requested
         try:
-            self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_DSHOW if cv2.__name__ == 'cv2' and hasattr(cv2, 'CAP_DSHOW') else cv2.CAP_ANY)
+            self.cap = cv2.VideoCapture(self.camera_id, cv2.CAP_DSHOW if hasattr(cv2, 'CAP_DSHOW') else cv2.CAP_ANY)
             if self.cap and self.cap.isOpened():
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
@@ -57,11 +55,30 @@ class CameraFeedManager:
                     logger.info(f"[{self.current_cam_name}] Successfully opened OpenCV VideoCapture({self.camera_id}).")
                     return
             
-            logger.warning(f"[{self.current_cam_name}] Physical webcam unreadable. Using AI Simulated CCTV Video Stream.")
+            logger.warning(f"[{self.current_cam_name}] Physical webcam unreadable (possibly in use by browser). Using AI Simulated CCTV Stream.")
             self.using_simulation = True
         except Exception as e:
             logger.warning(f"[{self.current_cam_name}] Camera init error ({e}). Using AI Simulated CCTV Stream.")
             self.using_simulation = True
+
+    def release_hardware(self):
+        """Releases physical webcam so browser frontend can access it without NotReadableError."""
+        logger.info(f"[{self.current_cam_name}] Releasing physical webcam for browser dashboard...")
+        self.using_simulation = True
+        if self.cap:
+            try:
+                self.cap.release()
+            except Exception as e:
+                logger.warning(f"Error releasing camera: {e}")
+            self.cap = None
+        return {"status": "RELEASED", "mode": "simulation"}
+
+    def claim_hardware(self):
+        """Re-attaches OpenCV to physical webcam when requested."""
+        logger.info(f"[{self.current_cam_name}] Re-attaching OpenCV to physical webcam...")
+        self.using_simulation = False
+        self._init_camera()
+        return {"status": "CLAIMED", "using_simulation": self.using_simulation}
 
     def _capture_loop(self):
         # Fetch frames into queue.

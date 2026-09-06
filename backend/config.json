@@ -67,5 +67,15 @@
   },
   "demo": {
     "simulated_crowd": false
+  },
+  "crowd_analysis": {
+    "model_path": "./models/crowd_csrnet.pth",
+    "onnx_path": "./models/crowd_csrnet.onnx",
+    "input_size": [768, 1024],
+    "patch_size": [384, 512],
+    "stride": [256, 320],
+    "confidence_threshold": 0.1,
+    "max_patches": 100,
+    "use_onnx": true
   }
 }

@@ -522,13 +522,17 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
       }
 
       // Stop any existing stream and wait for the OS camera lock to release.
-      // Without this delay, calling getUserMedia() immediately after t.stop()
-      // on the same physical device throws NotReadableError on Windows/macOS.
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
         localStreamRef.current = null;
         await new Promise(r => setTimeout(r, isRetry ? 800 : 400));
       }
+
+      // Tell python backend to release hardware camera lock so browser can use it
+      try {
+        await fetch(`${DRISHTI_URL}/api/camera/release`, { method: 'POST' }).catch(() => {});
+        await new Promise(r => setTimeout(r, 200));
+      } catch (_) {}
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -681,6 +685,10 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
     }
     setWebcamActive(false);
     setRealFaceCount(0);
+    // Notify python backend it can reclaim the hardware webcam if desired
+    try {
+      fetch(`${DRISHTI_URL}/api/camera/claim`, { method: 'POST' }).catch(() => {});
+    } catch (_) {}
   }, []);
 
   // When switching away from webcam or upload, stop loops to save resources
@@ -808,11 +816,68 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
     setUploadFile({ name: file.name, type: file.type, url, isVideo });
     setUploadResult(null);
     setUploadAnalyzing(true);
-    setActionFeedback(`📷 Optical AI: Analyzing uploaded ${isVideo ? 'crowd video' : 'photograph'}...`);
+    setActionFeedback(`📷 Optical AI: Analyzing uploaded ${isVideo ? 'crowd video' : 'photograph'} via Drishti Backend...`);
 
     // Let the DOM mount the visible video or img element
     setTimeout(async () => {
       try {
+        // Upload to backend for analysis
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('zone_area_m2', '100');
+        formData.append('zone_name', `Uploaded ${isVideo ? 'Video' : 'Photo'} Analysis`);
+        formData.append('sample_rate', isVideo ? '5' : '1');
+        
+        const response = await fetch(`${DRISHTI_URL}/analyze_crowd`, {
+          method: 'POST',
+          body: formData,
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'SUCCESS' || result.status === 'ERROR') {
+          // Process and display results
+          const uploadResult = {
+            count: result.count || 0,
+            density: result.density || 0,
+            isVideo: isVideo,
+            duration: result.duration_sec ? `${result.duration_sec}s` : '0.0',
+            method: result.method || 'Backend CSRNet',
+            risk_assessment: result.risk_assessment,
+            heatmap_base64: result.heatmap_base64,
+            frame_results: result.frame_results,
+            error: result.status === 'ERROR'
+          };
+          
+          setUploadResult(uploadResult);
+          
+          // Draw heatmap overlay on canvas if available
+          if (result.heatmap_base64) {
+            const canvas = uploadCanvasRef.current;
+            if (canvas) {
+              const img = new Image();
+              img.src = `data:image/jpeg;base64,${result.heatmap_base64}`;
+              img.onload = () => {
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  canvas.width = img.width;
+                  canvas.height = img.height;
+                  ctx.drawImage(img, 0, 0);
+                }
+              };
+            }
+          }
+          
+          setActionFeedback(`📷 Optical AI: Detected ${result.count || 0} devotees (${result.density || 0} P/m²) - ${result.risk_assessment?.level || 'UNKNOWN'}`);
+        } else {
+          throw new Error(result.error || 'Analysis failed');
+        }
+        
+        setTimeout(() => setActionFeedback(''), 4500);
+      } catch (err) {
+        console.warn('[DrishtiAI] Backend analysis error, falling back to local:', err);
+        
+        // Fallback to local analysis
         if (isVideo) {
           const vid = uploadVideoRef.current;
           if (vid) {
@@ -831,7 +896,6 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
               canvas.height = vid.videoHeight;
             }
 
-            // Run detection on video frame
             const personRes = await drishtiPipeline.processVideoFrameCOCOSSD(vid).catch(() => null);
             const faceRes   = await drishtiPipeline.detectFacesInVideo(vid, canvas).catch(() => null);
             let count = Math.max(personRes?.activeTracksCount || 0, faceRes?.count || 0);
@@ -861,7 +925,6 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
               tracks
             });
 
-            // Start live animation overlay while video plays
             const drawVideoOverlay = () => {
               const cv = uploadCanvasRef.current;
               const v = uploadVideoRef.current;
@@ -902,7 +965,6 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             uploadAnimRef.current = requestAnimationFrame(drawVideoOverlay);
           }
         } else {
-          // Photo
           const img = new Image();
           img.src = url;
           await new Promise((res) => {
@@ -945,7 +1007,6 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             tracks
           });
 
-          // Draw directly on canvas overlay for photo
           if (canvas) {
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (ctx) {
@@ -973,12 +1034,8 @@ export const DrishtiAI = ({ templeId = 'tmp_somnath' }) => {
             }
           }
         }
-        setActionFeedback(`📷 Optical AI: Detected ${file.name} Devotee Count successfully!`);
+        setActionFeedback(`📷 Optical AI: Local fallback analysis complete`);
         setTimeout(() => setActionFeedback(''), 4500);
-      } catch (err) {
-        console.warn('[DrishtiAI] Upload analysis error:', err);
-        const count = 18;
-        setUploadResult({ count, density: '2.90', isVideo, error: true });
       } finally {
         setUploadAnalyzing(false);
       }

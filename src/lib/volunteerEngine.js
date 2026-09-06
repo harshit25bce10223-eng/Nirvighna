@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { issueSignedToken, validateAndConsumeToken } from './signedTokenEngine';
+import { isDemoQR, getDemoScanResult } from './demoSeedEngine';
 
 // Touchpoint #1: Scan Main Gate QR Pass (token_type  'gate_entry')
 export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTempleId = 'all') => {
@@ -8,6 +9,12 @@ export const scanQRPass = async (qrCodeValue, volunteerId = 'vol_1', scanningTem
     if (!cleanCode) {
       return { success: false, code: 'EMPTY_CODE', message: 'No QR code provided' };
     }
+
+    // ── Demo QR Fast-Path ─────────────────────────────────────────────────────
+    if (isDemoQR(cleanCode)) {
+      return getDemoScanResult(cleanCode);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const localBookings = JSON.parse(localStorage.getItem('nirvighna_my_local_bookings') || '[]');
     const scannedPasses = JSON.parse(localStorage.getItem('nirvighna_scanned_passes') || '{}');
@@ -255,6 +262,19 @@ export const verifyPrasadToken = async (qrCodeValue, volunteerId = 'vol_prasad_1
     const cleanCode = qrCodeValue.trim();
     const valRes = await validateAndConsumeToken(cleanCode, 'prasad', scanningTempleId, volunteerId);
 
+    // ── Demo Prasad Fast-Path ───────────────────────────────────────────────
+    if (cleanCode.toUpperCase() === 'PRASAD-DEMO-DWA') {
+      return {
+        success: true,
+        already_scanned: false,
+        token_number: 47,
+        holder_name: 'Arjun Mehta (Demo) • 4 Members',
+        meal_type: 'Dwarkadhish Mahaprasad (4 Packets)',
+        items: ['Panchamrit', 'Mathura Peda', 'Tulsi Mala', 'Charnamrit']
+      };
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (!valRes.valid) {
       if (valRes.reason === 'already_used') {
         const scanTime = valRes.usedAt ? new Date(valRes.usedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Earlier Today';
@@ -300,6 +320,18 @@ export const verifyFootwearToken = async (qrCodeValue, volunteerId = 'vol_footwe
   try {
     const cleanCode = qrCodeValue.trim();
     const valRes = await validateAndConsumeToken(cleanCode, 'footwear', scanningTempleId, volunteerId);
+
+    // ── Demo Footwear Fast-Path ─────────────────────────────────────────────
+    if (cleanCode.toUpperCase() === 'FOOTWEAR-DEMO-DWA') {
+      return {
+        success: true,
+        already_scanned: false,
+        token_number: 112,
+        locker_bin: 'Rack B – Locker #B-112 (4 Pairs)',
+        holder_name: 'Arjun Mehta (Demo) • 4 Pairs'
+      };
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     if (!valRes.valid) {
       if (valRes.reason === 'already_used') {

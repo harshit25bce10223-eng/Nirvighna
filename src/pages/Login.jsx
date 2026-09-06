@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Mail, Lock, Loader2, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, AlertCircle, ShieldCheck, Zap } from 'lucide-react';
+import { DEMO_CREDENTIALS } from '../lib/demoSeedEngine';
 
 const translations = {
   en: {
@@ -159,6 +160,48 @@ export const Login = () => {
             <span className="animate-flicker">🙏</span>
           </div>
         </div>
+
+        {/* ── DEMO BANNER ─────────────────────────────────────────────── */}
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300/60 rounded-2xl p-4 space-y-3 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs font-extrabold text-amber-900 uppercase tracking-wide">🎯 Try Demo — Dwarkadhish Temple, Dwarka</p>
+              <p className="text-[10px] text-amber-700 mt-0.5 leading-tight">
+                Family of 4 • ♿ Wheelchair • 🔊 Audio Nav • ⛵ Boat Crossing • Prasad • Footwear
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white/70 rounded-xl px-3 py-2 border border-amber-200/50 space-y-1">
+            <div className="flex items-center gap-2 text-[11px]">
+              <Mail className="w-3 h-3 text-amber-600 shrink-0" />
+              <span className="font-bold text-gray-700">Email:</span>
+              <span className="font-mono text-amber-800 select-all">{DEMO_CREDENTIALS.pilgrim.email}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px]">
+              <Lock className="w-3 h-3 text-amber-600 shrink-0" />
+              <span className="font-bold text-gray-700">Password:</span>
+              <span className="font-mono text-amber-800 select-all">{DEMO_CREDENTIALS.pilgrim.password}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEmail(DEMO_CREDENTIALS.pilgrim.email);
+              setPassword(DEMO_CREDENTIALS.pilgrim.password);
+              setTimeout(() => handlePasswordLogin(), 80);
+            }}
+            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            One-Click Demo Login →
+          </button>
+        </div>
+        {/* ──────────────────────────────────────────────────────────────── */}
 
         {/* Form Card */}
         <div className="bg-white rounded-3xl shadow-warm border border-gold/20 overflow-hidden">

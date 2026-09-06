@@ -46,41 +46,72 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
   const [liveCo2,      setLiveCo2]      = useState(baseCo2);
   const [lastTickTime, setLastTickTime] = useState(new Date().toLocaleTimeString('en-IN'));
 
-  // Master 4-second Live Telemetry Tick Loop
+  // Dynamic 1-Second Telemetry Cycle: Easy (Safe) -> Moderate (Elevated) -> High (Danger)
+  const [cyclePhase, setCyclePhase] = useState('EASY'); // 'EASY' | 'MODERATE' | 'HIGH'
+
   useEffect(() => {
+    let tickCount = 0;
+
     const sensorInterval = setInterval(() => {
-      // 1. Natural occupancy fluctuation if not overridden by real hardware
-      let currentOcc = liveOccupancy;
-      if (!backendConnected) {
-        const deltaOcc = Math.floor((Math.random() - 0.45) * 16);
-        currentOcc = Math.max(80, Math.min(safeCapacity * 1.3, liveOccupancy + deltaOcc));
-        setLiveOccupancy(currentOcc);
-        setForecastOccupancy30Min(Math.round(currentOcc * (1 + (forecastPct / 100))));
+      tickCount += 1;
+
+      // Cycle every ~18 seconds total:
+      // 0-6s: Easy (Safe, low crowd, cool temp, clean CO2)
+      // 7-12s: Moderate (Elevated crowd, medium heat, rising CO2)
+      // 13-18s: High (Peak crowd, warm temp, alert CO2)
+      const phaseIndex = tickCount % 18;
+      let targetOccupancyRatio = 0.35;
+      let phaseName = 'EASY (Safe)';
+
+      if (phaseIndex < 6) {
+        // EASY / SAFE (25% - 40% capacity)
+        targetOccupancyRatio = 0.28 + (phaseIndex / 6) * 0.12 + (Math.random() - 0.5) * 0.03;
+        phaseName = 'EASY (Safe / Low Risk)';
+        setCyclePhase('EASY');
+      } else if (phaseIndex < 12) {
+        // MODERATE / ELEVATED (50% - 72% capacity)
+        const sub = phaseIndex - 6;
+        targetOccupancyRatio = 0.52 + (sub / 6) * 0.20 + (Math.random() - 0.5) * 0.03;
+        phaseName = 'MODERATE (Elevated / Caution)';
+        setCyclePhase('MODERATE');
+      } else {
+        // HIGH / DANGER (82% - 98% capacity)
+        const sub = phaseIndex - 12;
+        targetOccupancyRatio = 0.82 + (sub / 6) * 0.15 + (Math.random() - 0.5) * 0.03;
+        phaseName = 'HIGH (Critical / High Risk)';
+        setCyclePhase('HIGH');
       }
 
-      // 2. Temperature reading with micro-fluctuations
-      const calcTemp = 28.5 + (currentOcc / safeCapacity) * 6.5 + (Math.random() - 0.5) * 0.6;
+      // 1. Calculate Occupancy based on Phase
+      const currentOcc = Math.round(safeCapacity * targetOccupancyRatio);
+      setLiveOccupancy(currentOcc);
+      setForecastOccupancy30Min(Math.round(currentOcc * (1 + (forecastPct / 100))));
+
+      // 2. Temperature: Cool (26.5°C) to Moderate (31.5°C) to High (35.8°C)
+      const calcTemp = 25.5 + targetOccupancyRatio * 10.5 + (Math.random() - 0.5) * 0.4;
       setLiveTemp(Number(calcTemp.toFixed(1)));
 
-      // 3. Humidity reading
-      const calcHum = Math.round(55 + (currentOcc / safeCapacity) * 20 + (Math.random() - 0.5) * 2.5);
+      // 3. Humidity: 48% to 78%
+      const calcHum = Math.round(45 + targetOccupancyRatio * 35 + (Math.random() - 0.5) * 2);
       setLiveHumidity(Math.max(40, Math.min(95, calcHum)));
 
-      // 4. CO2 PPM reading
-      const calcCo2 = Math.round((co2Data.co2Ppm || 1100) + (Math.random() - 0.5) * 45);
+      // 4. CO2 PPM: 550 (Fresh/Safe) -> 1200 (Elevated) -> 2100+ (Critical)
+      const calcCo2 = Math.round(550 + targetOccupancyRatio * 1650 + (Math.random() - 0.5) * 40);
       setLiveCo2(calcCo2);
 
-      // 5. Composite Risk score
-      const occPct = Math.min(100, (currentOcc / safeCapacity) * 100);
-      const baseRisk = Math.round(occPct * 0.55 + (calcCo2 >= pranaConfig.criticalPpm ? 30 : calcCo2 >= pranaConfig.warningPpm ? 22 : 12));
-      const jitter = (Math.random() - 0.5) * 4;
-      setCompositeRiskScore(Math.max(15, Math.min(98, Math.round(baseRisk + jitter))));
+      // 5. Composite Risk Score:
+      // Easy: 18 - 35
+      // Moderate: 45 - 68
+      // High: 78 - 96
+      let calculatedRisk = Math.round(targetOccupancyRatio * 100);
+      const jitter = (Math.random() - 0.5) * 3;
+      setCompositeRiskScore(Math.max(15, Math.min(98, Math.round(calculatedRisk + jitter))));
 
       setLastTickTime(new Date().toLocaleTimeString('en-IN'));
-    }, 4200);
+    }, 1000);
 
     return () => clearInterval(sensorInterval);
-  }, [liveOccupancy, safeCapacity, backendConnected, forecastPct, co2Data.co2Ppm, pranaConfig.criticalPpm, pranaConfig.warningPpm]);
+  }, [safeCapacity, forecastPct]);
 
   // Poll the REAL Drishti backend occupancy if running
   const pollBackend = useCallback(async () => {
@@ -121,7 +152,7 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
   const gaugeDashOffset = 440 - (440 * compositeRiskScore) / 100;
   const riskTextColor = compositeRiskScore >= 80 ? 'text-red-400' : compositeRiskScore >= 60 ? 'text-amber-300' : 'text-emerald-400';
   const riskStrokeColor = compositeRiskScore >= 80 ? '#f87171' : compositeRiskScore >= 60 ? '#fcd34d' : '#34d399';
-  const co2Color = co2Data.alertLevel === 'CRITICAL' ? 'text-red-400' : co2Data.alertLevel === 'HIGH' ? 'text-amber-300' : 'text-emerald-400';
+  const co2Color = liveCo2 >= 2000 ? 'text-red-400' : liveCo2 >= 1200 ? 'text-amber-300' : 'text-emerald-400';
 
   return (
     <div className="space-y-5 text-slate-100 font-sans">
@@ -138,6 +169,15 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
                 <span className="text-xs px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 font-semibold border border-amber-500/20">
                   {shrine.name}
                 </span>
+                <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold border ${
+                  cyclePhase === 'HIGH'
+                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                    : cyclePhase === 'MODERATE'
+                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                }`}>
+                  {cyclePhase === 'HIGH' ? '⚠ HIGH RISK' : cyclePhase === 'MODERATE' ? '⚡ MODERATE' : '✓ EASY (SAFE)'}
+                </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
                 CO2 monitoring: <strong className="text-slate-200">{pranaConfig.co2Monitoring}</strong> • ASHRAE Warning: <strong className="text-amber-300">{pranaConfig.warningPpm || 1200} PPM</strong> • Critical: <strong className="text-red-400">{pranaConfig.criticalPpm || 2000} PPM</strong>
@@ -147,7 +187,7 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono font-bold flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Readings • Refreshing Every 4s ({lastTickTime})
+              Live Readings • Refreshing Every 1s ({lastTickTime})
             </span>
             <div className="px-3 py-1.5 rounded-lg bg-[#140F10] border border-white/[0.08] text-xs flex items-center gap-2">
               {backendConnected ? (
@@ -193,8 +233,8 @@ export const PranaKavach = ({ templeId = 'tmp_somnath' }) => {
           <div className="grid grid-cols-3 gap-3.5">
             <EnterpriseCard className="p-4">
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Live Occupancy</p>
-              <p className="text-2xl font-bold text-white mt-1 tabular-nums">{liveOccupancy}</p>
-              <p className="text-[11px] text-slate-400 mt-1">Devotees Inside</p>
+              <p className="text-2xl font-bold text-white mt-1 tabular-nums">{liveOccupancy} <span className="text-sm font-normal text-slate-400">/ {safeCapacity}</span></p>
+              <p className="text-[11px] text-slate-400 mt-1">Allowed / Inside</p>
             </EnterpriseCard>
             <EnterpriseCard className="p-4">
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Safe Capacity</p>

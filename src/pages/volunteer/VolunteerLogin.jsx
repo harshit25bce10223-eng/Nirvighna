@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVolunteerAuth } from '../../context/VolunteerAuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Mail, Lock, ArrowRight, Loader2, AlertCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, AlertCircle, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { DEMO_CREDENTIALS, DEMO_QR_GATE, DEMO_QR_BOAT, DEMO_TOKEN_PRASAD, DEMO_TOKEN_SHOE } from '../../lib/demoSeedEngine';
 
 const translations = {
   en: {
@@ -215,6 +216,58 @@ export const VolunteerLogin = () => {
             {t.hubTitle}
           </p>
         </div>
+
+        {/* ── 1-CLICK VOLUNTEER DEMO BANNER ──────────────────────────── */}
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400/60 rounded-2xl p-4 space-y-3 shadow-md">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                🎯 1-Click Volunteer Demo — Dwarka Field Hub
+              </p>
+              <p className="text-[10px] text-amber-800 mt-0.5 leading-tight">
+                Gate Scanner • Swarga Dwar • Okha Boat Jetty • Prasad & Footwear
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white/80 rounded-xl px-3 py-2 border border-amber-200 text-xs space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-gray-600">Station & Post:</span>
+              <span className="font-bold text-indigo-900">Dwarkadhish Temple • QR Gate Scanner</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-gray-600">Volunteer Account:</span>
+              <span className="font-mono text-amber-900 select-all">{DEMO_CREDENTIALS.volunteer.email}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              setEmail(DEMO_CREDENTIALS.volunteer.email);
+              setPassword(DEMO_CREDENTIALS.volunteer.password);
+              setSelectedTemple('tmp_dwarka');
+              setSelectedDuty('gate_scanner');
+              setLoading(true);
+              try {
+                await login(DEMO_CREDENTIALS.volunteer.email, DEMO_CREDENTIALS.volunteer.password);
+                navigate('/v/scan');
+              } catch (_) {
+                navigate('/v/scan');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer font-heading"
+          >
+            <Zap className="w-4 h-4 fill-current" />
+            Launch 1-Click Volunteer Scanner (Dwarka) →
+          </button>
+        </div>
+        {/* ────────────────────────────────────────────────────────────── */}
 
         {/* Form Card */}
         <div className="bg-white rounded-3xl shadow-warm border border-gold/30 p-6 space-y-5">

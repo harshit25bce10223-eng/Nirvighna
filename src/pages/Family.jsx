@@ -79,8 +79,22 @@ export const Family = () => {
   const { currentLanguage } = useLanguage();
   const t = translations[currentLanguage] || translations.en;
 
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState(() => {
+    try {
+      const local = JSON.parse(localStorage.getItem('nirvighna_local_family_members') || localStorage.getItem('nirvighna_saved_family_members') || '[]');
+      return Array.isArray(local) ? local : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const local = localStorage.getItem('nirvighna_local_family_members') || localStorage.getItem('nirvighna_saved_family_members');
+      return !local;
+    } catch (_) {
+      return false;
+    }
+  });
   const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMember, setNewMember] = useState({ name: '', age: '', phone: '' });
@@ -100,19 +114,23 @@ export const Family = () => {
 
   const fetchGroupMembers = async () => {
     try {
-      setLoading(true);
+      if (members.length === 0) {
+        setLoading(true);
+      }
       
       // 1. Check local storages
       const localGroup = JSON.parse(localStorage.getItem('nirvighna_local_family_members') || '[]');
       const savedGroup = JSON.parse(localStorage.getItem('nirvighna_saved_family_members') || '[]');
 
-      // 2. Fetch from Supabase
+      // 2. Fetch from Supabase with a quick timeout so offline/slow network never hangs the page
       let remoteGroup = [];
       try {
-        const { data, error } = await supabase
+        const fetchPromise = supabase
           .from('group_members')
           .select('*')
           .order('created_at', { ascending: false });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200));
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
         if (!error && data) remoteGroup = data;
       } catch (_) {}
 

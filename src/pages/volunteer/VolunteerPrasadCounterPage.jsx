@@ -5,8 +5,9 @@ import { prasadQueueEngine } from '../../lib/prasadQueueEngine';
 import { verifyPrasadToken } from '../../lib/volunteerEngine';
 import { 
   Utensils, ArrowLeft, RefreshCw, ChevronRight, CheckCircle, 
-  QrCode, Camera, AlertCircle, X, ShieldCheck, Sparkles 
+  QrCode, Camera, AlertCircle, X, ShieldCheck, Sparkles, Zap 
 } from 'lucide-react';
+import { DEMO_TOKEN_PRASAD } from '../../lib/demoSeedEngine';
 
 export const VolunteerPrasadCounterPage = () => {
   const navigate = useNavigate();
@@ -204,19 +205,31 @@ export const VolunteerPrasadCounterPage = () => {
               </div>
 
               {/* DEMO QUICK TEST BUTTONS */}
-              <div className="flex gap-2 text-xs">
+              <div className="space-y-1.5">
                 <button
-                  onClick={() => handleVerifyQRToken(`PRASAD-${servingToken + 1}`)}
-                  className="flex-1 py-2 bg-emerald-50 text-emerald-800 font-bold rounded-xl border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
+                  type="button"
+                  onClick={() => handleVerifyQRToken(DEMO_TOKEN_PRASAD)}
+                  className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs hover:from-amber-600 hover:to-orange-600 cursor-pointer font-heading uppercase"
                 >
-                  Test Valid QR #{servingToken + 1}
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  1-Click Scan Dwarka Demo Prasad (Arjun Mehta • 4 Pkts)
                 </button>
-                <button
-                  onClick={() => handleVerifyQRToken(`PRASAD-${servingToken}`)}
-                  className="flex-1 py-2 bg-rose-50 text-rose-800 font-bold rounded-xl border border-rose-300 hover:bg-rose-100 cursor-pointer"
-                >
-                  Test Duplicate QR
-                </button>
+                <div className="flex gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyQRToken(`PRASAD-${servingToken + 1}`)}
+                    className="flex-1 py-1.5 bg-emerald-50 text-emerald-800 font-bold rounded-xl border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
+                  >
+                    Test Valid QR #{servingToken + 1}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyQRToken(`PRASAD-${servingToken}`)}
+                    className="flex-1 py-1.5 bg-rose-50 text-rose-800 font-bold rounded-xl border border-rose-300 hover:bg-rose-100 cursor-pointer"
+                  >
+                    Test Duplicate QR
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-2">

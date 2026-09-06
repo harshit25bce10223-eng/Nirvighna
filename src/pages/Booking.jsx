@@ -761,8 +761,13 @@ export const Booking = () => {
 
   const fetchSlots = async () => {
     const dateStr = selectedDate.toISOString().split('T')[0];
-    setSlots(generateFallbackSlots(dateStr));
-    setSelectedSlot(null);
+    const initialSlots = generateFallbackSlots(dateStr);
+    setSlots(initialSlots);
+    if (initialSlots.length > 0) {
+      setSelectedSlot(initialSlots[0]);
+    } else {
+      setSelectedSlot(null);
+    }
 
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(currentTempleId);
     if (isUuid) {
@@ -777,6 +782,7 @@ export const Booking = () => {
 
         if (!error && data && data.length > 0) {
           setSlots(data);
+          setSelectedSlot(data[0]);
         }
       } catch (err) {}
     }
@@ -1674,7 +1680,7 @@ export const Booking = () => {
                 </span>
               ) : (
                 <span className="text-[10px] font-black uppercase text-maroon bg-maroon/10 px-2.5 py-0.5 rounded-full font-heading">
-                  {savedFamilyMembers.length || 5} {currentLanguage === 'hi' ? 'सदस्य' : currentLanguage === 'gu' ? 'સભ્યો' : 'Members'}
+                  {savedFamilyMembers.length > 0 ? `${savedFamilyMembers.length} ${currentLanguage === 'hi' ? 'सहेजे गए सदस्य' : currentLanguage === 'gu' ? 'સાચવેલ સભ્યો' : 'Saved'}` : `+ ${t.addMember || 'Add Member'}`}
                 </span>
               )}
               {showMembers ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}

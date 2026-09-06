@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { isDemoMode } from '../lib/runtimeMode';
+import { DEMO_CREDENTIALS, DEMO_VOLUNTEER, seedDemoVolunteer } from '../lib/demoSeedEngine';
+
 
 const VolunteerAuthContext = createContext();
 
@@ -168,6 +170,22 @@ export const VolunteerAuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
+      const cleanEmailCheck = (email || '').trim().toLowerCase();
+
+      // ── Demo Volunteer Fast-Path (no Supabase) ────────────────────────────
+      if (
+        cleanEmailCheck === DEMO_CREDENTIALS.volunteer.email &&
+        (password || '').trim() === DEMO_CREDENTIALS.volunteer.password
+      ) {
+        seedDemoVolunteer();
+        setCurrentUser(DEMO_VOLUNTEER);
+        setZoneAssigned(DEMO_VOLUNTEER.zone_assigned);
+        setIsLoggedIn(true);
+        setLoading(false);
+        return { success: true, user: DEMO_VOLUNTEER, is_demo: true };
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       let loggedUser = null;
 
       // try supabase auth first

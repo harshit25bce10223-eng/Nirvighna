@@ -223,9 +223,9 @@ const GATE_COLORS = {
 
 export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
   const canvasRef = useRef(null);
-  const pulseRef = useRef({ angle: 0, yaw: -0.55, pitch: 0.42, dragging: false, lastX: 0, lastY: 0 });
+  const pulseRef = useRef({ angle: 0, yaw: Math.PI - 0.55, pitch: -0.42, dragging: false, lastX: 0, lastY: 0 });
   const liveRef = useRef({ hovered: null, selected: null, result: null, footfall: 28000 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1.3);
   const [selected, setSelected] = useState(null);
   const [hovered, setHovered] = useState(null);
   const [footfall, setFootfall] = useState(28000);
@@ -543,6 +543,14 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
           ctx.fillRect(st[0], st[1], 1.5, 1.5);
         }
         ctx.globalAlpha = 1;
+        // Holographic radar scan sweep line
+        const sweepY = (pulse * 25) % canvas.height;
+        const scanGrad = ctx.createLinearGradient(0, sweepY - 20, 0, sweepY + 20);
+        scanGrad.addColorStop(0, 'rgba(56,189,248,0)');
+        scanGrad.addColorStop(0.5, 'rgba(56,189,248,0.06)');
+        scanGrad.addColorStop(1, 'rgba(56,189,248,0)');
+        ctx.fillStyle = scanGrad;
+        ctx.fillRect(0, sweepY - 20, canvas.width, 40);
       } else {
         ctx.strokeStyle = 'rgba(56,189,248,0.08)';
         ctx.lineWidth = 1;
@@ -737,7 +745,7 @@ export const TempleDigitalTwin = ({ templeId = 'tmp_somnath' }) => {
       const cam = pulseRef.current;
       if (cam.dragging) {
         cam.yaw -= (e.clientX - cam.lastX) * 0.01;
-        cam.pitch = Math.max(0.15, Math.min(1.15, cam.pitch + (e.clientY - cam.lastY) * 0.01));
+        cam.pitch = Math.max(-1.15, Math.min(-0.15, cam.pitch + (e.clientY - cam.lastY) * 0.01));
         cam.lastX = e.clientX;
         cam.lastY = e.clientY;
       }

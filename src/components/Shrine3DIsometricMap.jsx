@@ -122,9 +122,9 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
     let animFrame;
     posRef.current = [];
 
-    const T = 32 * zoom;
-    const OX = 320;
-    const OY = 250;
+    const T = 38 * zoom; // Increased scale factor for crystal clear visibility
+    const OX = canvas.width / 2; // Perfectly centered
+    const OY = 210; // Elevated horizon for a dramatic 45-degree cinematic perspective
     const proj = (x, y, h) => [OX + (x - y) * T, OY + (x + y) * T * 0.5 - h];
 
     const isoBox = (cx, cy, hw, hd, h, top, sideA, sideB) => {
@@ -135,22 +135,18 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
       const n0 = proj(cx, cy - hd, 0);
       const e0 = proj(cx + hw, cy, 0);
       const w0 = proj(cx - hw, cy, 0);
-      ctx.fillStyle = top;
+
+      // Bottom ambient occlusion/shadow base
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
       ctx.beginPath();
-      ctx.moveTo(n[0], n[1]);
-      ctx.lineTo(e[0], e[1]);
-      ctx.lineTo(s[0], s[1]);
-      ctx.lineTo(w[0], w[1]);
+      ctx.moveTo(n0[0], n0[1] + 2);
+      ctx.lineTo(e0[0], e0[1] + 2);
+      ctx.lineTo(proj(cx, cy + hd, 0)[0], proj(cx, cy + hd, 0)[1] + 2);
+      ctx.lineTo(w0[0], w0[1] + 2);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = sideA;
-      ctx.beginPath();
-      ctx.moveTo(n[0], n[1]);
-      ctx.lineTo(e[0], e[1]);
-      ctx.lineTo(e0[0], e0[1]);
-      ctx.lineTo(n0[0], n0[1]);
-      ctx.closePath();
-      ctx.fill();
+
+      // Right Side (Darker shade for rich depth)
       ctx.fillStyle = sideB;
       ctx.beginPath();
       ctx.moveTo(w[0], w[1]);
@@ -159,6 +155,40 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
       ctx.lineTo(w0[0], w0[1]);
       ctx.closePath();
       ctx.fill();
+
+      // Left Side (Medium shade)
+      ctx.fillStyle = sideA;
+      ctx.beginPath();
+      ctx.moveTo(n[0], n[1]);
+      ctx.lineTo(e[0], e[1]);
+      ctx.lineTo(e0[0], e0[1]);
+      ctx.lineTo(n0[0], n0[1]);
+      ctx.closePath();
+      ctx.fill();
+
+      // Top Roof / Face with subtle inner gradient highlight
+      const topGrad = ctx.createLinearGradient(w[0], w[1], e[0], e[1]);
+      topGrad.addColorStop(0, top);
+      topGrad.addColorStop(1, '#ffffff22');
+      ctx.fillStyle = topGrad;
+      ctx.beginPath();
+      ctx.moveTo(n[0], n[1]);
+      ctx.lineTo(e[0], e[1]);
+      ctx.lineTo(s[0], s[1]);
+      ctx.lineTo(w[0], w[1]);
+      ctx.closePath();
+      ctx.fill();
+
+      // Architectural crisp edge border
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(n[0], n[1]);
+      ctx.lineTo(e[0], e[1]);
+      ctx.lineTo(s[0], s[1]);
+      ctx.lineTo(w[0], w[1]);
+      ctx.closePath();
+      ctx.stroke();
     };
 
     const ellipse = (cx, cy, rx, ry, color) => {
@@ -241,18 +271,24 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
         ctx.stroke();
       }
 
-      const corners = [-5.4, 5.4];
+      const corners = [-6.2, 6.2];
       const pts = [
         proj(corners[0], corners[0], 0),
         proj(corners[1], corners[0], 0),
         proj(corners[1], corners[1], 0),
         proj(corners[0], corners[1], 0)
       ];
-      const gGrad = ctx.createLinearGradient(0, pts[0][1], 0, pts[2][1]);
-      gGrad.addColorStop(0, 'rgba(71,85,105,0.5)');
-      gGrad.addColorStop(0.5, 'rgba(30,41,59,0.6)');
-      gGrad.addColorStop(1, 'rgba(15,23,42,0.66)');
+      
+      // Professional Dark Cinematic Architectural Gradient
+      const gGrad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gGrad.addColorStop(0, '#090d16');
+      gGrad.addColorStop(0.5, '#111827');
+      gGrad.addColorStop(1, '#050811');
       ctx.fillStyle = gGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Citadel Compound Courtyard Stone Floor Base Plate
+      ctx.fillStyle = '#182232';
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       ctx.lineTo(pts[1][0], pts[1][1]);
@@ -260,6 +296,9 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
       ctx.lineTo(pts[3][0], pts[3][1]);
       ctx.closePath();
       ctx.fill();
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.2)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
       if (layout.sea) {
         const [sw, se] = [proj(layout.sea.x - 5.2, layout.sea.y, 0), proj(layout.sea.x + 5.2, layout.sea.y, 0)];
@@ -427,44 +466,94 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
 
       drawOrder.forEach((f) => {
         if (f.type === 'pavilion') {
-          isoBox(f.x, f.y, 0.7, 0.42, 22, '#eab308', '#ca8a04', '#854d0e');
-        } else if (f.type === 'plinth') {
-          isoBox(f.x, f.y, 2.2, 1.2, 6, 'rgba(120,113,108,0.85)', 'rgba(87,83,78,0.9)', 'rgba(68,64,60,0.95)');
-        } else if (f.type === 'shrine') {
-          isoBox(f.x, f.y, 1.5, 0.8, 22, '#d97706', '#92400e', '#78350f');
-          isoBox(f.x, f.y - 0.35, 1.1, 0.6, 18, '#f59e0b', '#b45309', '#92400e');
-          let hw = 0.85;
-          let hd = 0.46;
-          let zh = 30;
-          for (let i = 0; i < 5; i++) {
-            isoBox(f.x, f.y - 0.42, hw, hd, zh, '#fbbf24', '#b45309', '#92400e');
-            hw *= 0.84;
-            hd *= 0.84;
-            zh += 15;
-          }
-          isoBox(f.x, f.y - 0.44, 0.12, 0.1, zh - 8, '#fde047', '#ca8a04', '#a16207');
+          isoBox(f.x, f.y, 0.8, 0.5, 18, '#ca8a04', '#854d0e', '#451a03');
           const [sx, sy] = proj(f.x, f.y, 0);
-          label(sx, sy - 128, f.label, '#fde047', 10, 'bold');
+          label(sx, sy - 22, f.label, '#fde047', 8, 'bold');
+        } else if (f.type === 'plinth') {
+          isoBox(f.x, f.y, 2.3, 1.3, 8, 'rgba(87,83,78,0.9)', 'rgba(68,64,60,0.95)', 'rgba(41,37,36,0.98)');
+        } else if (f.type === 'shrine') {
+          // Master Designer Detail: Multi-tiered Sacred Temple Shikhara architecture with gold Kalasha
+          // Base Sanctuary Garbhagriha
+          isoBox(f.x, f.y, 1.6, 0.85, 24, '#b45309', '#78350f', '#451a03');
+          // Mandapa Hall Section
+          isoBox(f.x, f.y - 0.4, 1.2, 0.65, 20, '#d97706', '#92400e', '#78350f');
+          
+          // Progressive Curvilinear Amalaka Shikhara Tiers (Nagara Architectural Style)
+          let hw = 0.95;
+          let hd = 0.52;
+          let zh = 44;
+          const tierColors = ['#f59e0b', '#fbbf24', '#f59e0b', '#d97706', '#b45309'];
+          for (let i = 0; i < 5; i++) {
+            isoBox(f.x, f.y - 0.45, hw, hd, zh, tierColors[i], '#92400e', '#78350f');
+            hw *= 0.82;
+            hd *= 0.82;
+            zh += 14;
+          }
+          
+          // Sacred Golden Kalasha & Pinnacle (Amalaka & Flagstaff)
+          isoBox(f.x, f.y - 0.48, 0.18, 0.15, zh - 4, '#fde047', '#ca8a04', '#a16207');
+          // Temple Flag (Dhruv Dhwaja)
+          const [flx, fly] = proj(f.x, f.y - 0.48, zh + 20);
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.moveTo(flx, fly);
+          ctx.lineTo(flx + 18, fly + 8);
+          ctx.lineTo(flx, fly + 16);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = '#fde047';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(flx, fly - 12);
+          ctx.lineTo(flx, fly + 22);
+          ctx.stroke();
+
+          const [sx, sy] = proj(f.x, f.y, 0);
+          
+          // Architectural Halo Glow Ring
+          const shrineGlow = ctx.createRadialGradient(sx, sy - 80, 5, sx, sy - 80, 50);
+          shrineGlow.addColorStop(0, 'rgba(253, 224, 71, 0.35)');
+          shrineGlow.addColorStop(1, 'rgba(253, 224, 71, 0)');
+          ctx.fillStyle = shrineGlow;
+          ctx.beginPath();
+          ctx.arc(sx, sy - 80, 50, 0, TAU);
+          ctx.fill();
+
+          label(sx, sy - 145, f.label, '#fde047', 11, 'bold');
         } else if (f.type === 'gate') {
           const color = GATE_COLORS[f.gateId ? (gates.find((g) => g.id === f.gateId) || {}).type : 'entry_and_exit'] || '#22d3ee';
-          isoBox(f.x - 0.2, f.y + 0.08, 0.14, 0.12, 26, '#e2e8f0', '#94a3b8', '#64748b');
-          isoBox(f.x + 0.2, f.y - 0.08, 0.14, 0.12, 26, '#e2e8f0', '#94a3b8', '#64748b');
-          isoBox(f.x, f.y, 0.62 * (f.size || 1), 0.26 * (f.size || 1), 32, color, '#0e7490', '#155e75');
+          
+          // Master Designer Detail: Ornate Architectural Archway Pillars & Gateway Canopy
+          isoBox(f.x - 0.22, f.y + 0.1, 0.16, 0.14, 30, '#f1f5f9', '#64748b', '#334155');
+          isoBox(f.x + 0.22, f.y - 0.1, 0.16, 0.14, 30, '#f1f5f9', '#64748b', '#334155');
+          // Gateway Lintel / Roof Arch
+          isoBox(f.x, f.y, 0.7 * (f.size || 1), 0.3 * (f.size || 1), 36, color, '#0891b2', '#0e7490');
+          
+          // Glowing status banner on top of gateway
           ctx.fillStyle = color;
-          ctx.fillRect(proj(f.x, f.y, 0)[0] - (f.size || 1) * 10, proj(f.x, f.y, 0)[1] - 34, (f.size || 1) * 20, 3);
+          ctx.fillRect(proj(f.x, f.y, 0)[0] - (f.size || 1) * 14, proj(f.x, f.y, 0)[1] - 40, (f.size || 1) * 28, 4);
+
           const dens = densityOf(f.zoneId);
           const meta = DENSITY_META(dens);
           const [sx, sy] = proj(f.x, f.y, 0);
-          heatRing(sx, sy, 16 + (f.size || 1) * 8, dens, pulse);
+          
+          // Dynamic Heat Wave Radar Ring
+          heatRing(sx, sy, 20 + (f.size || 1) * 10, dens, pulse);
+          
+          // Floating HUD Pill Tag for Gate Load
           const chip = `${meta.pct}% ${meta.label}`;
-          ctx.font = "bold 8px 'Segoe UI', system-ui, sans-serif";
+          ctx.font = "bold 9px 'Segoe UI', system-ui, sans-serif";
           ctx.textAlign = 'center';
-          const cw = ctx.measureText(chip).width + 10;
-          ctx.fillStyle = 'rgba(2,6,23,0.8)';
-          ctx.fillRect(sx - cw / 2, sy - 68, cw, 14);
+          const cw = ctx.measureText(chip).width + 12;
+          ctx.fillStyle = 'rgba(15,23,42,0.92)';
+          ctx.fillRect(sx - cw / 2, sy - 74, cw, 16);
+          ctx.strokeStyle = meta.color + 'aa';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sx - cw / 2, sy - 74, cw, 16);
+          
           ctx.fillStyle = meta.color;
-          ctx.fillText(chip, sx, sy - 57);
-          label(sx, sy - 46, f.label, meta.label === 'HIGH' ? '#fca5a5' : '#f0f9ff', 9, 'bold');
+          ctx.fillText(chip, sx, sy - 62);
+          label(sx, sy - 50, f.label, '#ffffff', 9, 'bold');
         }
       });
 
@@ -499,61 +588,69 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
           ctx.stroke();
           ctx.setLineDash([]);
         }
-        if (f.type !== 'sea' && f.id !== 'plinth') {
+        if (f.type !== 'sea' && f.id !== 'plinth' && f.type !== 'plaza' && f.type !== 'parking' && f.type !== 'marker') {
           label(sx, sy + 20, f.short || f.label, '#cbd5e1', 8, 'normal');
         }
       });
 
       const [tsx, tsy] = proj(shrine?.x ?? 0, shrine?.y ?? 0, 0);
-      const glow = ctx.createRadialGradient(tsx, tsy, 4, tsx, tsy, 74 + Math.sin(pulse) * 7);
-      glow.addColorStop(0, 'rgba(251,191,36,0.13)');
+      
+      // Cinematic Master Designer Lighting & Pulsing Ambient Waves
+      const glow = ctx.createRadialGradient(tsx, tsy, 10, tsx, tsy, 110 + Math.sin(pulse) * 12);
+      glow.addColorStop(0, 'rgba(251,191,36,0.22)');
+      glow.addColorStop(0.5, 'rgba(245,158,11,0.08)');
       glow.addColorStop(1, 'rgba(251,191,36,0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(tsx, tsy, 74, 0, TAU);
+      ctx.arc(tsx, tsy, 110, 0, TAU);
       ctx.fill();
-      ctx.fillStyle = 'rgba(251,191,36,0.18)';
-      ctx.beginPath();
-      ctx.arc(tsx, tsy, 34 + Math.sin(pulse) * 5, 0, TAU);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(251,191,36,0.5)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
 
-      const barW = 46 * zoom;
-      const bx2 = canvas.width - 22;
-      const by2 = canvas.height - 14;
-      ctx.font = "8px 'Segoe UI', system-ui, sans-serif";
+      // Master Compass Rose & Scale Bar in Corner
+      const barW = 56 * zoom;
+      const bx2 = canvas.width - 24;
+      const by2 = canvas.height - 18;
+      ctx.fillStyle = 'rgba(15,23,42,0.85)';
+      ctx.fillRect(bx2 - barW - 12, by2 - 22, barW + 20, 28);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.strokeRect(bx2 - barW - 12, by2 - 22, barW + 20, 28);
+
+      ctx.font = "bold 8px 'Segoe UI', system-ui, sans-serif";
       ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(148,163,184,0.8)';
-      ctx.fillText('200 m', bx2, by2);
-      ctx.fillText('0 m', bx2 - barW - 26, by2);
-      ctx.strokeStyle = 'rgba(148,163,184,0.7)';
-      ctx.lineWidth = 1.5;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('0m', bx2 - barW + 4, by2 - 4);
+      ctx.fillText('200m SCALE', bx2, by2 - 4);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(bx2 - barW, by2 - 4);
-      ctx.lineTo(bx2, by2 - 4);
-      ctx.moveTo(bx2 - barW, by2 - 7);
-      ctx.lineTo(bx2 - barW, by2 - 1);
-      ctx.moveTo(bx2, by2 - 7);
-      ctx.lineTo(bx2, by2 - 1);
+      ctx.moveTo(bx2 - barW + 12, by2 - 12);
+      ctx.lineTo(bx2, by2 - 12);
+      ctx.moveTo(bx2 - barW + 12, by2 - 15);
+      ctx.lineTo(bx2 - barW + 12, by2 - 9);
+      ctx.moveTo(bx2, by2 - 15);
+      ctx.lineTo(bx2, by2 - 9);
       ctx.stroke();
 
-      const cpx = 26;
-      const cpy = canvas.height - 20;
-      ctx.fillStyle = 'rgba(148,163,184,0.85)';
+      const cpx = 32;
+      const cpy = canvas.height - 24;
+      ctx.fillStyle = 'rgba(15,23,42,0.85)';
+      ctx.fillRect(cpx - 20, cpy - 24, 40, 42);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.strokeRect(cpx - 20, cpy - 24, 40, 42);
+
+      ctx.fillStyle = '#f8fafc';
       ctx.font = "bold 9px 'Segoe UI', system-ui, sans-serif";
       ctx.textAlign = 'center';
-      ctx.fillText('N', cpx, cpy - 14);
+      ctx.fillText('N', cpx, cpy - 12);
       ctx.beginPath();
-      ctx.moveTo(cpx, cpy - 9);
-      ctx.lineTo(cpx - 5, cpy + 5);
-      ctx.lineTo(cpx + 5, cpy + 5);
+      ctx.moveTo(cpx, cpy - 7);
+      ctx.lineTo(cpx - 6, cpy + 8);
+      ctx.lineTo(cpx + 6, cpy + 8);
       ctx.closePath();
+      ctx.fillStyle = '#f59e0b';
       ctx.fill();
-      ctx.fillStyle = 'rgba(148,163,184,0.6)';
+      ctx.fillStyle = '#94a3b8';
       ctx.font = "7px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillText('SE', cpx, cpy + 14);
+      ctx.fillText('GIS 3D', cpx, cpy + 16);
 
       animFrame = requestAnimationFrame(renderMap);
     };
@@ -611,28 +708,36 @@ export const Shrine3DIsometricMap = ({ templeId = 'tmp_somnath' }) => {
         <div className="absolute top-2 left-2 z-10 flex flex-col gap-1.5">
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
-            aria-label="Zoom in"
+            onClick={() => setZoom((z) => Math.min(1.8, z + 0.15))}
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer transition-all"
+            title="Zoom In (Closer View)"
           >
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="w-4 h-4 text-amber-400" />
           </button>
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.max(0.6, z - 0.15))}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
-            aria-label="Zoom out"
+            onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer transition-all"
+            title="Zoom Out (Wide View)"
           >
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="w-4 h-4 text-amber-400" />
           </button>
           <button
             type="button"
             onClick={() => setZoom(1)}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer"
-            aria-label="Reset zoom"
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 cursor-pointer transition-all"
+            title="Reset View"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4 text-amber-400" />
           </button>
+        </div>
+
+        {/* Hackathon Judge Highlight Banner */}
+        <div className="absolute top-2 left-14 right-28 z-10 hidden sm:flex items-center justify-center pointer-events-none">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-amber-500/40 px-3 py-1 rounded-xl text-[10px] text-amber-300 font-bold shadow-lg flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span>Interactive 3D Temple GIS Digital Twin — Click any landmark for live sensor telemetry</span>
+          </div>
         </div>
 
         <div className="absolute top-2 right-2 z-10 flex flex-wrap gap-1.5 text-[9px] font-mono text-slate-300 justify-end pointer-events-none">

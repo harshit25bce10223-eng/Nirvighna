@@ -4,9 +4,10 @@ import { useVolunteerAuth } from '../../context/VolunteerAuthContext';
 import { issueFootwearToken, searchFootwearToken, collectFootwearToken, verifyFootwearToken } from '../../lib/volunteerEngine';
 import { 
   PackageCheck, ArrowLeft, RefreshCw, PlusCircle, Search, 
-  CheckCircle, AlertTriangle, QrCode, Camera, X, Lock, Users, Sparkles, Clock, MapPin
+  CheckCircle, AlertTriangle, QrCode, Camera, X, Lock, Users, Sparkles, Clock, MapPin, Zap
 } from 'lucide-react';
 import QRCode from 'qrcode';
+import { DEMO_TOKEN_SHOE } from '../../lib/demoSeedEngine';
 
 export const VolunteerFootwearPage = () => {
   const navigate = useNavigate();
@@ -464,13 +465,24 @@ export const VolunteerFootwearPage = () => {
                 <span className="text-[10px] text-gray-500">Point camera at pilgrim's footwear QR</span>
               </div>
 
-              <div className="flex gap-2 text-xs">
+              <div className="space-y-2 text-xs">
                 <button
-                  onClick={() => handleVerifyQRScan(latestIssuedToken?.signed_value || `FW-${searchNumInput || 142}`)}
-                  className="flex-1 py-2 bg-emerald-50 text-emerald-800 font-bold rounded-xl border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
+                  type="button"
+                  onClick={() => handleVerifyQRScan(DEMO_TOKEN_SHOE)}
+                  className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs hover:from-amber-600 hover:to-orange-600 cursor-pointer font-heading uppercase"
                 >
-                  Test Valid Token #{searchNumInput || 142}
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  1-Click Scan Dwarka Demo Footwear (Arjun Mehta • Rack B-112)
                 </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyQRScan(latestIssuedToken?.signed_value || `FW-${searchNumInput || 142}`)}
+                    className="flex-1 py-2 bg-emerald-50 text-emerald-800 font-bold rounded-xl border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
+                  >
+                    Test Valid Token #{searchNumInput || 142}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

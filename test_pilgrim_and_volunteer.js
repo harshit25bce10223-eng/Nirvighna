@@ -202,7 +202,7 @@ async function runTestSuite() {
       await page.waitForTimeout(1000);
       const familyText = await page.locator('body').innerText();
       await assertTest(
-        familyText.includes('Family') || familyText.includes('परिवार') || familyText.includes('પરિવાર') || familyText.includes('Member'),
+        familyText.includes('Family') || familyText.includes('FAMILY') || familyText.includes('परिवार') || familyText.includes('પરિવાર') || familyText.includes('Member') || familyText.includes('MEMBERS'),
         'Family group management screen operational'
       );
 

@@ -2,13 +2,35 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../lib/supabaseClient';
 import { isDemoMode } from '../lib/runtimeMode';
 import { App as CapApp } from '@capacitor/app';
+import { DEMO_CREDENTIALS, DEMO_PILGRIM, seedDemoPilgrim } from '../lib/demoSeedEngine';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nirvighna_pilgrim_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nirvighna_pilgrim_session');
+      return !!(saved && JSON.parse(saved)?.id);
+    } catch (_) {
+      return false;
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nirvighna_pilgrim_session');
+      return !(saved && JSON.parse(saved)?.id);
+    } catch (_) {
+      return true;
+    }
+  });
 
   // Universal handler for incoming deep links / email verification redirects
   const handleIncomingAuthUrl = useCallback(async (rawUrl) => {
@@ -309,8 +331,21 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const cleanEmail = email.trim();
-      const cleanPassword = password.trim();
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanPassword = (password || '').trim();
+
+      // ── Demo Account Fast-Path (no Supabase, pure localStorage) ─────────────
+      if (
+        cleanEmail === DEMO_CREDENTIALS.pilgrim.email &&
+        cleanPassword === DEMO_CREDENTIALS.pilgrim.password
+      ) {
+        seedDemoPilgrim();
+        setCurrentUser(DEMO_PILGRIM);
+        setIsLoggedIn(true);
+        setLoading(false);
+        return { success: true, user: DEMO_PILGRIM, is_demo: true };
+      }
+      // ─────────────────────────────────────────────────────────────────────────
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,

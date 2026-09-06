@@ -20,6 +20,7 @@ from crowd_density import CrowdDensityEngine
 from face_engine import ArcFaceBiometricEngine
 from audio_panic import DhwaniAudioPanicDetector
 from footfall_forecast import FootfallForecaster
+from crowd_analysis_engine import create_crowd_analysis_engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AIService")
@@ -46,6 +47,19 @@ crowd_density_engine = CrowdDensityEngine(config["crowd_density"])
 face_engine = ArcFaceBiometricEngine(config["biometric_arcface"])
 audio_detector = DhwaniAudioPanicDetector(config["audio_panic"])
 footfall_forecaster = FootfallForecaster()
+
+# Crowd Analysis Engine for uploaded media
+crowd_analysis_config = config.get("crowd_analysis", {
+    "model_path": "./models/crowd_csrnet.pth",
+    "onnx_path": "./models/crowd_csrnet.onnx",
+    "input_size": [768, 1024],
+    "patch_size": [384, 512],
+    "stride": [256, 320],
+    "confidence_threshold": 0.1,
+    "max_patches": 100,
+    "use_onnx": True
+})
+crowd_analysis_engine = create_crowd_analysis_engine(crowd_analysis_config)
 
 # State storage
 latest_face_match_result = None
@@ -180,6 +194,77 @@ async def upload_face(file: Optional[UploadFile] = File(None), query_name: str =
             "message": f"Match Found: {result['matched_person']['name']} (Confidence: {result['confidence_pct']}%)"
         })
     return result
+
+
+@app.post("/analyze_crowd")
+async def analyze_crowd_media(
+    file: UploadFile = File(...),
+    zone_area_m2: float = Form(100.0),
+    zone_name: str = Form("Uploaded Media Zone"),
+    sample_rate: int = Form(5)
+):
+    """
+    Analyze uploaded photo or video for crowd counting and density estimation.
+    Uses trained CSRNet model for accurate density map estimation.
+    Supports large crowds (1M+) via density map integration.
+    """
+    import tempfile
+    import base64
+    
+    is_video = file.content_type and file.content_type.startswith('video/')
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ('.mp4' if is_video else '.jpg')
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    try:
+        if is_video:
+            result = crowd_analysis_engine.analyze_video(tmp_path, sample_rate=sample_rate)
+            result['zone_name'] = zone_name
+            result['zone_area_m2'] = zone_area_m2
+            result['media_type'] = 'video'
+            result['filename'] = file.filename
+        else:
+            image = cv2.imread(tmp_path)
+            if image is None:
+                return {"error": "Could not read image file", "status": "ERROR"}
+            
+            result = crowd_analysis_engine.analyze_image(image)
+            result['zone_name'] = zone_name
+            result['zone_area_m2'] = zone_area_m2
+            result['media_type'] = 'photo'
+            result['filename'] = file.filename
+            
+            risk = crowd_analysis_engine.get_risk_level(
+                result.get('count', 0),
+                result.get('density', 0),
+                zone_area_m2
+            )
+            result['risk_assessment'] = risk
+            
+            if result.get('heatmap') is not None:
+                _, heatmap_encoded = cv2.imencode('.jpg', result['heatmap'])
+                result['heatmap_base64'] = base64.b64encode(heatmap_encoded).decode('utf-8')
+        
+        incident_log_history.insert(0, {
+            "time": time.strftime("%H:%M"),
+            "message": f"Crowd Analysis Complete: {result.get('count', 0)} people detected in {zone_name} ({result.get('density', 0)} P/m²)"
+        })
+        
+        result['status'] = 'SUCCESS'
+        result['timestamp'] = time.strftime("%H:%M:%S")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Crowd analysis error: {e}")
+        return {"error": str(e), "status": "ERROR"}
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
 
 
 @app.post("/simulate_panic")

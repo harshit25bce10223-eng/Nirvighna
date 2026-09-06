@@ -6,6 +6,9 @@ import { scanQRPass } from '../../lib/volunteerEngine';
 import { scanRopewayQR } from '../../lib/ropewayEngine';
 import { scanBoatQR } from '../../lib/boatCrossingEngine';
 import { 
+  DEMO_QR_GATE, DEMO_QR_BOAT, DEMO_TOKEN_PRASAD, DEMO_TOKEN_SHOE, DEMO_TOKEN_AUDIO 
+} from '../../lib/demoSeedEngine';
+import { 
   QrCode, ArrowLeft, CheckCircle, AlertCircle, RefreshCw, X, 
   KeyRound, Zap, ZapOff, Camera, AlertOctagon
 } from 'lucide-react';
@@ -159,6 +162,47 @@ export const VolunteerScanPage = () => {
     }
 
     const cleanCode = decodedText.trim().toUpperCase();
+
+    // ── UNIVERSAL DEMO PASS AUTO-ROUTE ────────────────────────────────────────
+    if (cleanCode.startsWith('BOAT-DEMO')) {
+      try {
+        const res = await scanBoatQR(cleanCode);
+        setScanState('success_flash');
+        setStatusMessage('✓ Okha Jetty → Bet Dwarka Ferry Approved (4 Passengers, ♿ Accessible Deck)');
+        setTimeout(() => {
+          resumeScanner(scannerInstance);
+        }, 1500);
+        return;
+      } catch (_) {}
+    }
+
+    if (cleanCode.startsWith('PRASAD-DEMO')) {
+      setScanState('success_flash');
+      setStatusMessage('✓ Mahaprasad Token #P-047 Verified (Arjun Mehta • 4 Packets)');
+      setTimeout(() => {
+        resumeScanner(scannerInstance);
+      }, 1500);
+      return;
+    }
+
+    if (cleanCode.startsWith('FOOTWEAR-DEMO')) {
+      setScanState('success_flash');
+      setStatusMessage('✓ Locker Rack #B-112 Verified (Arjun Mehta • 4 Pairs)');
+      setTimeout(() => {
+        resumeScanner(scannerInstance);
+      }, 1500);
+      return;
+    }
+
+    if (cleanCode.startsWith('AUDIO-DEMO')) {
+      setScanState('success_flash');
+      setStatusMessage('✓ Audio Nav Device #A-07 Activated (Hindi • 6 Waypoints)');
+      setTimeout(() => {
+        resumeScanner(scannerInstance);
+      }, 1500);
+      return;
+    }
+    // ──────────────────────────────────────────────────────────────────────────
 
     // 1. ROPEWAY MODE
     if (scanMode === 'ropeway') {
@@ -484,30 +528,57 @@ export const VolunteerScanPage = () => {
           )}
         </div>
 
-        {/* Quick Test Demo Scan Triggers */}
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {scanMode === 'ropeway' ? (
+        {/* ── 1-CLICK DWARKA DEMO PASS SCANNER CONTROLS ── */}
+        <div className="mt-4 bg-white/95 rounded-2xl p-3.5 border-2 border-amber-300 shadow-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-600 fill-current" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-950 font-heading">
+                1-Click Demo Passes (Dwarka Temple)
+              </span>
+            </div>
+            <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full border border-amber-300">
+              Instant Simulation
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => handleDecodedQR('RPW-PVG-849201', html5QrCodeRef.current)}
-              className="px-3.5 py-1.5 bg-white text-emerald-700 text-xs font-bold rounded-xl border border-emerald-300 font-mono shadow-xs cursor-pointer hover:bg-emerald-50"
+              type="button"
+              onClick={() => handleDecodedQR(DEMO_QR_GATE, html5QrCodeRef.current)}
+              className="px-2.5 py-2 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-950 text-[11px] font-extrabold rounded-xl border border-amber-300 shadow-xs flex items-center justify-between transition-all cursor-pointer text-left"
             >
-              + Test Ropeway Pass (RPW-PVG-849201)
+              <span>🚪 1-Click Gate Pass (♿ Priority)</span>
+              <span className="text-[9px] font-mono text-amber-700 font-bold ml-1">SCAN</span>
             </button>
-          ) : scanMode === 'boat' ? (
+
             <button
-              onClick={() => handleDecodedQR('BOAT-DWA-984120', html5QrCodeRef.current)}
-              className="px-3.5 py-1.5 bg-white text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 font-mono shadow-xs cursor-pointer hover:bg-indigo-50"
+              type="button"
+              onClick={() => handleDecodedQR(DEMO_QR_BOAT, html5QrCodeRef.current)}
+              className="px-2.5 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-950 text-[11px] font-extrabold rounded-xl border border-blue-200 shadow-xs flex items-center justify-between transition-all cursor-pointer text-left"
             >
-              + Test Boat Pass (BOAT-DWA-984120)
+              <span>⛵ 1-Click Boat Pass (Okha Jetty)</span>
+              <span className="text-[9px] font-mono text-blue-700 font-bold ml-1">SCAN</span>
             </button>
-          ) : (
+
             <button
-              onClick={() => handleDecodedQR('KV-8492', html5QrCodeRef.current)}
-              className="px-3.5 py-1.5 bg-white text-maroon text-xs font-bold rounded-xl border border-gold/40 font-mono shadow-xs cursor-pointer hover:bg-amber-50"
+              type="button"
+              onClick={() => handleDecodedQR(DEMO_TOKEN_PRASAD, html5QrCodeRef.current)}
+              className="px-2.5 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 text-emerald-950 text-[11px] font-extrabold rounded-xl border border-emerald-200 shadow-xs flex items-center justify-between transition-all cursor-pointer text-left"
             >
-              + Test Gate Pass (KV-8492)
+              <span>🍲 1-Click Prasad Token (P-047)</span>
+              <span className="text-[9px] font-mono text-emerald-700 font-bold ml-1">SCAN</span>
             </button>
-          )}
+
+            <button
+              type="button"
+              onClick={() => handleDecodedQR(DEMO_TOKEN_SHOE, html5QrCodeRef.current)}
+              className="px-2.5 py-2 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 text-purple-950 text-[11px] font-extrabold rounded-xl border border-purple-200 shadow-xs flex items-center justify-between transition-all cursor-pointer text-left"
+            >
+              <span>👟 1-Click Footwear (Rack B-112)</span>
+              <span className="text-[9px] font-mono text-purple-700 font-bold ml-1">SCAN</span>
+            </button>
+          </div>
         </div>
       </div>
 
